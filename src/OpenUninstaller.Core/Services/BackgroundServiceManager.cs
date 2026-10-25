@@ -241,7 +241,6 @@ public sealed class BackgroundServiceManager
                 }
                 catch (InvalidOperationException)
                 {
-                    // The process exited between the timeout and the kill.
                 }
 
                 return (-1, "sc.exe timed out.");

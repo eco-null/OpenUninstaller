@@ -90,7 +90,6 @@ public sealed class PathGuard
             return GuardResult.Reject("Drive roots cannot be deleted.");
         }
 
-        // C:\something is the shallowest allowed target; C:\something itself must be a real child.
         var depth = full.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries).Length;
         if (depth < 3)
         {

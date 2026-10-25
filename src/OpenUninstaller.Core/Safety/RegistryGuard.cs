@@ -83,22 +83,16 @@ public static class RegistryGuard
             || normalized.StartsWith(normalizedUninstall32 + "\\", StringComparison.Ordinal);
         if (isUninstallEntry)
         {
-            // Forced uninstall is the only operation allowed to remove a registration entry.
             return allowUninstallEntry
                 ? GuardResult.Allow($"{location.HiveName}\\{string.Join('\\', parts)}")
                 : GuardResult.Reject("Uninstall registration entries need the explicit forced-uninstall mode.");
         }
 
-        // App Paths and Classes\Applications entries are small, per-executable registration keys.
-        // Only a direct child of one of those containers may be removed; the containers themselves
-        // and anything below the child stay protected.
         if (allowAppCompatEntry && IsDirectAppCompatChild(parts))
         {
             return GuardResult.Allow($"{location.HiveName}\\{string.Join('\\', parts)}");
         }
 
-        // A service definition is a direct child of Services. Service removal is only offered for
-        // orphaned or app-owned services; the caller proves that, the guard enforces depth.
         if (allowServiceEntry
             && parts.Length >= 4
             && string.Equals(parts[^2], "SERVICES", StringComparison.OrdinalIgnoreCase))
@@ -106,15 +100,11 @@ public static class RegistryGuard
             return GuardResult.Allow($"{location.HiveName}\\{string.Join('\\', parts)}");
         }
 
-        // File associations live in Classes\<ProgID>. Only a direct child of Classes may be
-        // removed, never one of the shared containers and never the Classes root itself.
         if (allowAssociationEntry && IsDirectClassChild(parts))
         {
             return GuardResult.Allow($"{location.HiveName}\\{string.Join('\\', parts)}");
         }
 
-        // COM servers live in Classes\CLSID\<guid>. Only a direct child whose name parses as a
-        // GUID is accepted, so a malformed name cannot widen the scope.
         if (allowComEntry && IsDirectComChild(parts))
         {
             return GuardResult.Allow($"{location.HiveName}\\{string.Join('\\', parts)}");
@@ -133,7 +123,6 @@ public static class RegistryGuard
             }
         }
 
-        // Autorun values are toggled by the autorun service, never deleted by a leftover scan.
         if (normalized.Contains(@"\CURRENTVERSION\RUN", StringComparison.Ordinal)
             || normalized.Contains(@"\CURRENTVERSION\RUNONCE", StringComparison.Ordinal))
         {

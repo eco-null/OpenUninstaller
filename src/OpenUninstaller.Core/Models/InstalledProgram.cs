@@ -49,15 +49,9 @@ public sealed record InstalledProgram
         _ => "—"
     };
 
-    /// <summary>
-    /// Revo Uninstaller classification: Installed within the last 7 days.
-    /// </summary>
     public bool IsNew => InstallDate.HasValue &&
         InstallDate.Value >= DateOnly.FromDateTime(DateTime.Today.AddDays(-7));
 
-    /// <summary>
-    /// Revo Uninstaller classification: Large program (>= 500 MB).
-    /// </summary>
     public bool IsLarge => EstimatedSizeBytes >= 500L * 1024 * 1024;
 
     public static string FormatBytes(long bytes)

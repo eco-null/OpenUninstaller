@@ -27,7 +27,6 @@ internal static class EnvironmentBroadcast
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
         {
-            // The PATH change itself already succeeded; the notification is best effort.
         }
     }
 

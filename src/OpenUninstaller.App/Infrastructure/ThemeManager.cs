@@ -61,11 +61,9 @@ public static class ThemeManager
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
         {
-            // Older Windows builds do not support the attribute; the standard chrome remains.
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            // The window may not have a native handle yet; the standard chrome remains.
         }
     }
 

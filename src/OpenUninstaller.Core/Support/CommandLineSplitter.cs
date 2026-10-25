@@ -42,7 +42,6 @@ public static class CommandLineSplitter
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
         {
-            // Fall through to the simple parser below.
         }
 
         return SimpleSplit(trimmed);

@@ -243,7 +243,7 @@
           <TextBlock Text="About" Style="{StaticResource SectionTitle}" />
           <TextBlock Text="{Binding VersionText}" FontSize="13" FontWeight="SemiBold" />
           <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,0"
-                     Text="MIT licensed, original implementation. Not affiliated with Revo Technologies or Revo Uninstaller. 100% offline with zero network calls; no background service unless you install it." />
+                     Text="MIT licensed, 100% offline open-source implementation with zero network calls and zero telemetry. Clean, independent, and secure." />
           <Button Content="Open documentation" Style="{StaticResource GhostButton}"
                   Command="{Binding OpenDocsCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" />
         </StackPanel>

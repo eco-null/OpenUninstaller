@@ -139,7 +139,6 @@ internal static class Program
             }
             catch (ElementNotAvailableException)
             {
-                // The window is still being created.
             }
 
             Thread.Sleep(500);

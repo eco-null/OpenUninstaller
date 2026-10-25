@@ -50,8 +50,6 @@ public sealed class Shredder
             accepted.Add((guard.NormalizedPath, existsAsDirectory));
         }
 
-        // A selected folder already covers everything beneath it; shredding a child twice would
-        // only produce noise in the report.
         var kept = new List<string>();
         foreach (var candidate in accepted.OrderBy(a => a.FullPath.Length))
         {
@@ -286,7 +284,6 @@ public sealed class Shredder
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    // A size is cosmetic; the shred itself reports per-file failures.
                 }
             }
 

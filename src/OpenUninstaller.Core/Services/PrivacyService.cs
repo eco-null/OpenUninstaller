@@ -179,7 +179,6 @@ public sealed class PrivacyService
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // The size is cosmetic.
             }
         }
 
@@ -207,7 +206,6 @@ public sealed class PrivacyService
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // The size is cosmetic.
             }
 
             if (dryRun)
@@ -249,7 +247,6 @@ public sealed class PrivacyService
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // The size is cosmetic; the clean reports per-file failures.
             }
         }
 
@@ -278,7 +275,6 @@ public sealed class PrivacyService
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // The size is cosmetic.
             }
 
             if (dryRun)
@@ -460,7 +456,6 @@ public sealed class PrivacyService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // A missing or unreadable history folder simply reports nothing.
         }
     }
 

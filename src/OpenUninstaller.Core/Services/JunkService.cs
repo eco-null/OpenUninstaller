@@ -15,9 +15,6 @@ public sealed class JunkService
 {
     private static readonly TimeSpan RecentWindow = TimeSpan.FromMinutes(10);
 
-    /// <summary>
-    /// Revo Uninstaller Pro junk file extension patterns.
-    /// </summary>
     public static readonly string[] JunkPatterns =
     [
         "*.tmp", "*.temp", "*.old", "*.gid", "*.fts", "*.$$$",
@@ -25,9 +22,6 @@ public sealed class JunkService
         "*.db$", "*.dmp", "thumbs.db", "*.??~"
     ];
 
-    /// <summary>
-    /// Revo Uninstaller Pro directory exclusions to safeguard critical Windows and application folders.
-    /// </summary>
     public static readonly string[] ExcludedDirectories =
     [
         "$Recycle.Bin",
@@ -356,7 +350,7 @@ public sealed class JunkService
         yield return new Definition(
             new JunkCategory
             {
-                Id = "revo-junk-patterns",
+                Id = "pattern-remnants",
                 Title = "Temporary and backup file remnants",
                 Description = "Files matching temporary patterns (*.tmp, *.temp, *.old, *.gid, *.fts, *.$db, *.dmp, thumbs.db, *.??~) older than 24 hours.",
             },
@@ -591,7 +585,6 @@ public sealed class JunkService
             }
         }
 
-        // Opera keeps its profile directly in a product folder, not in a "User Data" directory.
         foreach (var operaBase in new[]
                  {
                      Roaming("Opera Software", "Opera Stable"),
@@ -690,7 +683,6 @@ public sealed class JunkService
             }
             catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
             {
-                // Process inspection is informational only.
             }
         }
 

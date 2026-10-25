@@ -50,6 +50,11 @@ jobs:
           $zipChecksum = Get-ChildItem "$($zip.FullName).sha256" -ErrorAction Stop
           $setup = Get-ChildItem "artifacts/release/OpenUninstaller-$version-setup.exe" -ErrorAction Stop
           $setupChecksum = Get-ChildItem "$($setup.FullName).sha256" -ErrorAction Stop
-          gh release create $env:GITHUB_REF_NAME $zip.FullName $zipChecksum.FullName $setup.FullName $setupChecksum.FullName `
-            --title "OpenUninstaller $version" `
-            --generate-notes
+          $existing = gh release view $env:GITHUB_REF_NAME 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:GITHUB_REF_NAME $zip.FullName $zipChecksum.FullName $setup.FullName $setupChecksum.FullName --clobber
+          } else {
+            gh release create $env:GITHUB_REF_NAME $zip.FullName $zipChecksum.FullName $setup.FullName $setupChecksum.FullName `
+              --title "OpenUninstaller $version" `
+              --generate-notes
+          }

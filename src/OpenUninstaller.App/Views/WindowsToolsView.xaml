@@ -22,16 +22,23 @@
     </StackPanel>
 
     <Border Grid.Row="1" Style="{StaticResource Card}" Padding="14,11" Margin="0,0,0,16">
-      <StackPanel Orientation="Horizontal">
-        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource Warning}"
-                   FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
-        <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center"
-                   Text="Registry Editor is powerful and unguarded. OpenUninstaller will ask for confirmation before launching it." />
-      </StackPanel>
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="Search:" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Width="220" Margin="0,0,16,0" />
+          <TextBlock Text="Category:" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Width="140" />
+        </StackPanel>
+        <TextBlock Grid.Column="1" Text="{Binding CountLabel}" Style="{StaticResource Muted}" VerticalAlignment="Center" />
+      </Grid>
     </Border>
 
     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-      <ItemsControl ItemsSource="{Binding Tools}">
+      <ItemsControl ItemsSource="{Binding ToolsView}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <WrapPanel />
@@ -40,19 +47,40 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <Border Style="{StaticResource Card}" Width="318" Margin="0,0,14,14" Padding="18">
-              <StackPanel>
-                <Border Width="38" Height="38" CornerRadius="9" Background="{DynamicResource AccentSoft}"
-                        HorizontalAlignment="Left" Margin="0,0,0,12">
-                  <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="17"
-                             Foreground="{DynamicResource Accent}" HorizontalAlignment="Center"
-                             VerticalAlignment="Center" />
-                </Border>
-                <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" Margin="0,6,0,12" />
-                <Button Content="Open" Style="{StaticResource BaseButton}" HorizontalAlignment="Left"
-                        Command="{Binding DataContext.LaunchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        CommandParameter="{Binding}" />
-              </StackPanel>
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="*" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="0,0,0,12">
+                  <Border Width="38" Height="38" CornerRadius="9" Background="{DynamicResource AccentSoft}"
+                          HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="17"
+                               Foreground="{DynamicResource Accent}" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                  </Border>
+                  <Border Background="{DynamicResource CardElevated}" CornerRadius="4" Padding="6,2"
+                          HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <TextBlock Text="{Binding Category}" FontSize="11" Style="{StaticResource Muted}" />
+                  </Border>
+                </Grid>
+
+                <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Row="2" Text="{Binding Description}" Style="{StaticResource Muted}" Margin="0,6,0,14" TextWrapping="Wrap" />
+
+                <StackPanel Grid.Row="3" Orientation="Horizontal">
+                  <Button Content="Launch" Style="{StaticResource BaseButton}" HorizontalAlignment="Left"
+                          Command="{Binding DataContext.LaunchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          CommandParameter="{Binding}" />
+                  <Button Content="Delete" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
+                          Visibility="{Binding IsCustom, Converter={StaticResource BooleanToVisibilityConverter}}"
+                          Command="{Binding DataContext.RemoveCustomToolCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          CommandParameter="{Binding}" />
+                </StackPanel>
+              </Grid>
             </Border>
           </DataTemplate>
         </ItemsControl.ItemTemplate>

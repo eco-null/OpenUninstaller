@@ -79,7 +79,23 @@ public sealed class BrowserProfileRow : ObservableObject
     }
 }
 
-public sealed class PrivacyViewModel : PageViewModel
+public sealed class EvidenceRemoverDriveRow : ObservableObject
+{
+    public EvidenceRemoverDriveRow(DriveFreeSpaceInfo drive)
+    {
+        Drive = drive;
+    }
+
+    public DriveFreeSpaceInfo Drive { get; }
+    public string DriveLetter => Drive.DriveLetter;
+    public string DisplayName => Drive.DisplayName;
+    public string FreeSpaceDisplay => Drive.FreeSpaceDisplay;
+    public string TotalSizeDisplay => Drive.TotalSizeDisplay;
+    public string Detail => $"{Drive.DriveLetter} ({Drive.VolumeLabel}) - {Drive.FreeSpaceDisplay} free of {Drive.TotalSizeDisplay}";
+    public double FreePercentage => Drive.FreePercentage;
+}
+
+public sealed class PrivacyViewModel : PageViewModel, IDisposable
 {
     private static readonly int[] PassOptions = [1, 3, 7];
 
@@ -109,11 +125,21 @@ public sealed class PrivacyViewModel : PageViewModel
         SelectAllCommand = new RelayCommand(_ => SetAllSelected(true), _ => !IsBusy && Categories.Count > 0);
         CleanBrowserCommand = new AsyncRelayCommand(_ => CleanBrowserAsync(), _ => !IsBusy && BrowserSelectedCount > 0);
         SelectAllBrowserCommand = new RelayCommand(_ => SetAllBrowserSelected(true), _ => !IsBusy && BrowserProfiles.Count > 0);
+        WipeFreeSpaceCommand = new AsyncRelayCommand(_ => WipeFreeSpaceAsync(), _ => CanWipe);
+        CancelWipeCommand = new RelayCommand(_ => CancelWipe(), _ => IsWiping);
     }
 
     public ObservableCollection<ShredTargetRow> ShredTargets { get; } = [];
     public ObservableCollection<PrivacyCategoryRow> Categories { get; } = [];
     public ObservableCollection<BrowserProfileRow> BrowserProfiles { get; } = [];
+    public ObservableCollection<EvidenceRemoverDriveRow> Drives { get; } = [];
+
+    private EvidenceRemoverDriveRow? _selectedDrive;
+    private bool _isWiping;
+    private double _wipePercent;
+    private string _wipeProgressStatus = string.Empty;
+    private string _wipeEtaStatus = string.Empty;
+    private CancellationTokenSource? _wipeCts;
 
     public RelayCommand AddFilesCommand { get; }
     public RelayCommand AddFolderCommand { get; }
@@ -125,6 +151,8 @@ public sealed class PrivacyViewModel : PageViewModel
     public RelayCommand SelectAllCommand { get; }
     public AsyncRelayCommand CleanBrowserCommand { get; }
     public RelayCommand SelectAllBrowserCommand { get; }
+    public AsyncRelayCommand WipeFreeSpaceCommand { get; }
+    public RelayCommand CancelWipeCommand { get; }
 
     public IReadOnlyList<int> PassesOptions => PassOptions;
 
@@ -193,6 +221,53 @@ public sealed class PrivacyViewModel : PageViewModel
         ? "No browser profiles selected"
         : $"{BrowserSelectedCount} profile(s) selected";
 
+    public EvidenceRemoverDriveRow? SelectedDrive
+    {
+        get => _selectedDrive;
+        set
+        {
+            if (SetProperty(ref _selectedDrive, value))
+            {
+                WipeFreeSpaceCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged(nameof(CanWipe));
+            }
+        }
+    }
+
+    public bool IsWiping
+    {
+        get => _isWiping;
+        private set
+        {
+            if (SetProperty(ref _isWiping, value))
+            {
+                WipeFreeSpaceCommand.RaiseCanExecuteChanged();
+                CancelWipeCommand.RaiseCanExecuteChanged();
+                OnPropertyChanged(nameof(CanWipe));
+            }
+        }
+    }
+
+    public bool CanWipe => !IsWiping && SelectedDrive is not null && !IsBusy;
+
+    public double WipePercent
+    {
+        get => _wipePercent;
+        private set => SetProperty(ref _wipePercent, value);
+    }
+
+    public string WipeProgressStatus
+    {
+        get => _wipeProgressStatus;
+        private set => SetProperty(ref _wipeProgressStatus, value);
+    }
+
+    public string WipeEtaStatus
+    {
+        get => _wipeEtaStatus;
+        private set => SetProperty(ref _wipeEtaStatus, value);
+    }
+
     public override void Activate() => _ = ScanAsync();
 
     public async Task ScanAsync()
@@ -206,6 +281,17 @@ public sealed class PrivacyViewModel : PageViewModel
         StatusMessage = "Reading Windows history and app state…";
         try
         {
+            Drives.Clear();
+            var availableDrives = await Task.Run(() => _services.EvidenceRemover.GetAvailableDrives());
+            foreach (var d in availableDrives)
+            {
+                Drives.Add(new EvidenceRemoverDriveRow(d));
+            }
+            if (SelectedDrive is null && Drives.Count > 0)
+            {
+                SelectedDrive = Drives[0];
+            }
+
             Categories.Clear();
             var scan = await Task.Run(() => _services.Privacy.Scan());
             foreach (var category in scan.Categories)
@@ -543,5 +629,87 @@ public sealed class PrivacyViewModel : PageViewModel
         RemoveTargetCommand.RaiseCanExecuteChanged();
         ClearTargetsCommand.RaiseCanExecuteChanged();
         ShredCommand.RaiseCanExecuteChanged();
+    }
+
+    private async Task WipeFreeSpaceAsync()
+    {
+        if (SelectedDrive is null || IsWiping)
+        {
+            return;
+        }
+
+        var drive = SelectedDrive.Drive;
+        var confirmed = _windows.Confirm(
+            $"Wipe unallocated free space on {drive.DisplayName} ({drive.FreeSpaceDisplay})?\n\n" +
+            "This will overwrite all deleted files and unused sectors with zeros to make forensic data recovery impossible. " +
+            "Existing files and programs will NOT be touched.\n\n" +
+            "Do you want to proceed?",
+            "Evidence Remover - Wipe Free Space",
+            danger: true);
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        IsWiping = true;
+        WipePercent = 0;
+        WipeProgressStatus = $"Initializing free space wipe on {drive.DisplayName}…";
+        WipeEtaStatus = string.Empty;
+        _wipeCts = new CancellationTokenSource();
+
+        var progress = new Progress<WipeProgress>(p =>
+        {
+            WipePercent = p.PercentComplete;
+            WipeProgressStatus = $"{p.PercentComplete:F1}% — {InstalledProgram.FormatBytes(p.BytesWiped)} of {InstalledProgram.FormatBytes(p.TotalBytesToWipe)} wiped";
+            WipeEtaStatus = p.EstimatedTimeRemaining.HasValue
+                ? $"ETA: {p.EstimatedTimeRemaining.Value:mm\\:ss}"
+                : string.Empty;
+        });
+
+        try
+        {
+            var result = await _services.EvidenceRemover.WipeDriveAsync(drive.DriveName, progress, _wipeCts.Token);
+            if (result.Succeeded)
+            {
+                var formatted = InstalledProgram.FormatBytes(result.TotalBytesWiped);
+                _windows.Info($"Free space wipe complete!\nSuccessfully wiped {formatted} in {result.Duration:mm\\:ss}.", "Evidence Remover");
+                WipeProgressStatus = "Free space wipe complete.";
+            }
+            else
+            {
+                _windows.Error($"Free space wipe stopped or failed:\n{result.ErrorMessage}");
+                WipeProgressStatus = $"Failed: {result.ErrorMessage}";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _windows.Info("Free space wipe was cancelled. Temporary wipe files were cleaned up.", "Evidence Remover");
+            WipeProgressStatus = "Wipe cancelled.";
+        }
+        finally
+        {
+            _wipeCts?.Dispose();
+            _wipeCts = null;
+            IsWiping = false;
+            WipeEtaStatus = string.Empty;
+            _ = ScanAsync();
+        }
+    }
+
+    private void CancelWipe()
+    {
+        if (_wipeCts is { IsCancellationRequested: false })
+        {
+            WipeProgressStatus = "Cancelling wipe and cleaning up temporary files…";
+            _wipeCts.Cancel();
+        }
+    }
+
+    public void Dispose()
+    {
+        _wipeCts?.Cancel();
+        _wipeCts?.Dispose();
+        _wipeCts = null;
     }
 }

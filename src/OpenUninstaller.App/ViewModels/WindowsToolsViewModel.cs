@@ -1,33 +1,158 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Windows.Data;
 using OpenUninstaller.App.Infrastructure;
+using OpenUninstaller.Core.Models;
+using OpenUninstaller.Core.Services;
 
 namespace OpenUninstaller.App.ViewModels;
-
-public sealed record WindowsTool(string Name, string Command, string Description, string Glyph);
 
 public sealed class WindowsToolsViewModel : PageViewModel
 {
     private readonly WindowService _windows;
+    private readonly WindowsToolsService _service;
+    private readonly ObservableCollection<WindowsTool> _tools = [];
+    private string _searchText = string.Empty;
+    private string _selectedCategory = "All";
+    private WindowsTool? _selectedTool;
 
-    public WindowsToolsViewModel(WindowService windows)
+    public WindowsToolsViewModel(WindowService windows, AppServices services)
     {
         _windows = windows;
+        _service = services.WindowsTools;
+
+        ToolsView = CollectionViewSource.GetDefaultView(_tools);
+        ToolsView.Filter = FilterTool;
+
         LaunchCommand = new RelayCommand(Launch);
+        RemoveCustomToolCommand = new RelayCommand(RemoveCustomTool, _ => SelectedTool?.IsCustom == true);
+        Refresh();
     }
 
-    public IReadOnlyList<WindowsTool> Tools { get; } =
+    public ICollectionView ToolsView { get; }
+
+    public IReadOnlyList<string> Categories { get; } =
     [
-        new("Programs and Features", "appwiz.cpl", "The built-in installed-programs list.", "\uE7B8"),
-        new("Disk Cleanup", "cleanmgr.exe", "Windows' own cleanup utility.", "\uE74D"),
-        new("Task Manager", "taskmgr.exe", "Processes, startup impact and performance.", "\uE9D9"),
-        new("Startup Apps", "ms-settings:startupapps", "Windows' Startup Apps settings page.", "\uE945"),
-        new("Services", "services.msc", "Windows service console.", "\uE90F"),
-        new("System Restore", "rstrui.exe", "Create or roll back to a restore point.", "\uE777"),
-        new("Windows Update", "ms-settings:windowsupdate", "Check for and manage updates.", "\uE895"),
-        new("Registry Editor", "regedit.exe", "Advanced registry editing. Use with care.", "\uE71C")
+        "All", "System", "Diagnostics", "Disk & Storage", "Network", "Security", "Custom"
     ];
 
+    public string SelectedCategory
+    {
+        get => _selectedCategory;
+        set
+        {
+            if (SetProperty(ref _selectedCategory, value))
+            {
+                ToolsView.Refresh();
+                OnPropertyChanged(nameof(CountLabel));
+            }
+        }
+    }
+
+    public string SearchText
+    {
+        get => _searchText;
+        set
+        {
+            if (SetProperty(ref _searchText, value))
+            {
+                ToolsView.Refresh();
+                OnPropertyChanged(nameof(CountLabel));
+            }
+        }
+    }
+
+    public WindowsTool? SelectedTool
+    {
+        get => _selectedTool;
+        set
+        {
+            if (SetProperty(ref _selectedTool, value))
+            {
+                RemoveCustomToolCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string CountLabel => $"{ToolsView.Cast<WindowsTool>().Count()} of {_tools.Count} tool(s)";
+
     public RelayCommand LaunchCommand { get; }
+    public RelayCommand RemoveCustomToolCommand { get; }
+
+    public void Refresh()
+    {
+        _tools.Clear();
+        foreach (var tool in _service.GetAllTools())
+        {
+            _tools.Add(tool);
+        }
+        ToolsView.Refresh();
+        OnPropertyChanged(nameof(CountLabel));
+    }
+
+    public void AddCustomTool(string name, string command, string? arguments, string description)
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(command))
+        {
+            return;
+        }
+
+        var tool = new WindowsTool
+        {
+            Id = Guid.NewGuid().ToString("N")[..8],
+            Name = name.Trim(),
+            Command = command.Trim(),
+            Arguments = string.IsNullOrWhiteSpace(arguments) ? null : arguments.Trim(),
+            Description = string.IsNullOrWhiteSpace(description) ? "Custom user-defined tool" : description.Trim(),
+            Category = "Custom",
+            Glyph = "\uE71D",
+            RequiresElevation = false,
+            IsCustom = true
+        };
+
+        _service.AddCustomTool(tool);
+        Refresh();
+    }
+
+    private void RemoveCustomTool(object? parameter)
+    {
+        var target = parameter as WindowsTool ?? SelectedTool;
+        if (target is null || !target.IsCustom)
+        {
+            return;
+        }
+
+        if (!_windows.Confirm($"Remove custom tool '{target.Name}'?", "Remove Custom Tool"))
+        {
+            return;
+        }
+
+        _service.RemoveCustomTool(target.Id);
+        Refresh();
+    }
+
+    private bool FilterTool(object obj)
+    {
+        if (obj is not WindowsTool tool)
+        {
+            return false;
+        }
+
+        if (_selectedCategory != "All" && !string.Equals(tool.Category, _selectedCategory, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_searchText))
+        {
+            return true;
+        }
+
+        return tool.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+               || tool.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+               || tool.Command.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
+    }
 
     private void Launch(object? parameter)
     {
@@ -47,11 +172,8 @@ public sealed class WindowsToolsViewModel : PageViewModel
 
         try
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = tool.Command,
-                UseShellExecute = true
-            });
+            var startInfo = _service.CreateStartInfo(tool);
+            Process.Start(startInfo);
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {

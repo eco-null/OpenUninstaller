@@ -206,6 +206,64 @@
           </StackPanel>
         </Border>
 
+        <!-- Evidence Remover (Wipe Free Space) -->
+        <Border Style="{StaticResource Card}" Margin="0,0,0,14">
+          <StackPanel>
+            <Grid>
+              <StackPanel>
+                <TextBlock Text="Evidence remover (wipe unallocated free space)" Style="{StaticResource SectionTitle}" />
+                <TextBlock Style="{StaticResource Muted}" MaxWidth="640" HorizontalAlignment="Left"
+                           Text="When files are deleted in Windows, their contents remain on disk until overwritten. Wiping free space writes zeros across all unallocated sectors so previously deleted files and confidential remnants cannot be recovered by forensic recovery tools. Existing files, programs and system data are completely untouched." />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="Wipe free space" Style="{StaticResource DangerButton}"
+                        Command="{Binding WipeFreeSpaceCommand}"
+                        Visibility="{Binding IsWiping, Converter={StaticResource InverseBoolVisibility}}" />
+                <Button Content="Cancel wipe" Style="{StaticResource SecondaryButton}"
+                        Command="{Binding CancelWipeCommand}"
+                        Visibility="{Binding IsWiping, Converter={StaticResource BoolVisibility}}" />
+              </StackPanel>
+            </Grid>
+
+            <Grid Margin="0,12,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="Select target drive:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0" />
+              <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableDrives}"
+                        SelectedItem="{Binding SelectedDrive, Mode=TwoWay}"
+                        IsEnabled="{Binding IsWiping, Converter={StaticResource InverseBool}}"
+                        MaxWidth="400" HorizontalAlignment="Left">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="{Binding Drive.DisplayName}" FontWeight="SemiBold" Margin="0,0,8,0" />
+                      <TextBlock Text="{Binding Drive.FreeSpaceDisplay, StringFormat='({0} free)'}" Style="{StaticResource Caption}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </Grid>
+
+            <!-- Wipe In Progress Display -->
+            <Border Margin="0,14,0,0" Padding="12" Background="{StaticResource SurfaceAlt}" CornerRadius="4"
+                    Visibility="{Binding IsWiping, Converter={StaticResource BoolVisibility}}">
+              <StackPanel>
+                <Grid>
+                  <TextBlock Text="{Binding WipeProgressStatus}" FontWeight="SemiBold" FontSize="12.5" />
+                  <TextBlock Text="{Binding WipeEtaStatus}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+                </Grid>
+                <ProgressBar Margin="0,8,0,0" Height="8" Minimum="0" Maximum="100" Value="{Binding WipePercent}" />
+              </StackPanel>
+            </Border>
+
+            <!-- Idle Status / Last Result -->
+            <TextBlock Text="{Binding WipeProgressStatus}" Margin="0,10,0,0" Style="{StaticResource Caption}"
+                       Visibility="{Binding IsWiping, Converter={StaticResource InverseBoolVisibility}}" />
+          </StackPanel>
+        </Border>
+
         <Border Style="{StaticResource Card}" Margin="0,0,0,14">
           <StackPanel>
             <TextBlock Text="Why there is no backup here" Style="{StaticResource SectionTitle}" />

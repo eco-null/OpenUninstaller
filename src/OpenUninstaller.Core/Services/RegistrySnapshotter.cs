@@ -208,9 +208,39 @@ public sealed class RegistrySnapshotter
             .ToList();
     }
 
+    /// <summary>
+    /// Volatile and system registry key paths excluded during installer trace captures, matching Revo Uninstaller Pro rules.
+    /// </summary>
+    public static readonly string[] ExcludedKeyPatterns =
+    [
+        @"OpenUninstaller",
+        @"Microsoft\Windows\Shell",
+        @"Microsoft\Windows\ShellNoRoam",
+        @"Microsoft\Windows\CurrentVersion\Explorer\MountPoints2",
+        @"Microsoft\Windows\CurrentVersion\Explorer\Shell Folders",
+        @"Microsoft\Windows NT\CurrentVersion\SystemRestore",
+        @"Microsoft\Windows NT\CurrentVersion\SPP",
+        @"Microsoft\Windows NT\CurrentVersion\ClipSVC",
+        @"Microsoft\RestartManager",
+        @"Microsoft\Windows\CurrentVersion\Internet Settings\Cache",
+        @"Microsoft\Windows\CurrentVersion\Internet Settings\ZoneMap",
+        @"Microsoft\Rpc",
+        @"Microsoft\Windows\CurrentVersion\SideBySide",
+        @"Classes\Local Settings\MuiCache"
+    ];
+
     private static bool IsExcluded(string path)
-        => path.StartsWith(@"SOFTWARE\OpenUninstaller", StringComparison.OrdinalIgnoreCase)
-           || path.StartsWith(@"Software\OpenUninstaller", StringComparison.OrdinalIgnoreCase);
+    {
+        foreach (var pattern in ExcludedKeyPatterns)
+        {
+            if (path.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static string Fingerprint(RegistryValue value)
     {

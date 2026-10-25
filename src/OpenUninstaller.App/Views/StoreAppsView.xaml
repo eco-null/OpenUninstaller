@@ -21,12 +21,9 @@
       <StackPanel>
         <TextBlock Text="Store apps" Style="{StaticResource PageTitle}" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,0" MaxWidth="760" HorizontalAlignment="Left"
-                   Text="Read-only MSIX and Microsoft Store package inventory for this user. Packages, their manifests and their data are never modified." />
+                   Text="Inventory, uninstall, and reset Microsoft Store and MSIX packages for this user." />
       </StackPanel>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-        <Border Style="{StaticResource Badge}" Background="{DynamicResource AccentSoft}" Margin="0,0,10,0">
-          <TextBlock Text="READ ONLY" Style="{StaticResource BadgeText}" Foreground="{DynamicResource Accent}" />
-        </Border>
         <Button Content="Refresh" Style="{StaticResource PrimaryButton}" Command="{Binding RefreshCommand}" />
       </StackPanel>
     </Grid>
@@ -47,6 +44,16 @@
       <DataGrid Style="{StaticResource DataGridStyle}"
                 ItemsSource="{Binding PackagesView}"
                 SelectedItem="{Binding SelectedPackage, Mode=TwoWay}">
+        <DataGrid.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Uninstall package" Command="{Binding UninstallCommand}" />
+            <MenuItem Header="Reset package data" Command="{Binding ResetCommand}" />
+            <MenuItem Header="Terminate processes" Command="{Binding TerminateCommand}" />
+            <Separator />
+            <MenuItem Header="Open package folder" Command="{Binding OpenLocationCommand}" />
+            <MenuItem Header="Copy full package name" Command="{Binding CopyNameCommand}" />
+          </ContextMenu>
+        </DataGrid.ContextMenu>
         <DataGrid.Columns>
           <DataGridTextColumn Header="Package" Binding="{Binding DisplayName}" Width="*" MinWidth="240" />
           <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="110" />
@@ -57,15 +64,36 @@
       </DataGrid>
     </Border>
 
-    <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,12,0,0"
+    <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,12,0,0" Padding="16"
             Visibility="{Binding HasSelection, Converter={StaticResource BoolVisibility}}">
-      <StackPanel>
-        <TextBlock Text="{Binding SelectedPackage.DisplayName}" FontSize="14" FontWeight="SemiBold" />
-        <TextBlock Text="{Binding SelectedPackage.PackageFullName}" Style="{StaticResource Mono}"
-                   TextWrapping="Wrap" Margin="0,4,0,0" />
-        <TextBlock Text="{Binding SelectedPackage.InstallLocation}" Style="{StaticResource Muted}"
-                   TextWrapping="Wrap" Margin="0,4,0,0" />
-      </StackPanel>
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0">
+          <TextBlock Text="{Binding SelectedPackage.DisplayName}" FontSize="15" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding SelectedPackage.PackageFullName}" Style="{StaticResource Mono}"
+                     TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5" />
+          <TextBlock Text="{Binding SelectedPackage.InstallLocation}" Style="{StaticResource Muted}"
+                     TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+          <Button Content="Uninstall" Style="{StaticResource DangerButton}"
+                  Command="{Binding UninstallCommand}" Margin="0,0,8,0"
+                  ToolTip="Remove this package for the current user" />
+          <Button Content="Reset" Style="{StaticResource BaseButton}"
+                  Command="{Binding ResetCommand}" Margin="0,0,8,0"
+                  ToolTip="Reset app data and state" />
+          <Button Content="Terminate" Style="{StaticResource BaseButton}"
+                  Command="{Binding TerminateCommand}" Margin="0,0,8,0"
+                  ToolTip="Terminate running processes" />
+          <Button Content="Open folder" Style="{StaticResource GhostButton}"
+                  Command="{Binding OpenLocationCommand}" Margin="0,0,8,0" />
+          <Button Content="Copy name" Style="{StaticResource GhostButton}"
+                  Command="{Binding CopyNameCommand}" />
+        </StackPanel>
+      </Grid>
     </Border>
 
     <Grid Grid.Row="4" Margin="0,10,0,0">

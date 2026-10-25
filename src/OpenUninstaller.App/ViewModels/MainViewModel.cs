@@ -17,11 +17,14 @@ public sealed class MainViewModel : ObservableObject
     private NavItem _selectedNav;
     private object _currentPage;
 
+    private IReadOnlyList<NavItem> _navItems = [];
+
     public MainViewModel(AppServices services, WindowService windows)
     {
         _services = services;
         _windows = windows;
         services.SettingsChanged += (_, _) => OnPropertyChanged(nameof(StatusLabel));
+        services.Localization.LanguageChanged += _ => RefreshLocalization();
 
         Programs = new ProgramsViewModel(services, windows);
         Autoruns = new AutorunsViewModel(services, windows);
@@ -32,20 +35,30 @@ public sealed class MainViewModel : ObservableObject
         WindowsTools = new WindowsToolsViewModel(windows, services);
         Settings = new SettingsViewModel(services, windows);
 
-        NavItems =
-        [
-            new("programs", "Programs", "\uE7B8"),
-            new("autoruns", "Autoruns", "\uE945"),
-            new("junk", "Junk files", "\uE74D"),
-            new("privacy", "Privacy & shredder", "\uE72E"),
-            new("store", "Store apps", "\uE719"),
-            new("backups", "Backups", "\uE777"),
-            new("tools", "Windows tools", "\uE90F"),
-            new("settings", "Settings", "\uE713")
-        ];
-
-        _selectedNav = NavItems[0];
+        _navItems = BuildNavItems();
+        _selectedNav = _navItems[0];
         _currentPage = Programs;
+    }
+
+    private IReadOnlyList<NavItem> BuildNavItems() =>
+    [
+        new("programs", _services.Localization.GetString("NavPrograms", "Programs"), "\uE7B8"),
+        new("autoruns", _services.Localization.GetString("NavAutoruns", "Autoruns"), "\uE945"),
+        new("junk", _services.Localization.GetString("NavJunk", "Junk files"), "\uE74D"),
+        new("privacy", _services.Localization.GetString("NavPrivacy", "Privacy & shredder"), "\uE72E"),
+        new("store", _services.Localization.GetString("NavStoreApps", "Store apps"), "\uE719"),
+        new("backups", _services.Localization.GetString("NavBackups", "Backups"), "\uE777"),
+        new("tools", _services.Localization.GetString("NavTools", "Windows tools"), "\uE90F"),
+        new("settings", _services.Localization.GetString("NavSettings", "Settings"), "\uE713")
+    ];
+
+    private void RefreshLocalization()
+    {
+        var currentKey = _selectedNav?.Key ?? "programs";
+        NavItems = BuildNavItems();
+        _selectedNav = NavItems.FirstOrDefault(n => n.Key == currentKey) ?? NavItems[0];
+        OnPropertyChanged(nameof(SelectedNav));
+        OnPropertyChanged(nameof(StatusLabel));
     }
 
     public ProgramsViewModel Programs { get; }
@@ -56,7 +69,12 @@ public sealed class MainViewModel : ObservableObject
     public BackupsViewModel Backups { get; }
     public WindowsToolsViewModel WindowsTools { get; }
     public SettingsViewModel Settings { get; }
-    public IReadOnlyList<NavItem> NavItems { get; }
+
+    public IReadOnlyList<NavItem> NavItems
+    {
+        get => _navItems;
+        private set => SetProperty(ref _navItems, value);
+    }
 
     public NavItem SelectedNav
     {

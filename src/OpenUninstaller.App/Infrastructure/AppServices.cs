@@ -1,4 +1,5 @@
 using OpenUninstaller.Core.Abstractions;
+using OpenUninstaller.Core.Localization;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Services;
@@ -42,7 +43,10 @@ public sealed class AppServices
         Maintenance = new MaintenanceService(Paths, Backups, Junk, Clock, Log);
         Background = new BackgroundServiceManager(Paths);
         Doctor = new DoctorService(Paths, Scanner, Traces, Backups, Elevation);
+        ContextMenu = new ContextMenuService();
+        Localization = LocalizationService.Instance;
         Settings = UiSettings.Load(Paths);
+        Localization.SetLanguage(Settings.Language);
     }
 
     public AppPaths Paths { get; }
@@ -57,6 +61,8 @@ public sealed class AppServices
     public TraceStore Traces { get; }
     public TraceBundleService TraceBundles { get; }
     public IgnoredLeftoverStore Ignored { get; }
+    public ContextMenuService ContextMenu { get; }
+    public LocalizationService Localization { get; }
     public LeftoverHistoryStore History { get; }
     public BackupService Backups { get; }
     public LeftoverDeletionService Deletion { get; }

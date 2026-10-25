@@ -20,6 +20,8 @@ public sealed class UiSettings
     }
 
     public string Theme { get; set; } = "Dark";
+    public string Language { get; set; } = "english";
+    public bool EnableContextMenu { get; set; }
     public bool PreferSilentUninstall { get; set; }
     public int KeepBackups { get; set; } = 20;
     public bool OverwriteOnRestore { get; set; }

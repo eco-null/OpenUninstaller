@@ -5,6 +5,9 @@ using System.Windows.Diagnostics;
 using System.Windows.Threading;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.App.ViewModels;
+using OpenUninstaller.Core.Models;
+using OpenUninstaller.Core.Services;
+using OpenUninstaller.Core.Support;
 
 namespace OpenUninstaller.App;
 
@@ -29,7 +32,44 @@ public partial class App : Application
 
         DispatcherUnhandledException += OnUnhandledException;
         EnableBindingDiagnostics();
+
+        // Handle Windows Explorer context menu target if provided
+        string? targetPath = null;
+        for (var i = 0; i < e.Args.Length; i++)
+        {
+            if ((e.Args[i] == "--target" || e.Args[i] == "-t") && i + 1 < e.Args.Length)
+            {
+                targetPath = e.Args[i + 1];
+                break;
+            }
+        }
+
         mainWindow.Show();
+
+        if (!string.IsNullOrWhiteSpace(targetPath) && (File.Exists(targetPath) || Directory.Exists(targetPath)))
+        {
+            var resolvedTarget = ShortcutResolver.TryResolve(targetPath) ?? targetPath;
+            var programs = Services.Scanner.Scan();
+            var match = HunterService.MatchExecutable(resolvedTarget, null, 0, programs);
+
+            if (match.Matched && match.Program is not null)
+            {
+                windows.ShowUninstall(match.Program, force: false, silent: Services.Settings.PreferSilentUninstall);
+            }
+            else
+            {
+                var targetName = Path.GetFileNameWithoutExtension(resolvedTarget);
+                var targetProgram = new InstalledProgram
+                {
+                    Id = "custom_target_" + Guid.NewGuid().ToString("N"),
+                    Name = string.IsNullOrWhiteSpace(targetName) ? resolvedTarget : targetName,
+                    InstallLocation = Directory.Exists(resolvedTarget) ? resolvedTarget : Path.GetDirectoryName(resolvedTarget),
+                    DisplayIcon = File.Exists(resolvedTarget) ? resolvedTarget : null,
+                    Location = new RegistryLocation(Microsoft.Win32.RegistryHive.CurrentUser, Microsoft.Win32.RegistryView.Default, @"Software\OpenUninstaller\CustomTargets")
+                };
+                windows.ShowUninstall(targetProgram, force: true, silent: false, scanOnly: true);
+            }
+        }
     }
 
     private void EnableBindingDiagnostics()

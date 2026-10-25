@@ -219,7 +219,7 @@
                 <Button Content="Wipe free space" Style="{StaticResource DangerButton}"
                         Command="{Binding WipeFreeSpaceCommand}"
                         Visibility="{Binding IsWiping, Converter={StaticResource InverseBoolVisibility}}" />
-                <Button Content="Cancel wipe" Style="{StaticResource SecondaryButton}"
+                <Button Content="Cancel wipe" Style="{StaticResource BaseButton}"
                         Command="{Binding CancelWipeCommand}"
                         Visibility="{Binding IsWiping, Converter={StaticResource BoolVisibility}}" />
               </StackPanel>
@@ -254,7 +254,7 @@
                   <TextBlock Text="{Binding WipeProgressStatus}" FontWeight="SemiBold" FontSize="12.5" />
                   <TextBlock Text="{Binding WipeEtaStatus}" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
                 </Grid>
-                <ProgressBar Margin="0,8,0,0" Height="8" Minimum="0" Maximum="100" Value="{Binding WipePercent}" />
+                <ProgressBar Margin="0,8,0,0" Height="8" Minimum="0" Maximum="100" Value="{Binding WipePercent, Mode=OneWay}" />
               </StackPanel>
             </Border>
 

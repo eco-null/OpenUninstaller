@@ -26,6 +26,10 @@
         </StackPanel>
         <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap"
                    Text="Point at any visible window and click it. OpenUninstaller resolves the owning process and matches it to an installed application. It never terminates the process." />
+        <Border Margin="0,8,0,0" Padding="8,4" Background="{DynamicResource AccentSoft}" CornerRadius="4" HorizontalAlignment="Left">
+          <TextBlock x:Name="TrackingStatusText" Text="Live activity: Tracking active (0 file events, 0 processes)"
+                     FontSize="11" Foreground="{DynamicResource Accent}" FontWeight="SemiBold" />
+        </Border>
         <TextBlock Text="Esc to cancel · left click to pick a window" FontSize="11"
                    Foreground="{DynamicResource TextMuted}" Margin="0,10,0,0" />
       </StackPanel>

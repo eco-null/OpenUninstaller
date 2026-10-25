@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using OpenUninstaller.App.Infrastructure;
+using OpenUninstaller.Core.Localization;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
 
@@ -11,6 +12,8 @@ public sealed class SettingsViewModel : PageViewModel
     private readonly AppServices _services;
     private readonly WindowService _windows;
     private string _theme;
+    private LanguageInfo? _selectedLanguage;
+    private bool _enableContextMenu;
     private bool _preferSilent;
     private int _keepBackups;
     private string _doctorSummary = string.Empty;
@@ -32,6 +35,10 @@ public sealed class SettingsViewModel : PageViewModel
         _theme = services.Settings.Theme;
         _preferSilent = services.Settings.PreferSilentUninstall;
         _keepBackups = services.Settings.KeepBackups;
+        _enableContextMenu = services.ContextMenu.IsEnabled();
+        _selectedLanguage = services.Localization.AvailableLanguages
+            .FirstOrDefault(l => l.Id.Equals(services.Settings.Language, StringComparison.OrdinalIgnoreCase))
+            ?? services.Localization.AvailableLanguages.FirstOrDefault(l => l.Id == "english");
 
         var maintenance = MaintenanceSettings.Load(services.Paths);
         _maintenanceEnabled = maintenance.Enabled;
@@ -72,6 +79,20 @@ public sealed class SettingsViewModel : PageViewModel
     public AsyncRelayCommand InstallServiceCommand { get; }
     public AsyncRelayCommand RemoveServiceCommand { get; }
     public AsyncRelayCommand RunMaintenanceCommand { get; }
+
+    public IReadOnlyList<LanguageInfo> LanguageOptions => _services.Localization.AvailableLanguages;
+
+    public LanguageInfo? SelectedLanguage
+    {
+        get => _selectedLanguage;
+        set => SetProperty(ref _selectedLanguage, value);
+    }
+
+    public bool EnableContextMenu
+    {
+        get => _enableContextMenu;
+        set => SetProperty(ref _enableContextMenu, value);
+    }
 
     public string Theme
     {
@@ -177,6 +198,16 @@ public sealed class SettingsViewModel : PageViewModel
         _services.Settings.Theme = Theme;
         _services.Settings.PreferSilentUninstall = PreferSilent;
         _services.Settings.KeepBackups = KeepBackups;
+
+        if (SelectedLanguage is not null)
+        {
+            _services.Settings.Language = SelectedLanguage.Id;
+            _services.Localization.SetLanguage(SelectedLanguage.Id);
+        }
+
+        _services.Settings.EnableContextMenu = EnableContextMenu;
+        _services.ContextMenu.SetEnabled(EnableContextMenu);
+
         _services.Settings.Save();
 
         var categories = MaintenanceCategories

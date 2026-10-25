@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Xml.Linq;
 using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
@@ -6,20 +7,20 @@ using OpenUninstaller.Core.Support;
 namespace OpenUninstaller.Core.Services;
 
 /// <summary>
-/// Read-only inventory of MSIX/Store packages for the current user. The package repository is a
-/// registry list of package roots; each <c>AppxManifest.xml</c> is parsed with local-name matching
-/// so manifest namespace revisions do not break the reader. Nothing here can install, update,
-/// activate or remove a package.
+/// Inventory and lifecycle management for MSIX/Store packages.
+/// Provides safe inventory scanning, uninstallation via Remove-AppxPackage, and package reset via Reset-AppxPackage.
 /// </summary>
 public sealed class MsixInventoryService
 {
     private readonly IRegistryStore _registry;
     private readonly AppPaths _paths;
+    private readonly IProcessRunner _runner;
 
-    public MsixInventoryService(IRegistryStore registry, AppPaths paths)
+    public MsixInventoryService(IRegistryStore registry, AppPaths paths, IProcessRunner? runner = null)
     {
         _registry = registry;
         _paths = paths;
+        _runner = runner ?? new ProcessRunner();
     }
 
     public IReadOnlyList<MsixPackage> Scan()
@@ -82,6 +83,135 @@ public sealed class MsixInventoryService
             .ThenBy(p => p.Version, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    /// <summary>
+    /// Uninstalls an MSIX/Store package for the current user using Remove-AppxPackage.
+    /// </summary>
+    public async Task<(bool Success, string? Error)> UninstallPackageAsync(
+        string packageFullName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(packageFullName) || !IsValidPackageFullName(packageFullName))
+        {
+            return (false, "Invalid package full name.");
+        }
+
+        var escapedName = packageFullName.Replace("'", "''");
+        var script = $"Remove-AppxPackage -Package '{escapedName}'";
+
+        var result = await _runner.RunAsync(
+            "powershell.exe",
+            $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{script}\"",
+            shellExecute: false,
+            timeout: TimeSpan.FromMinutes(3),
+            cancellationToken).ConfigureAwait(false);
+
+        if (!result.Started)
+        {
+            return (false, result.Error ?? "Could not launch PowerShell.");
+        }
+
+        if (result.ExitCode != 0)
+        {
+            return (false, $"Package removal failed with exit code {result.ExitCode}.");
+        }
+
+        return (true, null);
+    }
+
+    /// <summary>
+    /// Resets an MSIX/Store package for the current user using Reset-AppxPackage.
+    /// </summary>
+    public async Task<(bool Success, string? Error)> ResetPackageAsync(
+        string packageFullName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(packageFullName) || !IsValidPackageFullName(packageFullName))
+        {
+            return (false, "Invalid package full name.");
+        }
+
+        var escapedName = packageFullName.Replace("'", "''");
+        var script = $"Reset-AppxPackage -Package '{escapedName}'";
+
+        var result = await _runner.RunAsync(
+            "powershell.exe",
+            $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{script}\"",
+            shellExecute: false,
+            timeout: TimeSpan.FromMinutes(2),
+            cancellationToken).ConfigureAwait(false);
+
+        if (!result.Started)
+        {
+            return (false, result.Error ?? "Could not launch PowerShell.");
+        }
+
+        if (result.ExitCode != 0)
+        {
+            return (false, $"Package reset failed with exit code {result.ExitCode}.");
+        }
+
+        return (true, null);
+    }
+
+    /// <summary>
+    /// Terminates running processes associated with the package.
+    /// </summary>
+    public async Task<(bool Success, string? Error)> TerminatePackageAsync(
+        string packageFullName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(packageFullName) || !IsValidPackageFullName(packageFullName))
+        {
+            return (false, "Invalid package full name.");
+        }
+
+        var escapedName = packageFullName.Replace("'", "''");
+        var script = $"Get-Process | Where-Object {{ try {{ $_.Path -like '*{escapedName}*' }} catch {{ $false }} }} | Stop-Process -Force";
+
+        var result = await _runner.RunAsync(
+            "powershell.exe",
+            $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{script}\"",
+            shellExecute: false,
+            timeout: TimeSpan.FromSeconds(30),
+            cancellationToken).ConfigureAwait(false);
+
+        if (!result.Started)
+        {
+            return (false, result.Error ?? "Could not launch PowerShell.");
+        }
+
+        return (true, null);
+    }
+
+    /// <summary>
+    /// Opens the installation location of the package in File Explorer.
+    /// </summary>
+    public static bool OpenPackageLocation(string? installLocation)
+    {
+        if (string.IsNullOrWhiteSpace(installLocation) || !Directory.Exists(installLocation))
+        {
+            return false;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = installLocation,
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsValidPackageFullName(string name)
+        => !string.IsNullOrWhiteSpace(name) &&
+           name.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_');
 
     private static ManifestInfo TryReadManifest(string path)
     {

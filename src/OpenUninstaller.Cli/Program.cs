@@ -102,6 +102,7 @@ internal static class Program
             "service" => ServiceAsync(args),
             "hunter" => HunterAsync(args),
             "windows-tools" => WindowsToolsAsync(args),
+            "wipe-free-space" or "evidence-remover" => WipeFreeSpaceAsync(args, ct),
             _ => UnknownCommand(command)
         };
     }
@@ -1333,49 +1334,111 @@ internal static class Program
 
     // ------------------------------------------------------------------- store
 
-    private static Task<int> StoreAsync(ArgumentSet args)
+    private static async Task<int> StoreAsync(ArgumentSet args)
     {
         var services = AppServices.Create("store");
         var sub = args.FirstPositional?.ToLowerInvariant() ?? "list";
-        if (sub != "list")
-        {
-            throw new UsageException("The MSIX inventory is read-only. Use 'store list'.");
-        }
 
-        var packages = services.Msix.Scan();
-        if (args.Has("json"))
+        if (sub == "list")
         {
-            Output.Json(new
+            var packages = services.Msix.Scan();
+            if (args.Has("json"))
             {
-                count = packages.Count,
-                packages = packages.Select(p => new
+                Output.Json(new
                 {
-                    displayName = p.DisplayName,
-                    name = p.Name,
-                    version = p.Version,
-                    publisher = p.Publisher,
-                    architecture = p.Architecture,
-                    kind = p.KindDisplay,
-                    packageFullName = p.PackageFullName,
-                    installLocation = p.InstallLocation
-                })
-            });
-            return Task.FromResult(ExitCodes.Success);
+                    count = packages.Count,
+                    packages = packages.Select(p => new
+                    {
+                        displayName = p.DisplayName,
+                        name = p.Name,
+                        version = p.Version,
+                        publisher = p.Publisher,
+                        architecture = p.Architecture,
+                        kind = p.KindDisplay,
+                        packageFullName = p.PackageFullName,
+                        installLocation = p.InstallLocation
+                    })
+                });
+                return ExitCodes.Success;
+            }
+
+            Output.Table(
+                packages.Select(p => new[]
+                {
+                    Output.Shorten(p.DisplayName, 40),
+                    p.Version ?? "—",
+                    p.Architecture ?? "—",
+                    p.KindDisplay,
+                    Output.Shorten(p.Publisher ?? "—", 30)
+                }).ToList(),
+                ["Package", "Version", "Arch", "Kind", "Publisher"]);
+            Console.WriteLine();
+            Console.WriteLine($"{packages.Count} MSIX package(s).");
+            return ExitCodes.Success;
         }
 
-        Output.Table(
-            packages.Select(p => new[]
+        var target = args.Positionals.Skip(1).FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            throw new UsageException($"Usage: oucli store {sub} <packageFullName> [--yes]");
+        }
+
+        var targetPkg = services.Msix.Scan().FirstOrDefault(p =>
+            p.PackageFullName.Equals(target, StringComparison.OrdinalIgnoreCase) ||
+            p.Name.Equals(target, StringComparison.OrdinalIgnoreCase) ||
+            p.DisplayName.Equals(target, StringComparison.OrdinalIgnoreCase));
+
+        var fullName = targetPkg?.PackageFullName ?? target;
+
+        if (sub == "terminate")
+        {
+            Console.WriteLine($"Terminating processes for '{fullName}'…");
+            var result = await services.Msix.TerminatePackageAsync(fullName).ConfigureAwait(false);
+            if (result.Success)
             {
-                Output.Shorten(p.DisplayName, 40),
-                p.Version ?? "—",
-                p.Architecture ?? "—",
-                p.KindDisplay,
-                Output.Shorten(p.Publisher ?? "—", 30)
-            }).ToList(),
-            ["Package", "Version", "Arch", "Kind", "Publisher"]);
-        Console.WriteLine();
-        Console.WriteLine($"{packages.Count} MSIX package(s). Read-only: Windows manages package removal and updates.");
-        return Task.FromResult(ExitCodes.Success);
+                Console.WriteLine("Package processes terminated successfully.");
+                return ExitCodes.Success;
+            }
+
+            Console.Error.WriteLine(result.Error ?? "Failed to terminate package processes.");
+            return ExitCodes.Error;
+        }
+
+        if (!args.Has("yes"))
+        {
+            Console.Error.WriteLine($"Action '{sub}' on '{fullName}' requires confirmation (--yes).");
+            return ExitCodes.ConfirmationRequired;
+        }
+
+        if (sub == "uninstall")
+        {
+            Console.WriteLine($"Uninstalling MSIX package '{fullName}'…");
+            var result = await services.Msix.UninstallPackageAsync(fullName).ConfigureAwait(false);
+            if (result.Success)
+            {
+                Console.WriteLine("Package uninstalled successfully.");
+                return ExitCodes.Success;
+            }
+
+            Console.Error.WriteLine(result.Error ?? "Failed to uninstall package.");
+            return ExitCodes.Error;
+        }
+
+        if (sub == "reset")
+        {
+            Console.WriteLine($"Resetting MSIX package data for '{fullName}'…");
+            var result = await services.Msix.ResetPackageAsync(fullName).ConfigureAwait(false);
+            if (result.Success)
+            {
+                Console.WriteLine("Package reset successfully.");
+                return ExitCodes.Success;
+            }
+
+            Console.Error.WriteLine(result.Error ?? "Failed to reset package.");
+            return ExitCodes.Error;
+        }
+
+        throw new UsageException("Unknown store subcommand. Use 'list', 'uninstall', 'reset', or 'terminate'.");
     }
 
     private static Task<int> PrivacyAsync(ArgumentSet args)
@@ -1707,26 +1770,165 @@ internal static class Program
 
     private static Task<int> WindowsToolsAsync(ArgumentSet args)
     {
-        var tools = new (string Name, string Command, string Description)[]
-        {
-            ("Programs and Features", "appwiz.cpl", "Built-in installed programs list"),
-            ("Disk Cleanup", "cleanmgr.exe", "Windows disk cleanup"),
-            ("Task Manager", "taskmgr.exe", "Processes and startup apps"),
-            ("Services", "services.msc", "Windows services console"),
-            ("System Restore", "rstrui.exe", "Restore points"),
-            ("Windows Update", "ms-settings:windowsupdate", "Update settings page"),
-            ("Registry Editor", "regedit.exe", "Advanced: edit the registry with care")
-        };
+        var services = AppServices.Create("windows-tools");
+        var sub = args.FirstPositional?.ToLowerInvariant() ?? "list";
 
-        if (args.Has("json"))
+        if (sub == "list" || args.Positionals.Count == 0)
         {
-            Output.Json(tools.Select(t => new { name = t.Name, command = t.Command, description = t.Description }));
+            var tools = services.WindowsTools.GetAllTools();
+            if (args.Has("json"))
+            {
+                Output.Json(tools.Select(t => new
+                {
+                    id = t.Id,
+                    name = t.Name,
+                    command = t.Command,
+                    arguments = t.Arguments,
+                    category = t.Category,
+                    description = t.Description,
+                    requiresElevation = t.RequiresElevation,
+                    isCustom = t.IsCustom
+                }));
+                return Task.FromResult(ExitCodes.Success);
+            }
+
+            Output.Table(
+                tools.Select(t => new[] { t.Id, t.Name, t.Category, t.Command, t.Description }).ToList(),
+                ["ID", "Tool", "Category", "Command", "Description"]);
             return Task.FromResult(ExitCodes.Success);
         }
 
-        Output.Table(tools.Select(t => new[] { t.Name, t.Command, t.Description }).ToList(),
-            ["Tool", "Command", "Description"]);
-        return Task.FromResult(ExitCodes.Success);
+        if (sub == "launch")
+        {
+            var targetId = args.Positionals.Skip(1).FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(targetId))
+            {
+                throw new UsageException("Usage: oucli windows-tools launch <id|name>");
+            }
+
+            var tool = services.WindowsTools.GetAllTools().FirstOrDefault(t =>
+                t.Id.Equals(targetId, StringComparison.OrdinalIgnoreCase) ||
+                t.Name.Equals(targetId, StringComparison.OrdinalIgnoreCase));
+
+            if (tool is null)
+            {
+                Console.Error.WriteLine($"Tool '{targetId}' not found.");
+                return Task.FromResult(ExitCodes.NotFound);
+            }
+
+            try
+            {
+                var startInfo = services.WindowsTools.CreateStartInfo(tool);
+                System.Diagnostics.Process.Start(startInfo);
+                Console.WriteLine($"Launched {tool.Name}.");
+                return Task.FromResult(ExitCodes.Success);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Failed to launch {tool.Name}: {ex.Message}");
+                return Task.FromResult(ExitCodes.Error);
+            }
+        }
+
+        throw new UsageException("Unknown windows-tools subcommand. Use 'list' or 'launch <id>'.");
+    }
+
+    // ----------------------------------------------------------- wipe-free-space
+
+    private static async Task<int> WipeFreeSpaceAsync(ArgumentSet args, CancellationToken ct)
+    {
+        var services = AppServices.Create("wipe-free-space");
+        var sub = args.FirstPositional?.ToLowerInvariant() ?? "list";
+
+        if (sub == "list" || args.Positionals.Count == 0)
+        {
+            var drives = services.EvidenceRemover.GetAvailableDrives();
+            if (args.Has("json"))
+            {
+                Output.Json(drives.Select(d => new
+                {
+                    drive = d.DriveLetter,
+                    name = d.VolumeLabel,
+                    type = d.DriveType.ToString(),
+                    freeBytes = d.FreeBytes,
+                    totalBytes = d.TotalBytes,
+                    freeSpace = d.FreeSpaceDisplay,
+                    totalSpace = d.TotalSizeDisplay
+                }));
+                return ExitCodes.Success;
+            }
+
+            Output.Table(
+                drives.Select(d => new[]
+                {
+                    d.DriveLetter,
+                    d.VolumeLabel,
+                    d.DriveType.ToString(),
+                    d.FreeSpaceDisplay,
+                    d.TotalSizeDisplay
+                }).ToList(),
+                ["Drive", "Volume", "Type", "Free Space", "Total Size"]);
+            Console.WriteLine();
+            Console.WriteLine("Use 'oucli wipe-free-space wipe <drive-letter> --yes' to wipe free space.");
+            return ExitCodes.Success;
+        }
+
+        var driveArg = sub == "wipe" ? args.Positionals.Skip(1).FirstOrDefault() : sub;
+        if (string.IsNullOrWhiteSpace(driveArg))
+        {
+            throw new UsageException("Usage: oucli wipe-free-space <drive-letter> [--chunk-mb 512] [--fill-byte 0] [--yes] [--dry-run]");
+        }
+
+        driveArg = driveArg.TrimEnd(':', '\\', '/');
+        var available = services.EvidenceRemover.GetAvailableDrives();
+        var targetDrive = available.FirstOrDefault(d => d.DriveLetter.StartsWith(driveArg, StringComparison.OrdinalIgnoreCase));
+        if (targetDrive is null)
+        {
+            Console.Error.WriteLine($"Drive '{driveArg}:' was not found or is not ready.");
+            return ExitCodes.NotFound;
+        }
+
+        if (args.Has("dry-run"))
+        {
+            Console.WriteLine($"Dry run: Would wipe {targetDrive.FreeSpaceDisplay} of unallocated free space on {targetDrive.DisplayName}.");
+            return ExitCodes.Success;
+        }
+
+        if (!args.Has("yes"))
+        {
+            Console.Error.WriteLine($"Wiping drive free space on {targetDrive.DisplayName} is unrecoverable and requires --yes.");
+            return ExitCodes.ConfirmationRequired;
+        }
+
+        var progress = new Progress<WipeProgress>(p =>
+        {
+            var eta = p.EstimatedTimeRemaining.HasValue ? p.EstimatedTimeRemaining.Value.ToString(@"mm\:ss") : "--:--";
+            Console.Write($"\rWiping free space: {p.PercentComplete:F1}% ({InstalledProgram.FormatBytes(p.BytesWiped)} / {InstalledProgram.FormatBytes(p.TotalBytesToWipe)}) ETA: {eta}   ");
+        });
+
+        Console.WriteLine($"Starting free space wipe on {targetDrive.DisplayName} ({targetDrive.FreeSpaceDisplay})...");
+        var result = await services.EvidenceRemover.WipeDriveAsync(targetDrive.DriveName, progress, ct).ConfigureAwait(false);
+        Console.WriteLine();
+
+        if (args.Has("json"))
+        {
+            Output.Json(new
+            {
+                drive = result.DriveLetter,
+                bytesWiped = result.BytesWiped,
+                duration = result.Duration,
+                succeeded = result.Succeeded,
+                errorMessage = result.ErrorMessage
+            });
+        }
+        else
+        {
+            Console.WriteLine(result.Succeeded
+                ? $"Successfully wiped {result.BytesWipedDisplay} in {result.Duration:mm\\:ss}."
+                : $"Wipe failed: {result.ErrorMessage}");
+        }
+
+        return result.Succeeded ? ExitCodes.Success : ExitCodes.Error;
     }
 
     // -------------------------------------------------------------------- help
@@ -1809,7 +2011,10 @@ internal static class Program
               browser scan                  List browser profile history and cookie files (--json)
               browser clean                 Remove the listed files when browsers are closed
                   [--browser chrome|edge|brave|vivaldi|firefox] [--yes] [--dry-run] [--json]
-              store list                    Read-only MSIX/Microsoft Store package inventory (--json)
+              store list                    List MSIX/Microsoft Store packages (--json)
+              store uninstall <package>     Uninstall an MSIX package (--yes)
+              store reset <package>         Reset package app data (--yes)
+              store terminate <package>     Terminate running package processes
               shred <path...>               Overwrite and delete files/folders irreversibly
                   [--passes N] [--yes] [--dry-run] [--json]
               maintenance run               Run backup retention, log expiry and optional junk cleanup (--json)
@@ -1817,7 +2022,9 @@ internal static class Program
               service install|remove        Install or remove the maintenance service (--yes, elevated)
               service start|stop            Control the maintenance service (elevated)
               hunter                        Identify the installed app behind the window under the cursor
-              windows-tools list            Built-in Windows maintenance tools
+              windows-tools list|launch     Built-in and custom Windows maintenance tools
+              wipe-free-space list|wipe     Evidence remover: securely wipe unallocated drive free space
+                  [<drive>] [--chunk-mb 512] [--fill-byte 0] [--yes] [--dry-run] [--json]
 
             Exit codes:
               0 success · 1 error · 2 confirmation required · 3 ambiguous target

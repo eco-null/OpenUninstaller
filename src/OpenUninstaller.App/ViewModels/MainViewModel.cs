@@ -27,9 +27,9 @@ public sealed class MainViewModel : ObservableObject
         Autoruns = new AutorunsViewModel(services, windows);
         Junk = new JunkViewModel(services, windows);
         Privacy = new PrivacyViewModel(services, windows);
-        StoreApps = new StoreAppsViewModel(services);
+        StoreApps = new StoreAppsViewModel(services, windows);
         Backups = new BackupsViewModel(services, windows);
-        WindowsTools = new WindowsToolsViewModel(windows);
+        WindowsTools = new WindowsToolsViewModel(windows, services);
         Settings = new SettingsViewModel(services, windows);
 
         NavItems =

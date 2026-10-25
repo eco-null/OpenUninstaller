@@ -127,4 +127,93 @@ public sealed class InventoryAndBrowserTests
         Assert.Contains(result.Messages, m => m.Contains("Chrome is running", StringComparison.Ordinal));
         Assert.True(File.Exists(history));
     }
+
+    [Fact]
+    public async Task Msix_actions_reject_invalid_names()
+    {
+        using var env = new TestEnvironment();
+        var runner = new FakeProcessRunner();
+        var service = new MsixInventoryService(env.Registry, env.Paths, runner);
+
+        var r1 = await service.UninstallPackageAsync("invalid;command");
+        Assert.False(r1.Success);
+        Assert.Equal("Invalid package full name.", r1.Error);
+
+        var r2 = await service.ResetPackageAsync("rm -rf /");
+        Assert.False(r2.Success);
+        Assert.Equal("Invalid package full name.", r2.Error);
+
+        var r3 = await service.TerminatePackageAsync("");
+        Assert.False(r3.Success);
+        Assert.Equal("Invalid package full name.", r3.Error);
+
+        Assert.Empty(runner.Invocations);
+    }
+
+    [Fact]
+    public async Task Msix_actions_dispatch_correct_powershell_commands()
+    {
+        using var env = new TestEnvironment();
+        var runner = new FakeProcessRunner();
+        var service = new MsixInventoryService(env.Registry, env.Paths, runner);
+        const string pkg = "Test.Package.Name_1.0.0.0_x64__8wekyb3d8bbwe";
+
+        var r1 = await service.UninstallPackageAsync(pkg);
+        Assert.True(r1.Success);
+        Assert.Contains("Remove-AppxPackage -Package 'Test.Package.Name_1.0.0.0_x64__8wekyb3d8bbwe'", runner.Invocations[0].Arguments);
+
+        var r2 = await service.ResetPackageAsync(pkg);
+        Assert.True(r2.Success);
+        Assert.Contains("Reset-AppxPackage -Package 'Test.Package.Name_1.0.0.0_x64__8wekyb3d8bbwe'", runner.Invocations[1].Arguments);
+
+        var r3 = await service.TerminatePackageAsync(pkg);
+        Assert.True(r3.Success);
+        Assert.Contains("Stop-Process -Force", runner.Invocations[2].Arguments);
+    }
+
+    [Fact]
+    public void Program_flags_new_and_large_programs()
+    {
+        var recent = new InstalledProgram
+        {
+            Id = "1",
+            Name = "Recent App",
+            InstallDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-2)),
+            EstimatedSizeBytes = 100 * 1024 * 1024,
+            Location = new RegistryLocation(RegistryHive.CurrentUser, RegistryView.Default, "test")
+        };
+        Assert.True(recent.IsNew);
+        Assert.False(recent.IsLarge);
+
+        var oldLarge = new InstalledProgram
+        {
+            Id = "2",
+            Name = "Old Large App",
+            InstallDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-30)),
+            EstimatedSizeBytes = 700 * 1024 * 1024,
+            Location = new RegistryLocation(RegistryHive.CurrentUser, RegistryView.Default, "test")
+        };
+        Assert.False(oldLarge.IsNew);
+        Assert.True(oldLarge.IsLarge);
+    }
+
+    private sealed class FakeProcessRunner : OpenUninstaller.Core.Abstractions.IProcessRunner
+    {
+        public List<(string FileName, string Arguments)> Invocations { get; } = new();
+
+        public Task<OpenUninstaller.Core.Abstractions.ProcessResult> RunAsync(
+            string fileName,
+            string arguments,
+            bool shellExecute,
+            TimeSpan? timeout,
+            CancellationToken cancellationToken)
+        {
+            Invocations.Add((fileName, arguments));
+            return Task.FromResult(new OpenUninstaller.Core.Abstractions.ProcessResult
+            {
+                Started = true,
+                ExitCode = 0
+            });
+        }
+    }
 }

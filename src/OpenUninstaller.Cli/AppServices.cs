@@ -34,8 +34,10 @@ internal sealed class AppServices
         Junk = new JunkService(Paths, Guard, Log);
         Privacy = new PrivacyService(Paths, Registry, Log);
         Browser = new BrowserDataService(Paths, Guard);
-        Msix = new MsixInventoryService(Registry, Paths);
+        Msix = new MsixInventoryService(Registry, Paths, Runner);
         Shredder = new Shredder(Guard, Log);
+        EvidenceRemover = new EvidenceRemoverService(Log);
+        WindowsTools = new WindowsToolsService(Paths);
         Maintenance = new MaintenanceService(Paths, Backups, Junk, Clock, Log);
         Background = new BackgroundServiceManager(Paths);
         Doctor = new DoctorService(Paths, Scanner, Traces, Backups, Elevation);
@@ -67,6 +69,8 @@ internal sealed class AppServices
     public BrowserDataService Browser { get; }
     public MsixInventoryService Msix { get; }
     public Shredder Shredder { get; }
+    public EvidenceRemoverService EvidenceRemover { get; }
+    public WindowsToolsService WindowsTools { get; }
     public MaintenanceService Maintenance { get; }
     public BackgroundServiceManager Background { get; }
     public DoctorService Doctor { get; }

@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="OpenUninstaller.Tests" />
+    <EmbeddedResource Include="Localization\Languages.json" />
   </ItemGroup>
 
 </Project>

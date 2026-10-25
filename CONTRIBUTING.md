@@ -1,7 +1,8 @@
-# Contributing
+# Contributing to OpenUninstaller
 
-Thanks for helping. OpenUninstaller is deliberately small, dependency-light and conservative about
-destructive operations.
+Thanks for your interest in contributing! OpenUninstaller is an independent, 100% offline, safety-first Windows application manager and deep uninstaller.
+
+> **Important:** Please review [CONTRIBUTOR.md](CONTRIBUTOR.md) for our complete Contributor Agreement, PR rules, safety invariants, and pull request checklist.
 
 ## Development setup
 

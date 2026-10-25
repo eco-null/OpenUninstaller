@@ -139,7 +139,7 @@ the project uses semantic versioning.
 - GitHub release automation: tag-triggered build/test/package workflow with SHA-256 sidecar, issue
   and pull-request templates, Dependabot configuration, Code of Conduct, support guide and
   `docs/GITHUB.md`.
-- `docs/REVO-PARITY.md` documents implemented capabilities and deliberate boundaries without
+- `docs/CAPABILITIES.md` documents implemented capabilities and safety boundaries without
   claiming affiliation with any commercial product.
 
 ### Changed

@@ -13,6 +13,7 @@
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
             <infra:BoolToVisibilityConverter x:Key="BoolVisibility" />
             <infra:InverseBoolToVisibilityConverter x:Key="InverseBoolVisibility" />
             <infra:InverseBooleanConverter x:Key="InverseBool" />

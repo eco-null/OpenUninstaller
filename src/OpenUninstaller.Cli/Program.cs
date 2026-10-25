@@ -96,7 +96,7 @@ internal static class Program
             "junk" => JunkAsync(args, ct),
             "privacy" => PrivacyAsync(args),
             "browser" => BrowserAsync(args, ct),
-            "store" => StoreAsync(args),
+            "store" or "msix" => StoreAsync(args),
             "shred" => ShredAsync(args),
             "maintenance" => MaintenanceAsync(args, ct),
             "service" => ServiceAsync(args),
@@ -2011,8 +2011,8 @@ internal static class Program
               browser scan                  List browser profile history and cookie files (--json)
               browser clean                 Remove the listed files when browsers are closed
                   [--browser chrome|edge|brave|vivaldi|firefox] [--yes] [--dry-run] [--json]
-              store list                    List MSIX/Microsoft Store packages (--json)
-              store uninstall <package>     Uninstall an MSIX package (--yes)
+              store|msix list               List MSIX/Microsoft Store packages (--json)
+              store|msix uninstall <pkg>    Uninstall an MSIX package (--yes)
               store reset <package>         Reset package app data (--yes)
               store terminate <package>     Terminate running package processes
               shred <path...>               Overwrite and delete files/folders irreversibly

@@ -21,7 +21,7 @@ foreach ($required in @("installer\OpenUninstaller.iss", "docs\INSTALLER.md", "L
 
 if ([string]::IsNullOrWhiteSpace($InnoCompiler)) {
     $candidates = @()
-    foreach ($base in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
+    foreach ($base in @(${env:ProgramFiles(x86)}, $env:ProgramFiles, (Join-Path $env:LOCALAPPDATA "Programs"))) {
         if (-not [string]::IsNullOrWhiteSpace($base)) {
             $candidates += Join-Path $base "Inno Setup 6\ISCC.exe"
         }

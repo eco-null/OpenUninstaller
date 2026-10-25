@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
+## [1.0.0] — 2026-10-25
+
+### Initial Public Release
+
+- **Deep Uninstaller:** Comprehensive registry and filesystem heuristic scanner for orphaned leftovers.
+- **Real-Time Installation Tracer:** Schema 2 value-level differential snapshot engine with `.outrace.zip` export/import.
+- **Windows Store & MSIX Manager:** Package termination, data reset, manifest inspection, and uninstallation.
+- **Evidence Remover:** Multi-pass zero-pattern free space wiper for unallocated disk sectors.
+- **23 Windows Tools Dashboard:** Quick launcher for native system diagnostic consoles.
+- **Autorun & Service Manager:** Management of Run keys, Startup folders, services, and tasks with audit history and rollback.
+- **Junk & Privacy Cleaner:** Safe purging of temporary files, crash dumps, and Windows Explorer history.
+- **Cryptographic File Shredder:** Multi-pass unrecoverable file wiping.
+- **100% Offline & Private:** Zero telemetry, tracking, or network connections.
+- **Fail-Safe Safety Architecture:** Hard-coded `PathGuard` and `RegistryGuard` protection with mandatory pre-deletion backups.
+
 ## [0.6.0] — 2026-10-25
 
 ### Added

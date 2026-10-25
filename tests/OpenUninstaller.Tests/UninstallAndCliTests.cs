@@ -89,4 +89,20 @@ public sealed class UninstallAndCliTests
     {
         Assert.Equal(expected, Output.Csv(value));
     }
+
+    [Fact]
+    public async Task Cli_msix_alias_executes_successfully()
+    {
+        var originalOut = Console.Out;
+        try
+        {
+            Console.SetOut(TextWriter.Null);
+            var code = await Program.Main(["msix", "list", "--json"]);
+            Assert.Equal(0, code);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
 }

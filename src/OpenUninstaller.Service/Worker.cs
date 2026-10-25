@@ -81,7 +81,6 @@ internal static class ServiceLog
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // The service must keep running even when its log is not writable.
         }
     }
 }

@@ -41,7 +41,6 @@ public sealed class UiSettings
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
-            // Defaults are safe.
         }
 
         return new UiSettings(path);
@@ -56,7 +55,6 @@ public sealed class UiSettings
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Settings persistence must never break the UI.
         }
     }
 }

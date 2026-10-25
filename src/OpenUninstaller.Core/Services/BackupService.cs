@@ -131,8 +131,6 @@ public sealed class BackupService
 
                     if (missing.Count > 0)
                     {
-                        // The value set changed between scanning and backup. Do not export a
-                        // partial group and then delete a sibling the user did not review.
                         continue;
                     }
                 }
@@ -238,7 +236,6 @@ public sealed class BackupService
 
             TryDeleteDirectory(staging);
 
-            // The manifest is written even for partial backups so captured items stay restorable.
             var complete = warnings.Count == 0;
             manifest = manifest with { Complete = complete };
             File.WriteAllText(Path.Combine(directory, "manifest.json"), JsonSerializer.Serialize(manifest, JsonOptions));
@@ -301,7 +298,6 @@ public sealed class BackupService
             }
             catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
             {
-                // Ignore an unreadable backup; it must not break the list.
             }
         }
 

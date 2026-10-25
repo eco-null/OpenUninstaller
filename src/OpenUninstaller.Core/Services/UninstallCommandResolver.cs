@@ -53,7 +53,6 @@ public static partial class UninstallCommandResolver
         if (fileName.Equals("msiexec", StringComparison.OrdinalIgnoreCase)
             || fileName.Equals("msiexec.exe", StringComparison.OrdinalIgnoreCase))
         {
-            // Real uninstall strings frequently use /I{GUID} without a separating space.
             var productCode = FindProductCode(expanded)
                 ?? (IsProductCode(keyName) ? keyName : null);
 

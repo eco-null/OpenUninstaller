@@ -208,9 +208,6 @@ public sealed class RegistrySnapshotter
             .ToList();
     }
 
-    /// <summary>
-    /// Volatile and system registry key paths excluded during installer trace captures.
-    /// </summary>
     public static readonly string[] ExcludedKeyPatterns =
     [
         @"OpenUninstaller",

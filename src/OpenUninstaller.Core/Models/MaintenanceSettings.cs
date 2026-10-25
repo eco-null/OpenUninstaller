@@ -31,7 +31,6 @@ public sealed class MaintenanceSettings
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
-            // Fall back to the documented defaults.
         }
 
         return new MaintenanceSettings();

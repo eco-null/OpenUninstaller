@@ -238,7 +238,6 @@ public sealed class BrowserDataService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // A locked profile database still shows up on the next scan.
         }
     }
 

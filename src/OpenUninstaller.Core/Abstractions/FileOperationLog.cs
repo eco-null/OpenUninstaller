@@ -116,7 +116,6 @@ public sealed class WindowsElevationService : IElevationService
         }
         catch (System.ComponentModel.Win32Exception)
         {
-            // The user declined the UAC prompt.
             return false;
         }
     }

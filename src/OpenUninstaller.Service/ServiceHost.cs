@@ -90,7 +90,6 @@ internal static class ServiceHost
             }
             catch (OperationCanceledException)
             {
-                // A normal stop request.
             }
             catch (Exception ex)
             {
@@ -159,7 +158,6 @@ internal static class ServiceHost
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Nothing else can be done from a failing service host.
         }
     }
 

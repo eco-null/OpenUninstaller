@@ -314,7 +314,6 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
         }
         catch (ObjectDisposedException)
         {
-            // The workflow already finished.
         }
     }
 

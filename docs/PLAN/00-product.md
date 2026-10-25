@@ -25,7 +25,7 @@ Deliver a trustworthy, fully open-source deep uninstaller for Windows that:
 ## Non-goals
 
 - Bypassing licence checks, trial resets, or DRM. Out of scope permanently.
-- Modifying another vendor's installed product (including Revo Uninstaller) automatically.
+- Modifying another vendor's installed software products automatically.
 - Store/MSIX removal, driver removal, Windows component servicing.
 - A cloud trace database. Traces stay local.
 - Anti-tamper or self-protection mechanisms.

@@ -79,7 +79,7 @@ autorun was toggled.
   stored state and refuses conflicting changes.
 - Added live search/filter to the Autoruns page and clearer confirmation text per source.
 - Added tag-triggered release workflow, `package-release.ps1`, issue forms, PR template,
-  Dependabot, Code of Conduct, support guide, `docs/GITHUB.md` and `docs/REVO-PARITY.md`.
+  Dependabot, Code of Conduct, support guide, `docs/GITHUB.md` and `docs/CAPABILITIES.md`.
 - Updated README, user guide, plan, TODO and changelog for v0.3.0.
 
 **Verification:** Release build with warnings-as-errors; complete xUnit suite; read-only CLI
@@ -182,7 +182,7 @@ x86_64 and lists the expected P/Invoke boundaries.
 - A background service that installs without an explicit elevated action or does more than the
   documented retention, expiry and junk allow-list.
 - Uploading user traces, paths, program names or application lists.
-- Targeting or modifying other uninstaller products (including Revo Uninstaller).
+- Targeting or modifying other third-party uninstaller products.
 
 ## Decision log
 

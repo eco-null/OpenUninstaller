@@ -114,7 +114,7 @@ maintenance service).
 - [x] Issue forms, PR template, Dependabot, Code of Conduct and support guide (v0.3)
 - [x] README, USER-GUIDE, SAFETY, ALGORITHMS, BACKLOG, screenshots
 - [x] CONTRIBUTING, SECURITY, CHANGELOG, .gitignore
-- [x] GITHUB.md release checklist and REVO-PARITY capability matrix (v0.3)
+- [x] GITHUB.md release checklist and CAPABILITIES matrix (v0.3)
 - [x] Release build, 88 tests, CLI smoke (no application was uninstalled), UI pages screenshotted
 - [x] v0.3 package and release workflow dry-run (`package-release.ps1`, zip + SHA-256)
 - [x] Final release pass: republished after UI fixes, full test suite green, CLI version/help
@@ -191,5 +191,5 @@ maintenance service).
 - [x] Privacy targets are hard-coded and cannot be added by a scan
 - [x] No service is installed without an elevated, explicit install action
 - [x] No third-party runtime dependency
-- [x] Original code and assets only; no Revo Uninstaller material used
+- [x] Original clean-room code and assets only; completely independent implementation
 - [x] The tool never modifies another uninstaller's installation

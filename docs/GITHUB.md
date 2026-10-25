@@ -15,8 +15,7 @@ git remote add origin https://github.com/<owner>/OpenUninstaller.git
 git push -u origin main
 ```
 
-Use a repository name that contains no Revo trademarks in a confusing way. The project is
-independent; keep the independence notice in `README.md` intact.
+The project is fully independent, clean and open-source under the MIT license.
 
 ## Repository settings
 

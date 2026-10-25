@@ -44,12 +44,12 @@
 
     <Grid Grid.Row="1" Margin="0,0,0,14">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="340" />
+        <ColumnDefinition Width="300" />
+        <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
-      <Grid>
+      <Grid Grid.Column="0">
         <TextBox Style="{StaticResource Input}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                  ToolTip="Search by name, publisher or install location" />
         <TextBlock Text="Search programs…" FontSize="12.5" Margin="13,0,0,0"
@@ -67,9 +67,13 @@
           </TextBlock.Style>
         </TextBlock>
       </Grid>
-      <CheckBox Grid.Column="1" Content="Show system components" Margin="16,0,0,0"
+      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+        <TextBlock Text="Filter:" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <ComboBox ItemsSource="{Binding AvailableFilters}" SelectedItem="{Binding SelectedFilter}" Width="160" />
+      </StackPanel>
+      <CheckBox Grid.Column="2" Content="Show system components" Margin="16,0,0,0"
                 VerticalAlignment="Center" IsChecked="{Binding IncludeSystemComponents}" />
-      <TextBlock Grid.Column="2" Text="{Binding CountLabel}" Style="{StaticResource Muted}"
+      <TextBlock Grid.Column="3" Text="{Binding CountLabel}" Style="{StaticResource Muted}"
                  VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
     </Grid>
 

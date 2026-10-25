@@ -17,7 +17,7 @@ internal static class Program
         ("Autoruns", "Programs, services and scheduled tasks that start with Windows. Disabling is reversible: the original value, service start mode or task state is recorded locally and can be restored."),
         ("Junk files", "Allow-listed caches and temporary files. Only children of known roots are touched, and files modified in the last ten minutes are skipped."),
         ("Privacy & shredder", "Remove Windows history traces and overwrite files before deletion. History cleanup is intentionally irreversible, so the privacy data is not copied into a backup."),
-        ("Store apps", "Read-only MSIX and Microsoft Store package inventory for this user. Packages, their manifests and their data are never modified."),
+        ("Store apps", "Inventory, uninstall, and reset Microsoft Store and MSIX packages for this user."),
         ("Backups", "Every deletion is preceded by a registry export and a file archive. Restore returns captured items to their original locations."),
         ("Windows tools", "Shortcuts to built-in maintenance applets. These launch Windows components; OpenUninstaller does not modify them."),
         ("Settings", "Preferences are stored locally in the OpenUninstaller data directory. Fully offline, no telemetry, zero external network connections.")

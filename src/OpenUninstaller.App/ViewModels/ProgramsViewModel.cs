@@ -40,16 +40,28 @@ public sealed class ProgramRow : ObservableObject
     public string LocationDisplay => Program.InstallLocation ?? "No install location recorded";
     public string UninstallDisplay => Program.UninstallCommand ?? "No uninstall command registered";
     public string RegistryDisplay => Program.RegistryPath;
+    public bool IsNew => Program.IsNew;
+    public bool IsLarge => Program.IsLarge;
 }
 
 public sealed class ProgramsViewModel : PageViewModel
 {
+    public static readonly string[] FilterOptions =
+    [
+        "All programs",
+        "New programs (≤ 7 days)",
+        "Large programs (≥ 500 MB)",
+        "32-bit programs",
+        "64-bit programs"
+    ];
+
     private static readonly JsonSerializerOptions ExportJsonOptions = new() { WriteIndented = true };
     private readonly AppServices _services;
     private readonly WindowService _windows;
     private readonly ObservableCollection<ProgramRow> _rows = [];
     private ProgramRow? _selected;
     private string _searchText = string.Empty;
+    private string _selectedFilter = "All programs";
     private bool _includeSystemComponents;
     private int _programCount;
 
@@ -127,6 +139,22 @@ public sealed class ProgramsViewModel : PageViewModel
         }
     }
 
+    public string[] AvailableFilters => FilterOptions;
+
+    public string SelectedFilter
+    {
+        get => _selectedFilter;
+        set
+        {
+            if (SetProperty(ref _selectedFilter, value))
+            {
+                RowsView.Refresh();
+                OnPropertyChanged(nameof(VisibleCount));
+                OnPropertyChanged(nameof(CountLabel));
+            }
+        }
+    }
+
     public int ProgramCount
     {
         get => _programCount;
@@ -142,7 +170,9 @@ public sealed class ProgramsViewModel : PageViewModel
 
     public int VisibleCount => RowsView?.Cast<object>().Count() ?? 0;
 
-    public string CountLabel => $"{ProgramCount} applications";
+    public string CountLabel => VisibleCount == ProgramCount
+        ? $"{ProgramCount} applications"
+        : $"{VisibleCount} of {ProgramCount} applications";
 
     public int QueuedCount => _rows.Count(r => r.IsQueued);
     public bool HasQueue => QueuedCount > 0;
@@ -202,6 +232,31 @@ public sealed class ProgramsViewModel : PageViewModel
         if (item is not ProgramRow row)
         {
             return false;
+        }
+
+        if (!string.Equals(SelectedFilter, "All programs", StringComparison.OrdinalIgnoreCase))
+        {
+            if (SelectedFilter.StartsWith("New programs", StringComparison.OrdinalIgnoreCase) && !row.IsNew)
+            {
+                return false;
+            }
+
+            if (SelectedFilter.StartsWith("Large programs", StringComparison.OrdinalIgnoreCase) && !row.IsLarge)
+            {
+                return false;
+            }
+
+            if (SelectedFilter.StartsWith("32-bit", StringComparison.OrdinalIgnoreCase) &&
+                row.Program.Architecture != ProgramArchitecture.X86)
+            {
+                return false;
+            }
+
+            if (SelectedFilter.StartsWith("64-bit", StringComparison.OrdinalIgnoreCase) &&
+                row.Program.Architecture != ProgramArchitecture.X64)
+            {
+                return false;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(SearchText))

@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore OpenUninstaller.sln
+
+      - name: Build
+        run: dotnet build OpenUninstaller.sln -c Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test OpenUninstaller.sln -c Release --no-build --logger "trx;LogFileName=release-test-results.trx"
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --no-color
+
+      - name: Package self-contained release and installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          ./scripts/package-release.ps1 -Version $version -Configuration Release -Runtime win-x64
+          ./scripts/build-installer.ps1 -Version $version -Configuration Release -Runtime win-x64
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $zip = Get-ChildItem "artifacts/release/OpenUninstaller-$version-win-x64.zip" -ErrorAction Stop
+          $zipChecksum = Get-ChildItem "$($zip.FullName).sha256" -ErrorAction Stop
+          $setup = Get-ChildItem "artifacts/release/OpenUninstaller-$version-setup.exe" -ErrorAction Stop
+          $setupChecksum = Get-ChildItem "$($setup.FullName).sha256" -ErrorAction Stop
+          gh release create $env:GITHUB_REF_NAME $zip.FullName $zipChecksum.FullName $setup.FullName $setupChecksum.FullName `
+            --title "OpenUninstaller $version" `
+            --generate-notes

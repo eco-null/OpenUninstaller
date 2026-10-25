@@ -182,7 +182,7 @@ x86_64 and lists the expected P/Invoke boundaries.
 - A background service that installs without an explicit elevated action or does more than the
   documented retention, expiry and junk allow-list.
 - Uploading user traces, paths, program names or application lists.
-- Targeting or modifying other uninstaller products.
+- Targeting or modifying other third-party uninstaller products.
 
 ## Decision log
 

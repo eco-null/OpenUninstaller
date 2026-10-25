@@ -1,0 +1,62 @@
+<UserControl x:Class="OpenUninstaller.App.Views.WindowsToolsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:OpenUninstaller.App.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:WindowsToolsViewModel}"
+             d:DesignHeight="700" d:DesignWidth="1040">
+
+  <Grid Margin="28,24,28,18">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,18">
+      <TextBlock Text="Windows tools" Style="{StaticResource PageTitle}" />
+      <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,0"
+                 Text="Shortcuts to built-in maintenance applets. These launch Windows components; OpenUninstaller does not modify them." />
+    </StackPanel>
+
+    <Border Grid.Row="1" Style="{StaticResource Card}" Padding="14,11" Margin="0,0,0,16">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource Warning}"
+                   FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center" />
+        <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center"
+                   Text="Registry Editor is powerful and unguarded. OpenUninstaller will ask for confirmation before launching it." />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+      <ItemsControl ItemsSource="{Binding Tools}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Style="{StaticResource Card}" Width="318" Margin="0,0,14,14" Padding="18">
+              <StackPanel>
+                <Border Width="38" Height="38" CornerRadius="9" Background="{DynamicResource AccentSoft}"
+                        HorizontalAlignment="Left" Margin="0,0,0,12">
+                  <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="17"
+                             Foreground="{DynamicResource Accent}" HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" Margin="0,6,0,12" />
+                <Button Content="Open" Style="{StaticResource BaseButton}" HorizontalAlignment="Left"
+                        Command="{Binding DataContext.LaunchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

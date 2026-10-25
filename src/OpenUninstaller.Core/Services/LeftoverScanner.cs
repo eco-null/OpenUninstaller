@@ -83,6 +83,35 @@ public sealed class LeftoverScanner
                 ProgramName = program.Name
             };
 
+            if (program.CleanupTargetPath is { } target)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var isDirectory = Directory.Exists(target);
+                var guard = _pathGuard.ValidateForDeletion(target, recursive: isDirectory);
+                if (!guard.Allowed)
+                {
+                    result.Warnings.Add(guard.Reason ?? "The selected target is protected.");
+                }
+                else if (isDirectory || File.Exists(target))
+                {
+                    result.Items.Add(new LeftoverItem
+                    {
+                        Id = $"file|{target.ToLowerInvariant()}",
+                        Kind = isDirectory ? LeftoverKind.Directory : LeftoverKind.File,
+                        DisplayPath = target,
+                        FilePath = target,
+                        Confidence = LeftoverConfidence.Exact,
+                        Reason = "Explicitly selected cleanup target.",
+                        SizeBytes = SafeSize(target, isDirectory)
+                    });
+                }
+
+                ApplyIgnoredItems(program, result);
+                result.ApplyDefaultSelection();
+                result.Duration = stopwatch.Elapsed;
+                return result;
+            }
+
             var trace = _traces.FindFor(program);
             if (trace is not null)
             {

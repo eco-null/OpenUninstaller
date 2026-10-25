@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore OpenUninstaller.sln
+
+      - name: Build
+        run: dotnet build OpenUninstaller.sln -c Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test OpenUninstaller.sln -c Release --no-build --logger "trx;LogFileName=test-results.trx"
+
+      - name: CLI smoke
+        shell: pwsh
+        run: |
+          $cli = "src\OpenUninstaller.Cli\bin\Release\net8.0-windows\oucli.exe"
+          & $cli doctor --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "doctor failed" }
+          & $cli list --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "list failed" }
+          & $cli junk scan --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "junk scan failed" }
+          & $cli autoruns list --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "autoruns list failed" }
+          & $cli traces list --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "traces list failed" }
+          & $cli backups list --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "backups list failed" }
+          & $cli msix list --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "msix list failed" }
+          & $cli privacy scan --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "privacy scan failed" }
+          & $cli autoruns history --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "autoruns history failed" }
+
+      - name: UI smoke
+        shell: pwsh
+        run: |
+          $app = "src\OpenUninstaller.App\bin\Release\net8.0-windows\OpenUninstaller.exe"
+          dotnet run --project tests\OpenUninstaller.UiSmoke\OpenUninstaller.UiSmoke.csproj -c Release --no-build -- $app
+
+      - name: Publish self-contained artifact
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: |
+          ./scripts/publish.ps1 -Configuration Release -Runtime win-x64
+          if (-not (Test-Path "artifacts/publish/win-x64/service/OpenUninstaller.Service.exe")) {
+            throw "published output is missing the maintenance service"
+          }
+
+      - name: Upload artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenUninstaller-win-x64
+          path: artifacts/publish/win-x64
+          if-no-files-found: error
+          retention-days: 14

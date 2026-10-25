@@ -1,0 +1,81 @@
+name: Bug report
+description: Report a reproducible defect in OpenUninstaller
+title: "[bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve OpenUninstaller. Do **not** include registry exports,
+        backups, traces, credentials, or personal file paths from a real machine. Redact paths
+        and application names when they are sensitive.
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am using the latest release or a build from `main`.
+          required: true
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: This report does not contain secrets or private user data.
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `oucli version` or the About page.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version and architecture
+      placeholder: "Windows 11 23H2 x64"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Program inventory
+        - Uninstall workflow
+        - Leftover scan
+        - Backup or restore
+        - Autoruns (Run/Startup/service/task)
+        - Junk cleaner
+        - Hunter mode
+        - CLI
+        - Build, CI, or release
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the exact command or UI path. Do not perform a destructive step on a production machine.
+      placeholder: |
+        1. Run `oucli autoruns list --json`
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and logs
+      description: Paste only redacted log lines. Backups and traces can contain personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, related issues, or a minimal reproduction repository.

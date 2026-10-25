@@ -1,0 +1,59 @@
+name: Feature request
+description: Suggest a capability or an improvement
+title: "[feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please describe the user problem first. OpenUninstaller deliberately avoids telemetry,
+        hidden background services, and silent deletion; proposals should preserve those properties.
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions.
+          required: true
+        - label: This request does not require uploading user data or adding telemetry.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Program inventory
+        - Uninstall workflow
+        - Leftover scan
+        - Backup or restore
+        - Autoruns (Run/Startup/service/task)
+        - Junk cleaner
+        - Hunter mode
+        - CLI
+        - UI or accessibility
+        - Build, CI, or release
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful version and how it should fail safely.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and reversibility
+      description: What can go wrong, what is backed up, and how can the user undo it?

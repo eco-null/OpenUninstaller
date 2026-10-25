@@ -395,4 +395,68 @@ public sealed class ToolTests
         var result = guard.ValidateJunkItem(env.Paths.Temp, env.Paths.Temp);
         Assert.False(result.Allowed);
     }
+
+    [Fact]
+    public void Junk_exclusions_safeguard_system_directories()
+    {
+        Assert.True(JunkService.IsExcluded(@"C:\Windows\System32\something.tmp"));
+        Assert.True(JunkService.IsExcluded(@"C:\Windows\WinSxS\temp.tmp"));
+        Assert.True(JunkService.IsExcluded(@"C:\$Recycle.Bin\deleted.old"));
+        Assert.True(JunkService.IsExcluded(@"D:\System Volume Information\indexer.db$"));
+        Assert.False(JunkService.IsExcluded(@"C:\Users\Can\AppData\Local\Temp\random.tmp"));
+    }
+
+    [Fact]
+    public void Windows_tools_service_catalog_and_custom_tools()
+    {
+        using var env = new TestEnvironment();
+        var service = new WindowsToolsService(env.Paths);
+        var tools = service.GetAllTools();
+
+        Assert.True(tools.Count >= 23);
+        Assert.Contains(tools, t => t.Id == "system-restore");
+        Assert.Contains(tools, t => t.Id == "task-manager");
+        Assert.Contains(tools, t => t.Id == "registry-editor");
+        Assert.Contains(tools, t => t.Id == "resource-monitor");
+
+        var custom = new WindowsTool
+        {
+            Id = "custom-test-tool",
+            Name = "Custom Tool",
+            Category = "Custom Tools",
+            Description = "A custom tool for testing",
+            Command = "notepad.exe",
+            Arguments = "test.txt",
+            Glyph = "🔧",
+            IsCustom = true
+        };
+
+        service.AddCustomTool(custom);
+        var customLoaded = service.LoadCustomTools();
+        Assert.Contains(customLoaded, t => t.Id == "custom-test-tool");
+
+        var allWithCustom = service.GetAllTools();
+        Assert.Contains(allWithCustom, t => t.Id == "custom-test-tool");
+
+        var removed = service.RemoveCustomTool("custom-test-tool");
+        Assert.True(removed);
+        Assert.DoesNotContain(service.LoadCustomTools(), t => t.Id == "custom-test-tool");
+    }
+
+    [Fact]
+    public void Evidence_remover_service_discovers_valid_drives()
+    {
+        var service = new EvidenceRemoverService(FileOperationLog.Null);
+        var drives = service.GetDrives();
+
+        Assert.NotNull(drives);
+        // On any normal Windows machine running tests, at least system drive exists
+        if (drives.Count > 0)
+        {
+            var first = drives[0];
+            Assert.False(string.IsNullOrWhiteSpace(first.DriveName));
+            Assert.True(first.TotalBytes > 0);
+            Assert.False(string.IsNullOrWhiteSpace(first.DriveLetter));
+        }
+    }
 }

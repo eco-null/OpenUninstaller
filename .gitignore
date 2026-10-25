@@ -1,0 +1,31 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+*.user
+*.suo
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.DotSettings.user
+
+# Test and coverage output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.trx
+
+# Local runtime data (never commit backups, traces or settings)
+data/
+logs/
+*.log
+*.jsonl
+
+# OS files
+Thumbs.db
+desktop.ini
+.DS_Store

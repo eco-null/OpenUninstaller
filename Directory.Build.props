@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.6.0</Version>
+    <AssemblyVersion>0.6.0.0</AssemblyVersion>
+    <FileVersion>0.6.0.0</FileVersion>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <Authors>OpenUninstaller contributors</Authors>
+    <Product>OpenUninstaller</Product>
+    <Company>OpenUninstaller</Company>
+    <Copyright>MIT licensed. Copyright (c) 2026 OpenUninstaller contributors.</Copyright>
+    <RepositoryType>git</RepositoryType>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+</Project>

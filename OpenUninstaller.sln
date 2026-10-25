@@ -1,0 +1,64 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{695E4EB7-E6EE-4F2F-825B-EE5F55C59E86}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenUninstaller.Core", "src\OpenUninstaller.Core\OpenUninstaller.Core.csproj", "{EEEFF5C0-E7A6-4692-949F-BBE4A44F6DD4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenUninstaller.Cli", "src\OpenUninstaller.Cli\OpenUninstaller.Cli.csproj", "{0B8AFAA1-1C71-4850-9C9E-1997D6637340}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenUninstaller.App", "src\OpenUninstaller.App\OpenUninstaller.App.csproj", "{4386A5C8-6BE6-40D7-8DF5-FE35948DE7C3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{8CB6FF51-B41B-477D-8D0C-F5A0036159B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenUninstaller.Tests", "tests\OpenUninstaller.Tests\OpenUninstaller.Tests.csproj", "{FD80FB1E-B4C0-4B50-9EE1-6A56231907E7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenUninstaller.Service", "src\OpenUninstaller.Service\OpenUninstaller.Service.csproj", "{99AB5D5F-18EE-4BDB-B179-030501C05EFB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenUninstaller.UiSmoke", "tests\OpenUninstaller.UiSmoke\OpenUninstaller.UiSmoke.csproj", "{A8159736-8647-4DA0-B294-198701B3E354}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EEEFF5C0-E7A6-4692-949F-BBE4A44F6DD4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEEFF5C0-E7A6-4692-949F-BBE4A44F6DD4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEEFF5C0-E7A6-4692-949F-BBE4A44F6DD4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEEFF5C0-E7A6-4692-949F-BBE4A44F6DD4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B8AFAA1-1C71-4850-9C9E-1997D6637340}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B8AFAA1-1C71-4850-9C9E-1997D6637340}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B8AFAA1-1C71-4850-9C9E-1997D6637340}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B8AFAA1-1C71-4850-9C9E-1997D6637340}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4386A5C8-6BE6-40D7-8DF5-FE35948DE7C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4386A5C8-6BE6-40D7-8DF5-FE35948DE7C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4386A5C8-6BE6-40D7-8DF5-FE35948DE7C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4386A5C8-6BE6-40D7-8DF5-FE35948DE7C3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FD80FB1E-B4C0-4B50-9EE1-6A56231907E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FD80FB1E-B4C0-4B50-9EE1-6A56231907E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FD80FB1E-B4C0-4B50-9EE1-6A56231907E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FD80FB1E-B4C0-4B50-9EE1-6A56231907E7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{99AB5D5F-18EE-4BDB-B179-030501C05EFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99AB5D5F-18EE-4BDB-B179-030501C05EFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99AB5D5F-18EE-4BDB-B179-030501C05EFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99AB5D5F-18EE-4BDB-B179-030501C05EFB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8159736-8647-4DA0-B294-198701B3E354}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8159736-8647-4DA0-B294-198701B3E354}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8159736-8647-4DA0-B294-198701B3E354}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8159736-8647-4DA0-B294-198701B3E354}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{EEEFF5C0-E7A6-4692-949F-BBE4A44F6DD4} = {695E4EB7-E6EE-4F2F-825B-EE5F55C59E86}
+		{0B8AFAA1-1C71-4850-9C9E-1997D6637340} = {695E4EB7-E6EE-4F2F-825B-EE5F55C59E86}
+		{4386A5C8-6BE6-40D7-8DF5-FE35948DE7C3} = {695E4EB7-E6EE-4F2F-825B-EE5F55C59E86}
+		{FD80FB1E-B4C0-4B50-9EE1-6A56231907E7} = {8CB6FF51-B41B-477D-8D0C-F5A0036159B4}
+		{99AB5D5F-18EE-4BDB-B179-030501C05EFB} = {695E4EB7-E6EE-4F2F-825B-EE5F55C59E86}
+		{A8159736-8647-4DA0-B294-198701B3E354} = {8CB6FF51-B41B-477D-8D0C-F5A0036159B4}
+	EndGlobalSection
+EndGlobal

@@ -15,6 +15,69 @@ public sealed class JunkService
 {
     private static readonly TimeSpan RecentWindow = TimeSpan.FromMinutes(10);
 
+    /// <summary>
+    /// Revo Uninstaller Pro junk file extension patterns.
+    /// </summary>
+    public static readonly string[] JunkPatterns =
+    [
+        "*.tmp", "*.temp", "*.old", "*.gid", "*.fts", "*.$$$",
+        "*.---", "*.??$", "*.___", "*.~mp", "*._mp", "*.$db",
+        "*.db$", "*.dmp", "thumbs.db", "*.??~"
+    ];
+
+    /// <summary>
+    /// Revo Uninstaller Pro directory exclusions to safeguard critical Windows and application folders.
+    /// </summary>
+    public static readonly string[] ExcludedDirectories =
+    [
+        "$Recycle.Bin",
+        "Recycled",
+        "System Volume Information",
+        "WinSxS",
+        "assembly",
+        "servicing",
+        "System32",
+        "SysWOW64",
+        "INF",
+        "Installer",
+        "Panther",
+        "SoftwareDistribution",
+        "CatRoot",
+        "CatRoot2",
+        "Crypto",
+        "Windows Defender",
+        "Microsoft\\Protect",
+        "Security",
+        "Config",
+        "DriverStore",
+        "Boot",
+        "Recovery",
+        "CSC",
+        "Prefetch",
+        "WindowsApps",
+        "Package Cache"
+    ];
+
+    public static bool IsExcluded(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var normalized = path.Replace('/', '\\');
+        foreach (var excluded in ExcludedDirectories)
+        {
+            if (normalized.Contains(@"\" + excluded + @"\", StringComparison.OrdinalIgnoreCase) ||
+                normalized.EndsWith(@"\" + excluded, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static readonly string[] ChromiumCacheSubdirectories =
     [
         "Cache",
@@ -76,7 +139,7 @@ public sealed class JunkService
                     $"{string.Join(", ", runningBrowsers)} is running. Close browsers before cleaning; locked files are skipped.");
             }
 
-            var cutoff = DateTime.UtcNow - RecentWindow;
+            var cutoff = DateTime.UtcNow - (definition.RecentWindow ?? RecentWindow);
             foreach (var root in definition.Roots)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -138,7 +201,6 @@ public sealed class JunkService
             return result;
         }
 
-        var cutoff = DateTime.UtcNow - RecentWindow;
         foreach (var definition in definitions)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -148,6 +210,8 @@ public sealed class JunkService
                 result.Messages.Add($"{category.Title}: report-only in this version.");
                 continue;
             }
+
+            var cutoff = DateTime.UtcNow - (definition.RecentWindow ?? RecentWindow);
 
             if (definition.IsRecycleBin)
             {
@@ -252,7 +316,7 @@ public sealed class JunkService
         {
             var options = new EnumerationOptions
             {
-                RecurseSubdirectories = false,
+                RecurseSubdirectories = definition.RecurseSubdirectories,
                 IgnoreInaccessible = true,
                 AttributesToSkip = FileAttributes.ReparsePoint
             };
@@ -261,7 +325,12 @@ public sealed class JunkService
                 ? definition.Patterns.SelectMany(pattern => Directory.EnumerateFiles(root, pattern, options))
                 : Directory.EnumerateFileSystemEntries(root, "*", options);
 
-            return (entries.Take(50_000).ToList(), null);
+            var filtered = entries
+                .Where(e => !IsExcluded(e))
+                .Take(50_000)
+                .ToList();
+
+            return (filtered, null);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -283,6 +352,18 @@ public sealed class JunkService
             },
             [_paths.Temp, Local("Temp")],
             []);
+
+        yield return new Definition(
+            new JunkCategory
+            {
+                Id = "revo-junk-patterns",
+                Title = "Temporary and backup file remnants",
+                Description = "Files matching temporary patterns (*.tmp, *.temp, *.old, *.gid, *.fts, *.$db, *.dmp, thumbs.db, *.??~) older than 24 hours.",
+            },
+            [_paths.Temp, Local("Temp"), ProgramData("Temp"), Local("CrashDumps")],
+            JunkPatterns,
+            recurse: true,
+            recentWindow: TimeSpan.FromHours(24));
 
         yield return new Definition(
             new JunkCategory
@@ -674,16 +755,25 @@ public sealed class JunkService
 
     private sealed class Definition
     {
-        public Definition(JunkCategory category, IReadOnlyList<string> roots, IReadOnlyList<string> patterns)
+        public Definition(
+            JunkCategory category,
+            IReadOnlyList<string> roots,
+            IReadOnlyList<string> patterns,
+            bool recurse = false,
+            TimeSpan? recentWindow = null)
         {
             Category = category;
             Roots = roots.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             Patterns = patterns;
+            RecurseSubdirectories = recurse;
+            RecentWindow = recentWindow;
         }
 
         public JunkCategory Category { get; }
         public IReadOnlyList<string> Roots { get; }
         public IReadOnlyList<string> Patterns { get; }
+        public bool RecurseSubdirectories { get; }
+        public TimeSpan? RecentWindow { get; }
         public bool IsRecycleBin { get; init; }
     }
 }

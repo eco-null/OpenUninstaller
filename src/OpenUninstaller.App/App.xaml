@@ -1,0 +1,48 @@
+<Application x:Class="OpenUninstaller.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:infra="clr-namespace:OpenUninstaller.App.Infrastructure"
+             xmlns:vm="clr-namespace:OpenUninstaller.App.ViewModels"
+             xmlns:views="clr-namespace:OpenUninstaller.App.Views"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Dark.xaml" />
+                <ResourceDictionary Source="Themes/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <infra:BoolToVisibilityConverter x:Key="BoolVisibility" />
+            <infra:InverseBoolToVisibilityConverter x:Key="InverseBoolVisibility" />
+            <infra:InverseBooleanConverter x:Key="InverseBool" />
+            <infra:NullToVisibilityConverter x:Key="NullToVis" />
+            <infra:EmptyStringToVisibilityConverter x:Key="TextToVis" />
+
+            <DataTemplate DataType="{x:Type vm:ProgramsViewModel}">
+                <views:ProgramsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:AutorunsViewModel}">
+                <views:AutorunsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:JunkViewModel}">
+                <views:JunkView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:PrivacyViewModel}">
+                <views:PrivacyView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:StoreAppsViewModel}">
+                <views:StoreAppsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:BackupsViewModel}">
+                <views:BackupsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:WindowsToolsViewModel}">
+                <views:WindowsToolsView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+                <views:SettingsView />
+            </DataTemplate>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

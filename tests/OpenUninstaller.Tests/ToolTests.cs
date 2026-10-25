@@ -450,7 +450,6 @@ public sealed class ToolTests
         var drives = service.GetDrives();
 
         Assert.NotNull(drives);
-        // On any normal Windows machine running tests, at least system drive exists
         if (drives.Count > 0)
         {
             var first = drives[0];

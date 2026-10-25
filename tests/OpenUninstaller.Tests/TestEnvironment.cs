@@ -214,7 +214,6 @@ public sealed class TestEnvironment : IDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Best-effort fixture cleanup.
         }
 
         try
@@ -239,7 +238,6 @@ public sealed class TestEnvironment : IDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Windows may still hold a file handle briefly; the OS temp cleaner will catch it.
         }
     }
 }

@@ -164,9 +164,6 @@ public sealed class FileSnapshotter
             .ToList();
     }
 
-    /// <summary>
-    /// File and directory paths excluded during installer trace captures, matching Revo Uninstaller Pro rules.
-    /// </summary>
     public static readonly string[] ExcludedFilePatterns =
     [
         @"\Microsoft\Windows\ClipSVC",
@@ -183,7 +180,6 @@ public sealed class FileSnapshotter
             return true;
         }
 
-        // Installers write ephemeral files to temp; they are never meaningful leftovers.
         if (IsUnderRoot(path, _paths.Temp))
         {
             return true;

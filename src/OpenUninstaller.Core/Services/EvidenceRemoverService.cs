@@ -53,7 +53,6 @@ public sealed class EvidenceRemoverService
             }
             catch (Exception)
             {
-                // Drive might have been disconnected or permission restricted
             }
         }
 
@@ -128,14 +127,12 @@ public sealed class EvidenceRemoverService
         try
         {
             Directory.CreateDirectory(wipeDir);
-            // Hide the directory to avoid interfering with user
             try
             {
                 File.SetAttributes(wipeDir, FileAttributes.Directory | FileAttributes.Hidden);
             }
             catch
             {
-                // Best effort attribute
             }
 
             var buffer = new byte[ChunkSize];
@@ -168,7 +165,6 @@ public sealed class EvidenceRemoverService
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        // Determine write size based on remaining free space
                         var remainingDriveFree = driveInfo.AvailableFreeSpace;
                         if (remainingDriveFree <= 0)
                         {
@@ -227,7 +223,6 @@ public sealed class EvidenceRemoverService
         }
         finally
         {
-            // Clean up temporary wipe files and directory
             foreach (var file in createdFiles)
             {
                 try
@@ -239,7 +234,6 @@ public sealed class EvidenceRemoverService
                 }
                 catch
                 {
-                    // Best effort cleanup
                 }
             }
 
@@ -252,7 +246,6 @@ public sealed class EvidenceRemoverService
             }
             catch
             {
-                // Best effort directory cleanup
             }
         }
     }

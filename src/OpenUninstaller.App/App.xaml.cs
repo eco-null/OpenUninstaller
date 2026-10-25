@@ -46,7 +46,6 @@ public partial class App : Application
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Diagnostics are optional.
         }
 #endif
     }

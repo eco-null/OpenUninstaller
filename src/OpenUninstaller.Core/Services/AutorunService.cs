@@ -120,9 +120,6 @@ public sealed class AutorunService
         AddScheduledTaskEntries(result);
         AddDisabledEntries(result);
 
-        // Services and tasks keep their definition while disabled, so the live scanner and the
-        // disabled store can both describe the same id. The disabled record wins; it is the one
-        // that knows how to restore the original start mode or task state.
         var unique = new Dictionary<string, AutorunEntry>(StringComparer.Ordinal);
         foreach (var entry in result.Entries.OrderByDescending(e =>
                      e.Source is AutorunSourceKind.DisabledService
@@ -323,9 +320,6 @@ public sealed class AutorunService
         var raw = _registry.GetValue(store, "Payload")?.AsString();
         if (string.IsNullOrWhiteSpace(raw))
         {
-            // A task can be disabled by Windows, its vendor, or another tool, so no original
-            // payload exists. Enabling through the Task Scheduler is still unambiguous and does
-            // not overwrite user data. A service start mode, by contrast, cannot be guessed.
             if (entry.Source == AutorunSourceKind.ScheduledTask)
             {
                 if (!ScheduledTaskGuard.ValidateTaskName(entry.TaskName, out var taskNameError))
@@ -541,7 +535,6 @@ public sealed class AutorunService
             }
             catch
             {
-                // Ignore registry access issues for disabled root
             }
         }
 
@@ -639,7 +632,6 @@ public sealed class AutorunService
         }
         catch
         {
-            // History recording must never fail the underlying operation
         }
     }
 
@@ -670,8 +662,6 @@ public sealed class AutorunService
             var start = _registry.GetValue(location, "Start")?.AsInt32() ?? 3;
             if (start is 0 or 1)
             {
-                // Boot and system drivers are not user-level autoruns. Disabling them from a
-                // general-purpose list can make the machine unbootable; keep them out entirely.
                 continue;
             }
 

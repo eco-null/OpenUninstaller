@@ -132,7 +132,6 @@ public sealed class MaintenanceService
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // Retention is housekeeping; a locked file is retried on the next pass.
             }
         }
 

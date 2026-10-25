@@ -172,9 +172,6 @@ public sealed class LeftoverScanner
             }
             else if (trace.SchemaVersion < 2)
             {
-                // Schema 1 merged new keys and values added to existing keys. Deleting the key
-                // would be unsafe when the latter is the real evidence; keep it visible but not
-                // selectable and ask the user to re-trace with the current version.
                 item.ProtectedReason =
                     "Legacy trace schema 1 cannot prove this key was created by the installer. Re-run trace-install to use value-level evidence.";
             }
@@ -182,9 +179,6 @@ public sealed class LeftoverScanner
             result.Items.Add(item);
         }
 
-        // Schema 2 traces keep values added to a pre-existing key separate from keys created by
-        // the installer. Removing the whole key here would delete sibling values the installer
-        // never touched, so each recorded value becomes its own review item.
         if (trace.SchemaVersion >= 2)
         {
             foreach (var entry in trace.RegistryValues)
@@ -369,7 +363,7 @@ public sealed class LeftoverScanner
             });
         }
 
-        // 1. The recorded install location is the strongest heuristic signal.
+        // ------------------------------------------------------------------ Install Location
         if (!string.IsNullOrWhiteSpace(program.InstallLocation))
         {
             var installLocation = program.InstallLocation.TrimEnd('\\');
@@ -388,7 +382,7 @@ public sealed class LeftoverScanner
             }
         }
 
-        // 2. Vendor registry branches: descend only into folders that resemble this product.
+        // ------------------------------------------------------------------ Vendor Registry
         foreach (var hive in new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser })
         {
             foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
@@ -449,9 +443,7 @@ public sealed class LeftoverScanner
             }
         }
 
-        // 3. Common per-user and per-machine folders. Direct children are scored; publisher
-        //    folders are opened one level further instead of being offered as a whole, because a
-        //    publisher folder is often shared by several products.
+        // ----------------------------------------------------------------- Application Folders
         var fileRoots = new List<string>
         {
             _paths.ProgramData,
@@ -517,8 +509,6 @@ public sealed class LeftoverScanner
                     continue;
                 }
 
-                // The direct child is a publisher or a generic vendor folder. Look for a product
-                // folder inside it, scoring the combined vendor + product name.
                 IEnumerable<string> grandchildren;
                 try
                 {
@@ -559,7 +549,7 @@ public sealed class LeftoverScanner
             }
         }
 
-        // 4. Start Menu and desktop shortcuts, including vendor subfolders.
+        // ------------------------------------------------------------------ Shortcuts
         var shortcutRoots = new[]
         {
             _paths.UserStartMenuPrograms,
@@ -1382,7 +1372,6 @@ public sealed class LeftoverScanner
             var comServer = executable is null && classId is not null ? ComServerPath(classId) : null;
             if (executable is null && comServer is null)
             {
-                // Neither a command nor a registered COM server gives reviewable evidence.
                 continue;
             }
 
@@ -1413,7 +1402,6 @@ public sealed class LeftoverScanner
 
             if (executable is null && serverExists && !underInstall)
             {
-                // A COM handler that still resolves to a live, unrelated server is not a leftover.
                 continue;
             }
 

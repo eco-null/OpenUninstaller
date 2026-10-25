@@ -38,7 +38,8 @@ public sealed class LeftoverScanner
         "microsoft", "windows", "packages", "temp", "tmp", "installer", "common files", "windowsapps",
         "package cache", "nuget", "connecteddevicesplatform", "microsoft shared", "application data",
         "desktop.ini", "openuninstaller", "startup", "public", "default", "default user",
-        "all users", "$recycle.bin", "system volume information"
+        "all users", "$recycle.bin", "system volume information", "winsxs", "assembly", "clipsvc",
+        "deliveryoptimization"
     };
 
     private readonly IRegistryStore _registry;

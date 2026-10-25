@@ -58,15 +58,7 @@ public partial class App : Application
             }
             else
             {
-                var targetName = Path.GetFileNameWithoutExtension(resolvedTarget);
-                var targetProgram = new InstalledProgram
-                {
-                    Id = "custom_target_" + Guid.NewGuid().ToString("N"),
-                    Name = string.IsNullOrWhiteSpace(targetName) ? resolvedTarget : targetName,
-                    InstallLocation = Directory.Exists(resolvedTarget) ? resolvedTarget : Path.GetDirectoryName(resolvedTarget),
-                    DisplayIcon = File.Exists(resolvedTarget) ? resolvedTarget : null,
-                    Location = new RegistryLocation(Microsoft.Win32.RegistryHive.CurrentUser, Microsoft.Win32.RegistryView.Default, @"Software\OpenUninstaller\CustomTargets")
-                };
+                var targetProgram = HunterService.CreateCleanupTarget(resolvedTarget);
                 windows.ShowUninstall(targetProgram, force: true, silent: false, scanOnly: true);
             }
         }

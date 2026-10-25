@@ -42,15 +42,15 @@ public partial class HunterActionDialog : Window
         Close();
     }
 
-    private void OnKillProcessClick(object sender, RoutedEventArgs e)
+    private async void OnKillProcessClick(object sender, RoutedEventArgs e)
     {
         try
         {
             if (_match.ProcessId > 0)
             {
-                var proc = Process.GetProcessById(_match.ProcessId);
-                proc.Kill(entireProcessTree: true);
-                MessageBox.Show(this, $"Process {proc.ProcessName} (PID {_match.ProcessId}) was terminated.", "Hunter mode", MessageBoxButton.OK, MessageBoxImage.Information);
+                IsEnabled = false;
+                await StopTargetProcessAsync();
+                MessageBox.Show(this, $"Process {_match.ProcessName} (PID {_match.ProcessId}) was terminated.", "Hunter mode", MessageBoxButton.OK, MessageBoxImage.Information);
                 ActionResult = HunterAction.StopProcess;
                 Close();
                 return;
@@ -60,13 +60,17 @@ public partial class HunterActionDialog : Window
         {
             MessageBox.Show(this, $"Could not stop process: {ex.Message}", "Hunter mode", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+        finally
+        {
+            IsEnabled = true;
+        }
     }
 
-    private void OnKillDeleteClick(object sender, RoutedEventArgs e)
+    private async void OnKillDeleteClick(object sender, RoutedEventArgs e)
     {
         var confirm = MessageBox.Show(
             this,
-            $"Are you sure you want to terminate the process and permanently delete its executable?\n\n{_match.ExePath}",
+            $"Stop the process and back up its executable before deleting it?\n\n{_match.ExePath}",
             "Confirm Kill and Delete",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
@@ -79,25 +83,38 @@ public partial class HunterActionDialog : Window
 
         try
         {
-            if (_match.ProcessId > 0)
+            IsEnabled = false;
+            var services = ((App)Application.Current).Services;
+            var guard = services.Guard.ValidateForDeletion(_match.ExePath ?? string.Empty, recursive: false);
+            if (!guard.Allowed || guard.NormalizedPath is not { } path)
             {
-                try
-                {
-                    var proc = Process.GetProcessById(_match.ProcessId);
-                    proc.Kill(entireProcessTree: true);
-                    proc.WaitForExit(3000);
-                }
-                catch (Exception)
-                {
-                }
+                throw new InvalidOperationException(guard.Reason ?? "The executable is protected.");
             }
 
-            if (!string.IsNullOrWhiteSpace(_match.ExePath) && File.Exists(_match.ExePath))
+            if (!File.Exists(path))
             {
-                File.Delete(_match.ExePath);
+                throw new FileNotFoundException("The executable no longer exists.", path);
             }
 
-            MessageBox.Show(this, "Process stopped and file deleted successfully.", "Hunter mode", MessageBoxButton.OK, MessageBoxImage.Information);
+            await StopTargetProcessAsync();
+            var result = await services.Deletion.DeleteAsync(
+                _match.Program?.Name ?? _match.ProcessName ?? Path.GetFileName(path),
+                [new LeftoverItem
+                {
+                    Id = $"file|{path.ToLowerInvariant()}",
+                    Kind = LeftoverKind.File,
+                    DisplayPath = path,
+                    FilePath = path,
+                    Confidence = LeftoverConfidence.Exact,
+                    Reason = "Executable selected in Hunter Mode."
+                }], dryRun: false);
+            if (result.Items.Count != 1 || result.Items[0].Status != DeletionStatus.Deleted)
+            {
+                throw new InvalidOperationException(string.Join(Environment.NewLine,
+                    result.Items.Select(i => i.Detail).Concat(result.Warnings)));
+            }
+
+            MessageBox.Show(this, $"Executable backed up and deleted.\nBackup: {result.BackupId}", "Hunter mode", MessageBoxButton.OK, MessageBoxImage.Information);
             ActionResult = HunterAction.StopAndDelete;
             Close();
         }
@@ -105,6 +122,29 @@ public partial class HunterActionDialog : Window
         {
             MessageBox.Show(this, $"Could not delete file: {ex.Message}", "Hunter mode", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+        finally
+        {
+            IsEnabled = true;
+        }
+    }
+
+    private async Task StopTargetProcessAsync()
+    {
+        if (_match.ProcessId <= 0 || string.IsNullOrWhiteSpace(_match.ExePath))
+        {
+            throw new InvalidOperationException("The target process identity is unavailable.");
+        }
+
+        using var process = Process.GetProcessById(_match.ProcessId);
+        var currentPath = process.MainModule?.FileName;
+        if (string.IsNullOrWhiteSpace(currentPath)
+            || !string.Equals(Path.GetFullPath(currentPath), Path.GetFullPath(_match.ExePath), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("The process executable changed. Select the target again.");
+        }
+
+        process.Kill(entireProcessTree: true);
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
     }
 
     private void OnOpenFolderClick(object sender, RoutedEventArgs e)

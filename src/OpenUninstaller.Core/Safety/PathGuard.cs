@@ -117,26 +117,7 @@ public sealed class PathGuard
             }
         }
 
-        try
-        {
-            if (File.Exists(full) || Directory.Exists(full))
-            {
-                var attributes = File.GetAttributes(full);
-                if ((attributes & FileAttributes.ReparsePoint) != 0)
-                {
-                    return GuardResult.Reject("Reparse points (junctions/symlinks) are never deleted.");
-                }
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            if (recursive)
-            {
-                return GuardResult.Reject("Could not verify the target's attributes.");
-            }
-        }
-
-        return GuardResult.Allow(full);
+        return ValidatePathComponents(full);
     }
 
     /// <summary>
@@ -186,20 +167,29 @@ public sealed class PathGuard
             }
         }
 
-        try
+        return ValidatePathComponents(full);
+    }
+
+    private static GuardResult ValidatePathComponents(string full)
+    {
+        // A regular file can still be reached through a junction in any ancestor.
+        for (string? component = full; component is not null; component = Path.GetDirectoryName(component))
         {
-            if (File.Exists(full) || Directory.Exists(full))
+            try
             {
-                var attributes = File.GetAttributes(full);
-                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                if ((File.GetAttributes(component) & FileAttributes.ReparsePoint) != 0)
                 {
-                    return GuardResult.Reject("Reparse points are skipped.");
+                    return GuardResult.Reject("The path contains a reparse point (junction/symlink).", full);
                 }
             }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return GuardResult.Reject("Could not verify the target's attributes.");
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                // Restore targets may not exist yet; their existing ancestors still need checking.
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return GuardResult.Reject("Could not verify the path's attributes.", full);
+            }
         }
 
         return GuardResult.Allow(full);

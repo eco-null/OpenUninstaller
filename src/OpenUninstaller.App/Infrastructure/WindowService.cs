@@ -91,7 +91,8 @@ public sealed class WindowService
     {
         var window = new HunterWindow(programs, program =>
         {
-            ShowUninstall(program, force: false, silent: _services.Settings.PreferSilentUninstall);
+            ShowUninstall(program, force: false, silent: _services.Settings.PreferSilentUninstall,
+                scanOnly: program.CleanupTargetPath is not null);
         })
         {
             Owner = Owner ?? Application.Current.MainWindow

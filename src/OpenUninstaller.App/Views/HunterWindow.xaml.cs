@@ -105,15 +105,7 @@ public partial class HunterWindow : Window, IDisposable
                     var program = match.Program;
                     if (program is null && !string.IsNullOrWhiteSpace(match.ExePath))
                     {
-                        var name = Path.GetFileNameWithoutExtension(match.ExePath);
-                        program = new InstalledProgram
-                        {
-                            Id = "hunter_" + Guid.NewGuid().ToString("N"),
-                            Name = string.IsNullOrWhiteSpace(name) ? match.ExePath : name,
-                            InstallLocation = Directory.Exists(match.ExePath) ? match.ExePath : Path.GetDirectoryName(match.ExePath),
-                            DisplayIcon = File.Exists(match.ExePath) ? match.ExePath : null,
-                            Location = new RegistryLocation(Microsoft.Win32.RegistryHive.CurrentUser, Microsoft.Win32.RegistryView.Default, @"Software\OpenUninstaller\HunterTargets")
-                        };
+                        program = HunterService.CreateCleanupTarget(match.ExePath);
                     }
 
                     Close();

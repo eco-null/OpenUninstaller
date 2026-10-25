@@ -7,6 +7,21 @@ namespace OpenUninstaller.Core.Services;
 /// <summary>Maps a window under the cursor to its process and owning installed application.</summary>
 public static class HunterService
 {
+    public static InstalledProgram CreateCleanupTarget(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(full));
+        return new InstalledProgram
+        {
+            Id = "custom_target_" + Guid.NewGuid().ToString("N"),
+            Name = string.IsNullOrWhiteSpace(name) ? full : name,
+            CleanupTargetPath = full,
+            DisplayIcon = File.Exists(full) ? full : null,
+            Location = new RegistryLocation(Microsoft.Win32.RegistryHive.CurrentUser,
+                Microsoft.Win32.RegistryView.Default, @"Software\OpenUninstaller\CustomTargets")
+        };
+    }
+
     public static HunterMatch MatchCursor(IReadOnlyList<InstalledProgram> programs)
         => MatchWindow(WindowAtCursor(), programs);
 

@@ -17,6 +17,8 @@ public sealed record InstalledProgram
     public string? Version { get; init; }
     public string? Publisher { get; init; }
     public string? InstallLocation { get; init; }
+    /// <summary>Explicit user-selected cleanup scope; never expand it with application heuristics.</summary>
+    public string? CleanupTargetPath { get; init; }
     public string? UninstallCommand { get; init; }
     public string? QuietUninstallCommand { get; init; }
     public string? DisplayIcon { get; init; }

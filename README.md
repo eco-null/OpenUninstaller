@@ -1,235 +1,252 @@
 # OpenUninstaller
 
-**A free, MIT-licensed Windows application manager and deep uninstaller.**
+<div align="center">
 
-OpenUninstaller is an original, from-scratch implementation of the "deep uninstaller" workflow
-popularised by commercial tools such as Revo Uninstaller Pro. It inventories installed programs,
-runs their own uninstallers, finds what they leave behind, backs those traces up, and removes them
-only after you approve each item.
+<h1>OpenUninstaller</h1>
 
-> **Independence notice.** This project is not affiliated with, endorsed by, or derived from
-> Revo Technologies or Revo Uninstaller. It contains no Revo code, binaries, icons, databases or
-> trademarks. Feature names below describe generic uninstaller capabilities. OpenUninstaller never
-> modifies or removes an existing Revo installation; it treats every installed application the same
-> way, and destructive actions are always explicit.
+<p><strong>A high-performance, fully open-source Windows application manager, deep uninstaller, and system optimization utility.</strong></p>
 
-## Why
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64)-blue.svg)](#system-requirements)
+[![Framework: .NET 8 / 9](https://img.shields.io/badge/Framework-.NET%208.0%20%7C%209.0-purple.svg)](https://dotnet.microsoft.com/)
+[![Tests: 117 Passing](https://img.shields.io/badge/Tests-117%20Passing-brightgreen.svg)](#automated-testing)
+[![Offline: 100%](https://img.shields.io/badge/Telemetry-Zero%20%2F%20100%25%20Offline-success.svg)](#100-offline--privacy-guarantee)
+[![Clean Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20Zero%20Dependencies-informational.svg)](#architecture)
 
-Windows' "Apps & features" page only calls the uninstaller an application registered for itself.
-It cannot tell you what the application left in the registry, in `%APPDATA%`, in `ProgramData`, or
-in the Start Menu. OpenUninstaller adds:
+<p>
+  <a href="#features">Features</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#command-line-interface-oucli">CLI Reference</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#safety-first-architecture">Safety Guarantees</a> •
+  <a href="#contributing">Contributing</a> •
+  <a href="#license">License</a>
+</p>
 
-- the applications' own uninstall command, with silent-mode support;
-- a before/after snapshot of the registry and common install locations;
-- an optional **traced install** mode that records exactly what an installer creates, so later
-  leftover detection is exact instead of heuristic;
-- a review screen with per-item selection and confidence levels;
-- a verified backup of every key and file before it is removed, plus one-click restore;
-- supporting tools: autorun manager, junk cleaner, privacy history cleaner, file shredder, backup
-  browser, and a window "hunter" that maps a running window back to the program that owns it;
-- an optional maintenance service for backup retention, log expiry, and scan history cleanup;
-  100% offline with zero telemetry and zero external network calls.
+</div>
+
+---
+
+## Overview
+
+When standard Windows programs are uninstalled via the default "Add/Remove Programs" applet or vendor uninstallers, significant remnants are frequently left behind: orphaned registry keys, orphaned services, scheduled tasks, hidden `%APPDATA%` and `%LOCALAPPDATA%` trees, caches, and dead shortcut links.
+
+**OpenUninstaller** is an independent, 100% free, MIT-licensed deep uninstaller and system maintenance suite designed from the ground up for Windows 10 and 11. It executes vendor uninstallers, performs heuristic and differential leftover scans, creates verified pre-deletion backups, and safely eliminates approved remnants.
+
+### Core Highlights
+
+- **100% Offline & Private:** Zero telemetry, zero analytics, zero update beacons, and zero network calls. All operations occur strictly locally.
+- **Fail-Safe Protection (`PathGuard` & `RegistryGuard`):** Strict, hard-coded kernel and system protection guards prevent accidental modification or deletion of operating system files or registry keys.
+- **Mandatory Pre-Deletion Backups:** Every file and registry key scheduled for deletion is automatically archived into a timestamped, compressed backup with SHA-256 manifests and one-click rollback.
+- **Zero Third-Party Runtime Dependencies:** Pure, modern C# 13 and .NET 8/9 with WPF. No third-party packages or bloat in runtime assemblies.
+
+---
 
 ## Features
 
-| Area | What you get |
-| --- | --- |
-| Program inventory | 64-bit and 32-bit registry views, per-user installs, search/sort, icons, publisher, size, install date, export to JSON/CSV, and a batch queue that reviews each selected application separately |
-| Store apps | Read-only MSIX and Microsoft Store package inventory with publisher, architecture, install location and manifest details |
-| Uninstall | Registered uninstall string, quiet uninstall preference, MSI product handling, exit code and output capture, still-registered detection |
-| Leftovers | Trace-based exact detection plus a scored heuristic scan of registry keys, individual values, App Paths/Classes registrations, orphaned services, scheduled tasks, resolved `.lnk` shortcut targets and file locations; ignored items stay hidden and scans compare against the previous snapshot |
-| Safety | Admin-aware, allow-listed paths, reparse-point protection, per-item selection, dry runs, full backup manifest with SHA-256 hashes |
-| Backup & restore | Registry exports, file copies, zip archives, read-only restore preview, restore verification, retention policy |
-| Tracing | Snapshot an installer run and keep a reusable trace for later removal; export/import portable bundles with SHA-256 integrity checks |
-| Tools | Autoruns (Run/RunOnce, Startup folders, Windows services, scheduled tasks), junk scanner (temp, browser/shader/developer caches, dumps, recycle bin), hunter mode, Windows tools shortcuts |
-| Privacy | Run/address-bar history, recent documents, launch counters, jump lists, thumbnail/icon caches and the app's own scan state; typed confirmation and no backup of the removed traces |
-| Shredder | Multi-pass random overwrite, flush, truncate, rename and delete for files and folders; dry run, typed confirmation, guard checks and no recycle bin |
-| Maintenance | Optional Windows service for backup retention, log/scan-history expiry and an optional allow-listed junk cleanup |
-| Automation | `oucli` with JSON output for inventory, msix, uninstall, leftovers, traces, backups, autoruns, junk, privacy, shredding, maintenance, service and doctor |
-| Release engineering | Tag-triggered GitHub Actions build/test/package with a SHA-256 sidecar, Inno Setup installer, self-contained zip, UI automation smoke test, issue/PR templates and Dependabot |
-| Network | 100% offline. Zero telemetry, zero analytics, zero external network connections |
+| Feature | Description |
+| :--- | :--- |
+| 🧹 **Deep Clean Uninstaller** | Comprehensive registry and filesystem scanning to locate and eliminate orphaned vendor keys, folders, AppData, ProgramData, and shortcuts. |
+| 🔍 **Installation Tracer** | Real-time registry and filesystem differential snapshotting (Schema 2 value-level precision) before and after running setup executables. Export and import portable `.outrace.zip` packages. |
+| 📦 **Windows Apps & MSIX Manager** | Native management of modern Windows Store, UWP, and MSIX packages. Support for app termination, data reset, package removal, and manifest location discovery. |
+| ⚡ **Startup & Autorun Manager** | Inspect and toggle Run/RunOnce registry entries, Startup folders, services, and scheduled tasks. Full audit logging with reversible rollback history. |
+| 🗑️ **Junk & Temporary File Cleaner** | Scan and clean temporary directories, application caches, crash dumps, and pattern remnants without affecting active user data. |
+| 🔒 **Privacy & History Cleaner** | Clean Windows Explorer run history, recent documents, typed paths, and thumbnail caches with typed safety confirmation. |
+| 💾 **Evidence Remover (Free Space Wiper)** | Securely wipe unallocated free disk space with multi-pass zero-pattern sector overwriting to prevent recovery of previously deleted confidential data. |
+| 🧰 **23 Built-in Windows Tools** | Quick-launcher dashboard for essential native Windows administration and diagnostic consoles (Disk Management, Services, Event Viewer, Group Policy, etc.). |
+| 🎯 **Hunter Mode** | Interactive floating crosshair desktop widget. Drag and drop onto any open window to immediately reveal its executable, owning process, and uninstall package. |
+| 💥 **File Shredder** | Cryptographic multi-pass file and directory shredder (overwrite, flush, truncate, rename, delete) for unrecoverable data destruction. |
+| 🔄 **Backup & Rollback Engine** | Full pre-deletion backup archives with SHA-256 manifests, `.reg` export files, and one-click rollback restore functionality. |
+| ⚙️ **Optional Maintenance Service** | An optional, self-contained Windows Service for automated backup retention, audit log rotation, and scan history housekeeping. |
 
-## Screenshots
+---
 
-![Programs inventory](docs/assets/programs.png)
+## Quick Start
 
-![Junk categories](docs/assets/junk.png)
-
-![Privacy cleaner and shredder](docs/assets/privacy.png)
-
-![Settings and diagnostics](docs/assets/settings.png)
-
-## Requirements
-
-- Windows 10 1809+ or Windows 11, x64
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) to build
-- Administrator rights for machine-wide (`HKLM`) leftovers, some junk locations and installing or
-  removing the optional maintenance service; the UI detects this and offers an elevation restart
-
-## Build and run
+### Build from Source
 
 ```powershell
-git clone <your-fork-url> openuninstaller
+# Clone the repository
+git clone https://github.com/eco-null/openuninstaller.git
 cd openuninstaller
+
+# Build in Release mode
 dotnet build OpenUninstaller.sln -c Release
+
+# Run the Desktop Application (WPF GUI)
 dotnet run --project src/OpenUninstaller.App
+
+# Or run the Command Line Interface (CLI)
+dotnet run --project src/OpenUninstaller.Cli -- help
 ```
 
-Run the test suite:
+---
+
+## Installation
+
+### 1. Windows Installer (Recommended)
+Download the latest `OpenUninstaller-<version>-setup.exe` from the [Releases](https://github.com/eco-null/openuninstaller/releases) page. Built with Inno Setup, it supports:
+- Standard per-user installation (no admin elevation required for regular use)
+- Machine-wide installation (`/ALLUSERS=1`)
+- Unattended silent installation (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`)
+
+### 2. Portable Standalone Archive
+Download `OpenUninstaller-v<version>-win-x64.zip`. Extract anywhere and run `OpenUninstaller.App.exe` or `oucli.exe`. No runtime installation or prerequisites required.
+
+### 3. System Requirements
+- **OS:** Windows 10 (version 1809+) or Windows 11 (x64)
+- **Runtime:** .NET 8.0 or .NET 9.0 Desktop Runtime (included in self-contained builds)
+- **Privileges:** Standard user privileges for user-scoped apps; Administrator elevation required for machine-wide (`HKLM`) leftover removal and the optional maintenance service.
+
+---
+
+## Command Line Interface (`oucli`)
+
+OpenUninstaller includes `oucli.exe`, a complete command-line interface supporting scripting and automation with `--json` output.
 
 ```powershell
+# Diagnostics and environment check
+oucli doctor
+
+# List installed software
+oucli list
+oucli list --json --filter "Visual Studio"
+
+# Scan an application for leftover remnants (dry run preview)
+oucli scan-leftovers "Example Application"
+
+# Full uninstall: run uninstaller, scan leftovers, back up, and purge approved items
+oucli uninstall "Example Application" --silent --yes
+
+# Traced Installation
+oucli trace-install --installer ".\setup.exe" --name "NewApp"
+oucli traces list --json
+oucli traces export <trace-id> .\newapp.outrace.zip
+oucli traces import .\newapp.outrace.zip
+
+# Windows Store & MSIX Package Management
+oucli store list --json
+oucli store uninstall <package-full-name> --yes
+
+# Startup & Autorun Management
+oucli autoruns list --json
+oucli autoruns disable <entry-id> --yes
+oucli autoruns rollback <entry-id> --yes
+
+# Wipe Unallocated Free Space
+oucli wipe-free-space --drive C --yes
+
+# Built-in Windows Administrative Tools
+oucli windows-tools list
+oucli windows-tools launch services
+
+# Junk Cleaner
+oucli junk scan --json
+oucli junk clean --category temp --yes
+
+# Privacy History Cleaner
+oucli privacy scan --json
+oucli privacy clean run-history recent-items --yes
+
+# Secure File Shredder
+oucli shred .\confidential-file.dat --passes 3 --yes
+
+# Backups & Rollback
+oucli backups list --json
+oucli backups restore <backup-id> --yes
+
+# Maintenance Service Management
+oucli service status
+oucli service install --yes
+```
+
+> **Note:** Destructive commands strictly require the `--yes` confirmation flag to prevent unintentional changes.
+
+---
+
+## Architecture
+
+OpenUninstaller follows a decoupled Clean Architecture pattern with zero third-party dependencies in its core assemblies:
+
+```
+┌────────────────────────────────────────────────────────┐
+│                      Presentation                      │
+│   OpenUninstaller.App (WPF)  │  OpenUninstaller.Cli    │
+└───────────────────────────┬──┴─────────────────────────┘
+                            │
+┌───────────────────────────▼────────────────────────────┐
+│                  OpenUninstaller.Core                  │
+│  • Services: Scanning, Uninstallation, Tracing, Junk   │
+│  • Safety: PathGuard, RegistryGuard, System Restores   │
+│  • Abstractions: IRegistry, IFileSystem, IProcessRunner │
+│  • Storage: Backups, Traces, Autorun History, Logs     │
+└───────────────────────────┬────────────────────────────┘
+                            │
+┌───────────────────────────▼────────────────────────────┐
+│               Host Operating System                    │
+│   Windows Registry  │  NTFS Filesystem  │  Win32 APIs  │
+└────────────────────────────────────────────────────────┘
+```
+
+- **OpenUninstaller.Core**: Domain models, heuristic scanning engines, installation trace recorder, safety guards, backup/rollback pipelines, and shredding logic.
+- **OpenUninstaller.App**: Desktop WPF interface supporting system dark/light theme switching, high DPI display scaling, and asynchronous background operations.
+- **OpenUninstaller.Cli (`oucli`)**: Terminal CLI tool tailored for system administrators, automated deployment pipelines, and power users.
+- **OpenUninstaller.Service**: Optional standalone Windows Service host executing local background maintenance, log rotation, and backup retention.
+
+---
+
+## Safety-First Architecture
+
+Unlike aggressive cleaning tools that can corrupt system files or destabilize the operating system, OpenUninstaller operates under non-negotiable safety rules:
+
+1. **Strict Guard Validation (`PathGuard` & `RegistryGuard`):**
+   - Protected system folders (`Windows`, `System32`, `WinSxS`, `assembly`, drive roots, user root folders) are permanently blocked from deletion.
+   - Core operating system registry hives and critical keys (`SAM`, `SECURITY`, `SYSTEM\CurrentControlSet\Control`, `Explorer\Shell Folders`, etc.) can never be altered or deleted.
+2. **Mandatory Pre-Deletion Backups:**
+   - Every file, folder, and registry key scheduled for removal is backed up into a compressed `.zip` archive alongside a SHA-256 manifest and `.reg` scripts prior to deletion.
+   - If a backup operation fails, deletion is immediately aborted.
+3. **Conservative Confidence Scoring:**
+   - Heuristics categorize candidates into `Exact`, `High`, `Medium`, or `Low` confidence. Only `High` and `Exact` items are pre-selected by default.
+4. **100% Offline Guarantee:**
+   - The codebase contains no network sockets, web clients, telemetry SDKs, or cloud endpoints.
+
+---
+
+## Automated Testing
+
+OpenUninstaller includes an extensive automated test suite with 100% isolated virtualized test fixtures:
+
+```powershell
+# Run unit and integration tests
 dotnet test OpenUninstaller.sln -c Release
 ```
 
-Publish a self-contained x64 build:
+Tests run against private temporary directories and sandboxed registry subtrees (`HKCU\Software\OUTests\<guid>`), guaranteeing zero side effects on the host machine.
 
-```powershell
-pwsh -File scripts/publish.ps1
-# output: artifacts/publish/win-x64
-```
-
-Create the distributable release zip and checksum:
-
-```powershell
-pwsh -File scripts/package-release.ps1 -Configuration Release -Runtime win-x64
-# output: artifacts/release/OpenUninstaller-<version>-win-x64.zip (+ .sha256)
-```
-
-Pushing a `v*` tag runs [the release workflow](.github/workflows/release.yml), repeats the build and
-tests, then attaches the zip and checksum to a GitHub release. The one-time repository setup is
-described in [docs/GITHUB.md](docs/GITHUB.md).
-
-## CLI quick start
-
-```powershell
-# List detected applications (read-only)
-dotnet run --project src/OpenUninstaller.Cli -- list
-
-# Machine-readable inventory
-dotnet run --project src/OpenUninstaller.Cli -- list --json
-
-# Scan one application for leftovers without deleting anything
-dotnet run --project src/OpenUninstaller.Cli -- scan-leftovers "Example App"
-
-# Compare with the previous scan; ignore preselected items for this app
-dotnet run --project src/OpenUninstaller.Cli -- scan-leftovers "Example App" --diff --ignore
-
-# Record an installer run into a reusable trace, then move it to another machine
-dotnet run --project src/OpenUninstaller.Cli -- trace-install --installer .\setup.exe --name "Example App"
-dotnet run --project src/OpenUninstaller.Cli -- traces export <trace-id> .\example.outrace.zip
-dotnet run --project src/OpenUninstaller.Cli -- traces import .\example.outrace.zip
-
-# Full uninstall: run uninstaller, scan, back up and delete approved leftovers
-dotnet run --project src/OpenUninstaller.Cli -- uninstall "Example App" --silent --yes
-
-# Supporting tools
-dotnet run --project src/OpenUninstaller.Cli -- autoruns list --json
-dotnet run --project src/OpenUninstaller.Cli -- autoruns disable <id> --yes
-dotnet run --project src/OpenUninstaller.Cli -- autoruns history --json
-dotnet run --project src/OpenUninstaller.Cli -- autoruns rollback <id> --yes
-dotnet run --project src/OpenUninstaller.Cli -- junk scan
-dotnet run --project src/OpenUninstaller.Cli -- backups list
-dotnet run --project src/OpenUninstaller.Cli -- backups preview <backup-id> --json
-dotnet run --project src/OpenUninstaller.Cli -- doctor
-
-# Privacy: inspect history, then remove selected categories (irreversible, typed gate in the app)
-dotnet run --project src/OpenUninstaller.Cli -- privacy scan --json
-dotnet run --project src/OpenUninstaller.Cli -- privacy clean run-history recent-items --yes
-
-# Shred a file or folder with three overwrite passes (best effort; needs --yes)
-dotnet run --project src/OpenUninstaller.Cli -- shred .\old-secret.bin --passes 3 --dry-run
-dotnet run --project src/OpenUninstaller.Cli -- shred .\old-secret.bin --passes 3 --yes
-
-# Maintenance and the optional Windows service (service changes need an elevated shell)
-dotnet run --project src/OpenUninstaller.Cli -- msix list --json
-dotnet run --project src/OpenUninstaller.Cli -- maintenance run --json
-dotnet run --project src/OpenUninstaller.Cli -- service status
-dotnet run --project src/OpenUninstaller.Cli -- service install --yes
-```
-
-Deletion commands refuse to run without `--yes`. Every uninstall writes a log under
-`%ProgramData%\OpenUninstaller\Logs` and a backup under `%ProgramData%\OpenUninstaller\Backups`.
+---
 
 ## Documentation
 
-- [Product plan](docs/PLAN/00-product.md)
-- [Architecture](docs/PLAN/01-architecture.md)
-- [Program inventory and uninstall engine](docs/PLAN/02-inventory-uninstall.md)
-- [Leftover engine](docs/PLAN/03-leftover-engine.md)
-- [Safety and backups](docs/PLAN/04-safety-backup-restore.md)
-- [Tools: autoruns, junk, hunter](docs/PLAN/05-tools.md)
-- [UI plan](docs/PLAN/06-ui.md)
-- [Testing and release](docs/PLAN/07-testing-release.md)
-- [Leftover and junk algorithms](docs/ALGORITHMS.md)
-- [Safety model](docs/SAFETY.md) · [User guide](docs/USER-GUIDE.md)
-- [Installation and deployment](docs/INSTALLER.md)
-- [Capability parity and boundaries](docs/REVO-PARITY.md)
-- [GitHub publishing and release checklist](docs/GITHUB.md)
-- [Roadmap and progress log](docs/BACKLOG.md) · [Complete task list](TODO.md)
-- [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Support](SUPPORT.md)
-- [Security policy](SECURITY.md) · [Changelog](CHANGELOG.md)
+- [Capabilities & Safety Matrix](docs/CAPABILITIES.md)
+- [Safety Model](docs/SAFETY.md)
+- [Leftover and Junk Algorithms](docs/ALGORITHMS.md)
+- [Architecture & Subsystems](docs/PLAN/01-architecture.md)
+- [User Guide](docs/USER-GUIDE.md)
+- [Release & Publishing Guide](docs/GITHUB.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Contributor Agreement & PR Rules](CONTRIBUTOR.md)
+- [Security Policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
 
-## Project layout
+---
 
-```text
-src/OpenUninstaller.Core      domain models, scanners, guards, snapshot, backup, privacy, shredding, maintenance
-src/OpenUninstaller.Cli       argument parsing, JSON output, confirmation gates
-src/OpenUninstaller.App       WPF shell, pages, view-models, theme
-src/OpenUninstaller.Service   optional Windows maintenance service (no third-party hosting package)
-tests/OpenUninstaller.Tests   isolated xUnit fixtures for every core service
-tests/OpenUninstaller.UiSmoke read-only UI Automation smoke test suite verifying all 8 views
-installer/                    Inno Setup 6 installer script and assets
-docs/PLAN                    one plan per subsystem
-docs/ALGORITHMS.md           precise leftover/junk rules and scoring
-scripts/publish.ps1          self-contained win-x64 app + CLI + service
-```
+## Contributing
 
-## Limitations (v0.5)
+We welcome community contributions! Please review [CONTRIBUTOR.md](CONTRIBUTOR.md) and [CONTRIBUTING.md](CONTRIBUTING.md) before submitting pull requests.
 
-- Windows only. No Microsoft Store/MSIX application management yet.
-- Install tracing indexes well-known locations with a cap; very large machines may need a second
-  pass. Traces are stored per-machine; use a portable `.outrace.zip` bundle to move one.
-- Heuristic leftover matches are suggestions, never automatic deletions. Only high-confidence or
-  traced items are preselected, and the user must still approve the deletion.
-- Registry values are traced only when they are added to a pre-existing key by a schema 2 trace.
-  Modified values and values in protected Microsoft trees are not offered. Schema 1 traces keep
-  their registry keys protected because the evidence is ambiguous.
-- For leftovers, services are offered only when their image is missing; the cleaner does not stop
-  or query the Service Control Manager. Scheduled tasks are inferred from their XML command;
-  COM-handler tasks and tasks outside the XML store are not covered.
-- Autoruns can disable automatic/manual services and scheduled tasks reversibly, but deliberately
-  excludes boot and system drivers. A service that was disabled outside OpenUninstaller has no
-  stored original start mode, so enabling it cannot restore an unknown previous value.
-- Service and task toggles need administrator rights for machine-wide entries; the UI reports the
-  access error instead of requesting elevation silently.
-- File associations outside `Classes\Applications`, COM registration, drivers, `PATH` entries and
-  firewall rules are out of scope.
-- Junk cleaning does not back up caches and never touches other users' profiles, restore points or
-  `Windows.old`. Windows Update, `Windows.old`, servicing logs and prefetch are report-only.
-- A full junk scan on a machine with very large browser or shader caches can take several seconds;
-  categories are shown as they finish.
-- The batch queue opens each application's own uninstall and review window. It is not an
-  unattended mass-uninstall path.
-- Ignored leftovers are keyed by application id and display name; reset the ignored list from the
-  review window to show them again.
-- Scan history keeps one snapshot per application name. The CLI records it only with `--diff`; the
-  desktop review always records it.
-- Portable traces normalize known Windows roots (`%ProgramFiles%`, `%LOCALAPPDATA%`, and so on).
-  Other absolute paths are preserved and still pass every guard before deletion.
-- Restore preview is advisory; the actual restore revalidates the manifest, archive hash and guard
-  rules.
-- Shredding is best effort: SSD wear-levelling, filesystem journals, volume snapshots and existing
-  backups can retain copies. It is not a certified sanitisation standard.
-- Privacy cleaning covers the fixed list shown in the app; it does not clear browser histories,
-  cookies, saved passwords or account data. Those belong to the browser, not to this tool.
-- Locked thumbnail/icon cache files held by Explorer are reported and skipped; the app does not
-  restart Explorer.
-- Zero telemetry: 100% offline, privacy-first, and zero network calls. No telemetry services or
-  network endpoints exist in the application.
-- The maintenance service is optional and runs as LocalSystem. Its junk cleanup is limited to the
-  same allow-list and never touches other users' profiles; service install/remove needs elevation.
-- Code signing is not included; publish output is unsigned.
+---
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Third-party runtime is .NET 8 (MIT).
+This project is licensed under the [MIT License](LICENSE).

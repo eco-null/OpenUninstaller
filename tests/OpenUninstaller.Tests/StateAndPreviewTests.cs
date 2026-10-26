@@ -218,8 +218,14 @@ public sealed class StateAndPreviewTests
         ]);
 
         Assert.True(created.Succeeded, string.Join("; ", created.Warnings));
+        Assert.Empty(created.Warnings);
         env.Registry.DeleteKey(location, recursive: true);
         Directory.Delete(folder, recursive: true);
+        for (var i = 0; i < 50 && Directory.Exists(folder); i++)
+        {
+            Thread.Sleep(10);
+        }
+        Assert.False(Directory.Exists(folder));
 
         var preview = backup.PreviewRestore(created.BackupId, overwrite: false);
 

@@ -62,7 +62,10 @@ public sealed class JunkService
         ".azure",
         ".kube",
         ".gnupg",
-        ".docker"
+        ".docker",
+        ".gcloud",
+        ".oci",
+        ".terraform.d"
     ];
 
     public static bool IsExcluded(string path)

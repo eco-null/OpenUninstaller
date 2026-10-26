@@ -34,7 +34,8 @@ public sealed class GuardTests
                      env.Paths.UserProfile,
                      env.Paths.Temp,
                      env.Paths.AppData,
-                     env.Paths.LocalAppData
+                     env.Paths.LocalAppData,
+                     env.Paths.AppDataLocalLow
                  })
         {
             var result = guard.ValidateForDeletion(path);
@@ -86,8 +87,13 @@ public sealed class GuardTests
     [InlineData("SOFTWARE", false)]
     [InlineData("SOFTWARE\\Vendor", false)]
     [InlineData("SOFTWARE\\Vendor\\App", true)]
+    [InlineData("SOFTWARE\\WOW6432Node", false)]
+    [InlineData("SOFTWARE\\WOW6432Node\\Vendor", false)]
+    [InlineData("SOFTWARE\\WOW6432Node\\Vendor\\App", true)]
     [InlineData("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", false)]
     [InlineData("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{00000000-0000-0000-0000-000000000000}", false)]
+    [InlineData("SOFTWARE\\WOW6432Node\\Microsoft\\Windows", false)]
+    [InlineData("SOFTWARE\\WOW6432Node\\OpenUninstaller\\Data", false)]
     [InlineData("SYSTEM\\CurrentControlSet\\Services", false)]
     [InlineData("Software\\OpenUninstaller\\Data", false)]
     public void RegistryGuard_enforces_protected_prefixes(string path, bool allowed)

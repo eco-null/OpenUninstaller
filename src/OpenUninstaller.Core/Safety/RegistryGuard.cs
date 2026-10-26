@@ -23,6 +23,7 @@ public static class RegistryGuard
     private static readonly string[] ExactProtected =
     [
         @"SOFTWARE",
+        @"SOFTWARE\WOW6432NODE",
         @"SYSTEM",
         @"SAM",
         @"SECURITY",
@@ -34,10 +35,10 @@ public static class RegistryGuard
     [
         @"SOFTWARE\MICROSOFT",
         @"SOFTWARE\WOW6432NODE\MICROSOFT",
-        @"SOFTWARE\WOW6432NODE",
         @"SOFTWARE\CLASSES",
         @"SOFTWARE\WOW6432NODE\CLASSES",
         @"SOFTWARE\OPENUNINSTALLER",
+        @"SOFTWARE\WOW6432NODE\OPENUNINSTALLER",
         @"SYSTEM"
     ];
 
@@ -68,6 +69,14 @@ public static class RegistryGuard
         if (parts.Length < 3)
         {
             return GuardResult.Reject("Refusing to delete a top-level registry key.");
+        }
+
+        if (parts.Length >= 2
+            && string.Equals(parts[0], "SOFTWARE", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(parts[1], "WOW6432NODE", StringComparison.OrdinalIgnoreCase)
+            && parts.Length < 4)
+        {
+            return GuardResult.Reject("Refusing to delete a top-level 32-bit registry key.");
         }
 
         var normalized = string.Join('\\', parts).ToUpperInvariant();

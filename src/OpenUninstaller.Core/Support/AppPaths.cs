@@ -21,6 +21,9 @@ public sealed class AppPaths
     public string LocalAppData { get; init; } =
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 
+    public string AppDataLocalLow { get; init; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "AppData", "LocalLow");
+
     public string WindowsDirectory { get; init; } =
         Environment.GetFolderPath(Environment.SpecialFolder.Windows);
 

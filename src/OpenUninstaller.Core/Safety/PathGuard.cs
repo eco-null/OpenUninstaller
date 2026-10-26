@@ -36,7 +36,31 @@ public sealed class PathGuard
             paths.PublicDesktop,
             paths.UserStartMenuPrograms,
             paths.CommonStartMenuPrograms,
-            paths.Temp
+            paths.Temp,
+            Path.Combine(paths.ProgramFiles, "Common Files"),
+            Path.Combine(paths.ProgramFilesX86, "Common Files"),
+            Path.Combine(paths.ProgramFiles, "Microsoft Shared"),
+            Path.Combine(paths.ProgramFilesX86, "Microsoft Shared"),
+            Path.Combine(paths.ProgramData, "Microsoft"),
+            Path.Combine(paths.ProgramData, "Package Cache"),
+            Path.Combine(paths.AppData, "Microsoft"),
+            Path.Combine(paths.LocalAppData, "Microsoft"),
+            Path.Combine(paths.LocalAppData, "Programs"),
+            Path.Combine(paths.LocalAppData, "Packages"),
+            Path.Combine(paths.UserProfile, "Documents"),
+            Path.Combine(paths.UserProfile, "Downloads"),
+            Path.Combine(paths.UserProfile, "Desktop"),
+            Path.Combine(paths.UserProfile, "Pictures"),
+            Path.Combine(paths.UserProfile, "Music"),
+            Path.Combine(paths.UserProfile, "Videos"),
+            Path.Combine(paths.UserProfile, "Saved Games"),
+            Path.Combine(paths.UserProfile, "Favorites"),
+            Path.Combine(paths.UserProfile, "Contacts"),
+            Path.Combine(paths.UserProfile, "Links"),
+            Path.Combine(paths.UserProfile, "Searches"),
+            Path.Combine(paths.UserProfile, ".ssh"),
+            Path.Combine(paths.UserProfile, ".aws"),
+            Path.Combine(paths.UserProfile, ".azure")
         ];
         _ownRoots = [paths.DataDirectory, paths.LocalDataDirectory, paths.AppBaseDirectory];
     }
@@ -109,6 +133,38 @@ public sealed class PathGuard
             return GuardResult.Reject("Windows system files are protected.");
         }
 
+        if (IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".ssh"))
+            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".aws"))
+            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".azure"))
+            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".kube"))
+            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".gnupg"))
+            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".docker")))
+        {
+            return GuardResult.Reject("Protected user credential directory.");
+        }
+
+        if (recursive)
+        {
+            string[] sensitivePersonalRoots =
+            [
+                Path.Combine(_paths.UserProfile, "Documents"),
+                Path.Combine(_paths.UserProfile, "Desktop"),
+                Path.Combine(_paths.UserProfile, "Downloads"),
+                Path.Combine(_paths.UserProfile, "Pictures"),
+                Path.Combine(_paths.UserProfile, "Music"),
+                Path.Combine(_paths.UserProfile, "Videos"),
+                Path.Combine(_paths.UserProfile, "Saved Games")
+            ];
+
+            foreach (var sensitive in sensitivePersonalRoots)
+            {
+                if (PathsEqual(full, sensitive))
+                {
+                    return GuardResult.Reject("Cannot recursively delete personal user root directory.");
+                }
+            }
+        }
+
         foreach (var root in _protectedRoots)
         {
             if (root.Length > 0 && PathsEqual(full, root))
@@ -164,6 +220,40 @@ public sealed class PathGuard
             if (IsSameOrUnder(full, own))
             {
                 return GuardResult.Reject("This path belongs to OpenUninstaller itself.");
+            }
+        }
+
+        string[] sensitiveRoots =
+        [
+            Path.Combine(_paths.UserProfile, "Documents"),
+            Path.Combine(_paths.UserProfile, "Downloads"),
+            Path.Combine(_paths.UserProfile, "Desktop"),
+            Path.Combine(_paths.UserProfile, "Pictures"),
+            Path.Combine(_paths.UserProfile, "Music"),
+            Path.Combine(_paths.UserProfile, "Videos"),
+            Path.Combine(_paths.UserProfile, "Saved Games"),
+            Path.Combine(_paths.UserProfile, "Favorites"),
+            Path.Combine(_paths.UserProfile, "Contacts"),
+            Path.Combine(_paths.UserProfile, "Links"),
+            Path.Combine(_paths.UserProfile, "Searches"),
+            Path.Combine(_paths.UserProfile, ".ssh"),
+            Path.Combine(_paths.UserProfile, ".aws"),
+            Path.Combine(_paths.UserProfile, ".azure")
+        ];
+
+        foreach (var sensitive in sensitiveRoots)
+        {
+            if (IsSameOrUnder(full, sensitive))
+            {
+                return GuardResult.Reject("Protected user personal directory.");
+            }
+        }
+
+        foreach (var root in _protectedRoots)
+        {
+            if (PathsEqual(full, root))
+            {
+                return GuardResult.Reject("Path is a protected root directory.");
             }
         }
 

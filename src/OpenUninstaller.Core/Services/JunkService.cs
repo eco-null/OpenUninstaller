@@ -49,7 +49,20 @@ public sealed class JunkService
         "CSC",
         "Prefetch",
         "WindowsApps",
-        "Package Cache"
+        "Package Cache",
+        "Documents",
+        "Desktop",
+        "Downloads",
+        "Pictures",
+        "Music",
+        "Videos",
+        "Saved Games",
+        ".ssh",
+        ".aws",
+        ".azure",
+        ".kube",
+        ".gnupg",
+        ".docker"
     ];
 
     public static bool IsExcluded(string path)

@@ -1,5 +1,7 @@
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
@@ -44,6 +46,8 @@ public sealed class BackupService
     }
 
     public string RootDirectory => _paths.BackupsDirectory;
+
+    internal Action<string, string>? RestoreTestHook { get; set; }
 
     public async Task<BackupCreationResult> CreateAsync(
         string programName,
@@ -141,7 +145,7 @@ public sealed class BackupService
 
                 var result = await _runner.RunAsync(
                     RegExePath(),
-                    $"export \"{location.RegExePath}\" \"{exportPath}\" /y",
+                    $"export \"{location.HiveName}\\{location.Path}\" \"{exportPath}\" /y{RegistryViewArgument(location.View)}",
                     shellExecute: false,
                     TimeSpan.FromSeconds(60),
                     cancellationToken).ConfigureAwait(false);
@@ -153,7 +157,7 @@ public sealed class BackupService
                     continue;
                 }
 
-                manifest.Registry.Add(new BackupRegistryEntry
+                var backupEntry = new BackupRegistryEntry
                 {
                     Hive = location.HiveName,
                     View = location.View.ToString(),
@@ -161,13 +165,20 @@ public sealed class BackupService
                     ExportFile = $"registry/{fileName}",
                     Sha256 = Hashing.Sha256File(exportPath),
                     Values = group
+                        .Where(i => isValueOnly || isPath)
                         .Where(i => (i.Kind is LeftoverKind.RegistryValue or LeftoverKind.FirewallRule
                                      or LeftoverKind.PathEntry)
                                     && i.ValueName is not null)
                         .Select(i => i.ValueName!)
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .ToList()
-                });
+                };
+                if (!TryPrepareRegistryImport(backupEntry, exportPath, out _, out var exportError))
+                {
+                    warnings.Add($"{representative.DisplayPath}: registry export cannot be restored safely ({exportError}). The item will not be deleted.");
+                    continue;
+                }
+                manifest.Registry.Add(backupEntry);
                 foreach (var item in group)
                 {
                     captured.Add(item.Id);
@@ -360,6 +371,12 @@ public sealed class BackupService
                 continue;
             }
 
+            if (!TryPrepareRegistryImport(entry, exportPath, out _, out var registryError))
+            {
+                preview.Entries.Add(new RestorePreviewEntry(target, "Registry key", RestorePreviewAction.Blocked, registryError));
+                continue;
+            }
+
             var location = TryParseLocation(entry);
             var exists = location is not null && _registry.KeyExists(location.Value);
             preview.Entries.Add(new RestorePreviewEntry(
@@ -426,7 +443,15 @@ public sealed class BackupService
                 continue;
             }
 
-            var exists = File.Exists(file.OriginalPath) || System.IO.Directory.Exists(file.OriginalPath);
+            var targetExists = File.Exists(file.OriginalPath) || Directory.Exists(file.OriginalPath);
+            if (file.Kind == "directory" && (overwrite || !targetExists)
+                && !ValidateArchiveTargets(archivePath, file, out var targetError))
+            {
+                preview.Entries.Add(new RestorePreviewEntry(target, kind, RestorePreviewAction.Blocked, targetError, file.Bytes));
+                continue;
+            }
+
+            var exists = targetExists;
             preview.Entries.Add(new RestorePreviewEntry(
                 target,
                 kind,
@@ -446,6 +471,9 @@ public sealed class BackupService
         CancellationToken cancellationToken = default)
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        using var lifecycle = TryAcquireBackupLock(backupId);
+        if (lifecycle is null)
+            return new RestoreResult { BackupId = backupId, Succeeded = false, Warnings = { "Backup is unavailable or in use." } };
         var record = Get(backupId);
         if (record is null)
         {
@@ -477,12 +505,25 @@ public sealed class BackupService
                 continue;
             }
 
-            var run = await _runner.RunAsync(
-                RegExePath(),
-                $"import \"{exportPath}\"",
-                shellExecute: false,
-                TimeSpan.FromSeconds(60),
-                cancellationToken).ConfigureAwait(false);
+            if (!TryPrepareRegistryImport(entry, exportPath, out var registryText, out var registryError))
+            {
+                result.Entries.Add(new RestoreEntryResult($"{entry.Hive}\\{entry.Path}", RestoreEntryStatus.Failed, registryError));
+                continue;
+            }
+
+            var importPath = Path.Combine(Path.GetTempPath(), "openuninstaller-reg-" + Guid.NewGuid().ToString("N") + ".reg");
+            ProcessResult run;
+            try
+            {
+                File.WriteAllText(importPath, registryText, Encoding.Unicode);
+                var viewArg = RegistryViewArgument(TryParseLocation(entry)!.Value.View);
+                run = await _runner.RunAsync(RegExePath(), $"import \"{importPath}\"{viewArg}",
+                    shellExecute: false, TimeSpan.FromSeconds(60), cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                try { File.Delete(importPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            }
 
             var restoredKey = TryParseLocation(entry);
             var verified = run.Started && run.ExitCode == 0
@@ -521,7 +562,12 @@ public sealed class BackupService
                     foreach (var fileEntry in manifest.Files)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        var source = Path.Combine(extraction, fileEntry.ArchivePrefix.Replace('/', Path.DirectorySeparatorChar));
+                        var source = Path.GetFullPath(Path.Combine(extraction, fileEntry.ArchivePrefix.Replace('/', Path.DirectorySeparatorChar)));
+                        if (!PathGuard.IsUnder(source, extraction))
+                        {
+                            result.Entries.Add(new RestoreEntryResult(fileEntry.OriginalPath, RestoreEntryStatus.Failed, "Invalid archive prefix."));
+                            continue;
+                        }
                         var target = fileEntry.OriginalPath;
                         if (fileEntry.Kind == "scheduled-task")
                         {
@@ -542,29 +588,27 @@ public sealed class BackupService
                             continue;
                         }
 
+                        if (fileEntry.Kind == "directory" && !ValidateArchiveTargets(archivePath, fileEntry, out var targetError))
+                        {
+                            result.Entries.Add(new RestoreEntryResult(target, RestoreEntryStatus.Failed, targetError));
+                            continue;
+                        }
+
                         try
                         {
-                            if (Directory.Exists(source))
-                            {
-                                CopyTree(source, target, overwrite);
-                            }
-                            else if (File.Exists(source))
-                            {
-                                System.IO.Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                                File.Copy(source, target, overwrite);
-                            }
-                            else
-                            {
-                                result.Entries.Add(new RestoreEntryResult(target, RestoreEntryStatus.Failed, "Archive entry is missing."));
-                                continue;
-                            }
+                            RestoreTestHook?.Invoke("before-pin", target);
+                            using var pinned = new PinnedRestore(_pathGuard, RestoreTestHook, cancellationToken);
+                            pinned.Restore(source, target, overwrite);
 
                             result.Entries.Add(new RestoreEntryResult(target, RestoreEntryStatus.Restored));
                             _log.Write("restore", "copy", target, "restored");
                         }
-                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DllNotFoundException or EntryPointNotFoundException)
                         {
-                            result.Entries.Add(new RestoreEntryResult(target, RestoreEntryStatus.Failed, ex.Message));
+                            var detail = ex is DllNotFoundException or EntryPointNotFoundException
+                                ? "Transactional filesystem restore is unavailable on this system."
+                                : ex.Message;
+                            result.Entries.Add(new RestoreEntryResult(target, RestoreEntryStatus.Failed, detail));
                             _log.Write("restore", "copy", target, "failed", ex.Message);
                         }
                     }
@@ -594,6 +638,8 @@ public sealed class BackupService
             return false;
         }
 
+        using var lifecycle = TryAcquireBackupLock(id);
+        if (lifecycle is null) return false;
         var directory = Path.Combine(RootDirectory, id);
         if (!Directory.Exists(directory))
         {
@@ -624,7 +670,7 @@ public sealed class BackupService
         var removed = 0;
         foreach (var record in records.Skip(keep))
         {
-            if (TryDeleteDirectory(record.Directory))
+            if (Delete(Path.GetFileName(record.Directory)))
             {
                 removed++;
                 _log.Write("backup", "prune", record.Directory, "deleted");
@@ -715,50 +761,158 @@ public sealed class BackupService
 
     private static (long Bytes, int Items) CopyToStaging(string source, string destination, CancellationToken cancellationToken)
     {
-        if (File.Exists(source))
-        {
-            System.IO.Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            File.Copy(source, destination, overwrite: true);
-            return (new FileInfo(destination).Length, 1);
-        }
-
-        System.IO.Directory.CreateDirectory(destination);
         long bytes = 0;
         var count = 0;
-        foreach (var file in Directory.EnumerateFiles(source, "*", new EnumerationOptions
-                 {
-                     RecurseSubdirectories = true,
-                     IgnoreInaccessible = false,
-                     AttributesToSkip = FileAttributes.ReparsePoint
-                 }))
+        void Copy(string current, string target)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var relative = Path.GetRelativePath(source, file);
-            var target = Path.Combine(destination, relative);
-            System.IO.Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.Copy(file, target, overwrite: true);
-            bytes += new FileInfo(target).Length;
-            count++;
+            var attributes = File.GetAttributes(current);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("Directory contains a reparse point; it cannot be backed up safely.");
+            if ((attributes & FileAttributes.Directory) != 0)
+            {
+                Directory.CreateDirectory(target);
+                foreach (var child in Directory.EnumerateFileSystemEntries(current))
+                    Copy(child, Path.Combine(target, Path.GetFileName(child)));
+            }
+            else
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.Copy(current, target, overwrite: true);
+                bytes += new FileInfo(target).Length;
+                count++;
+            }
         }
-
+        Copy(source, destination);
         return (bytes, count);
     }
 
-    private static void CopyTree(string source, string destination, bool overwrite)
+    private bool ValidateArchiveTargets(string archivePath, BackupFileEntry file, out string error)
     {
-        System.IO.Directory.CreateDirectory(destination);
-        foreach (var file in Directory.EnumerateFiles(source, "*", new EnumerationOptions
-                 {
-                     RecurseSubdirectories = true,
-                     IgnoreInaccessible = true,
-                     AttributesToSkip = FileAttributes.ReparsePoint
-                 }))
+        error = "The archive contains an unsafe target.";
+        try
         {
-            var relative = Path.GetRelativePath(source, file);
-            var target = Path.Combine(destination, relative);
-            System.IO.Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.Copy(file, target, overwrite);
+            var prefix = file.ArchivePrefix.Replace('\\', '/').TrimEnd('/') + "/";
+            if (prefix.StartsWith('/') || prefix[..^1].Split('/').Any(part => part is "" or "." or ".." || part.Contains(':')))
+                return false;
+            using var archive = ZipFile.OpenRead(archivePath);
+            var entries = archive.Entries.Where(e => e.FullName.StartsWith(prefix, StringComparison.Ordinal)).ToList();
+            if (entries.Count == 0) return false;
+            foreach (var item in entries)
+            {
+                var relative = item.FullName[prefix.Length..].Replace('/', Path.DirectorySeparatorChar);
+                var target = Path.GetFullPath(Path.Combine(file.OriginalPath, relative));
+                if (relative.Length == 0) continue; // The ZIP entry for an empty root.
+                if (!PathGuard.IsUnder(target, file.OriginalPath) || !_pathGuard.ValidateForDeletion(target, recursive: false).Allowed)
+                    return false;
+            }
+            return true;
         }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    // Lock files stay outside backup directories so their identity survives deletion. FileShare.None
+    // provides non-thread-affine, cross-process ownership for the whole async restore.
+    private FileStream? TryAcquireBackupLock(string id)
+    {
+        if (!IsSafeId(id)) return null;
+        try
+        {
+            var locks = Path.Combine(RootDirectory, ".locks");
+            Directory.CreateDirectory(locks);
+            return new FileStream(Path.Combine(locks, id + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    private static string RegistryViewArgument(RegistryView view) => view switch
+    {
+        RegistryView.Registry32 => " /reg:32",
+        RegistryView.Registry64 => " /reg:64",
+        _ => ""
+    };
+
+    // Parse the export before importing it. For value backups reg.exe exported the entire key;
+    // emit only the explicitly captured values, even when the export includes siblings/subkeys.
+    private static bool TryPrepareRegistryImport(BackupRegistryEntry entry, string path, out string output, out string error)
+    {
+        output = "";
+        error = "The registry export is invalid or outside the declared backup scope.";
+        var location = TryParseLocation(entry);
+        if (location is null || !Enum.IsDefined(location.Value.View) ||
+            string.IsNullOrWhiteSpace(entry.Path) || entry.Path.StartsWith('\\') ||
+            entry.Path.EndsWith('\\') || entry.Path.Contains("\\\\", StringComparison.Ordinal)) return false;
+        var hive = location.Value.Hive switch
+        {
+            RegistryHive.CurrentUser => "HKEY_CURRENT_USER",
+            RegistryHive.LocalMachine => "HKEY_LOCAL_MACHINE",
+            RegistryHive.ClassesRoot => "HKEY_CLASSES_ROOT",
+            RegistryHive.Users => "HKEY_USERS",
+            RegistryHive.CurrentConfig => "HKEY_CURRENT_CONFIG",
+            _ => ""
+        };
+        if (hive.Length == 0) return false;
+        var declared = hive + "\\" + entry.Path;
+        // Older backups exported a 32-bit view using an explicit WOW6432Node path.
+        // Normalize only that exact legacy root and its descendants to the logical view.
+        var legacy = location.Value.View == RegistryView.Registry32
+            ? hive + "\\" + location.Value.RegExePath[(location.Value.RegExePath.IndexOf('\\') + 1)..]
+            : null;
+        var valueOnly = entry.Values.Count > 0;
+        var wanted = new HashSet<string>(entry.Values, StringComparer.OrdinalIgnoreCase);
+        var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var lines = File.ReadAllLines(path);
+        if (lines.Length == 0 || !string.Equals(lines[0].TrimStart('\ufeff'), "Windows Registry Editor Version 5.00", StringComparison.Ordinal)) return false;
+        var result = new StringBuilder("Windows Registry Editor Version 5.00\r\n\r\n");
+        var inKey = false;
+        var exactKey = false;
+        var sawRoot = false;
+        for (var i = 1; i < lines.Length; i++)
+        {
+            var line = lines[i].Trim();
+            if (line.Length == 0 || line.StartsWith(';')) continue;
+            if (line.StartsWith('['))
+            {
+                if (!line.EndsWith(']') || line.StartsWith("[-", StringComparison.Ordinal)) return false;
+                var key = line[1..^1];
+                if (legacy is not null && (string.Equals(key, legacy, StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith(legacy + "\\", StringComparison.OrdinalIgnoreCase)))
+                    key = declared + key[legacy.Length..];
+                exactKey = string.Equals(key, declared, StringComparison.OrdinalIgnoreCase);
+                if (!exactKey && !key.StartsWith(declared + "\\", StringComparison.OrdinalIgnoreCase)) return false;
+                if (key.Contains('[') || key.Contains(']')) return false;
+                inKey = true;
+                sawRoot |= exactKey;
+                if (!valueOnly || exactKey) result.Append('[').Append(key).Append("]\r\n");
+                continue;
+            }
+            if (!inKey) return false;
+            var match = Regex.Match(line, "^(?:@|\"((?:[^\"\\\\]|\\\\[\\\\\"])*)\")=(.*)$");
+            if (!match.Success) return false;
+            var name = line.StartsWith('@') ? "" : match.Groups[1].Value.Replace("\\\"", "\"").Replace("\\\\", "\\");
+            var data = match.Groups[2].Value;
+            if (data == "-" || !(data.StartsWith('"') || Regex.IsMatch(data, @"^(?:dword|hex(?:\([0-9a-fA-F]+\))?):", RegexOptions.IgnoreCase))) return false;
+            var record = new StringBuilder(line);
+            while (line.EndsWith('\\'))
+            {
+                if (++i >= lines.Length) return false;
+                line = lines[i].Trim();
+                if (!Regex.IsMatch(line, @"^[0-9a-fA-F,\\\s]*$")) return false;
+                record.Append("\r\n  ").Append(line);
+            }
+            if (!valueOnly || (exactKey && wanted.Contains(name)))
+            {
+                result.Append(record).Append("\r\n");
+                if (exactKey) found.Add(name);
+            }
+        }
+        if (!sawRoot || (valueOnly && !wanted.IsSubsetOf(found))) return false;
+        output = result.ToString();
+        return true;
     }
 
     private static string RegExePath()

@@ -102,4 +102,4 @@ Official release artifacts provide SHA256 checksums alongside every release buil
   ```
 - Compare the resulting hash against `OpenUninstaller-0.6.0-setup.exe.sha256`.
 
-Release builds are signed with Microsoft Authenticode via `scripts/sign-release.ps1`.
+Release workflow builds are unsigned. Maintainers can sign builds separately using the signing helper and a suitable Authenticode certificate.

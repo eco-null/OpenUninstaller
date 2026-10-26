@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
+## [1.0.2] — 2026-10-26
+
+### Safety fixes
+
+- Pin and validate restore destinations using Windows handles and transactional NTFS; reject
+  junctions, conflicting handles and hard-linked destination files before writing. Each file or
+  folder item rolls back on failure. File restore requires supported local NTFS, TxF and permission
+  to lock destination directory metadata; encrypted files and unsupported targets are refused.
+- Validate registry exports against their declared key, view and value scope before backup and
+  restore; value-only restores leave sibling values intact and legacy 32-bit exports remain usable.
+- Preserve empty directories in backups and refuse to capture directory trees containing links.
+- Skip junk trees with recent, excluded, linked or inaccessible descendants.
+- Limit trace bundle manifest size and decompressed entry reads.
+- Prevent backup deletion or retention pruning while a restore is active across processes.
+
 ## [1.0.1] — 2026-10-26
 
 ### Security & Safety Hardening

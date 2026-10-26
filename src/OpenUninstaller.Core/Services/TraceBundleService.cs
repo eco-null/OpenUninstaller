@@ -15,6 +15,7 @@ namespace OpenUninstaller.Core.Services;
 public sealed class TraceBundleService
 {
     private const long MaxTraceBytes = 32 * 1024 * 1024;
+    private const long MaxManifestBytes = 1024 * 1024;
     private const string TraceEntry = "trace.json";
     private const string ManifestEntry = "manifest.json";
 
@@ -128,8 +129,13 @@ public sealed class TraceBundleService
                 return Failure("The trace document is larger than the supported limit.");
             }
 
-            var traceBytes = ReadEntry(traceEntry);
-            var manifestBytes = ReadEntry(manifestEntry);
+            if (manifestEntry.Length > MaxManifestBytes)
+            {
+                return Failure("The bundle manifest is larger than the supported limit.");
+            }
+
+            var traceBytes = ReadEntry(traceEntry, MaxTraceBytes);
+            var manifestBytes = ReadEntry(manifestEntry, MaxManifestBytes);
             var manifest = JsonSerializer.Deserialize<TraceBundleManifest>(manifestBytes, JsonOptions);
             if (manifest is null || manifest.BundleSchemaVersion != 1)
             {
@@ -335,11 +341,18 @@ public sealed class TraceBundleService
     private static ZipArchiveEntry? FindEntry(ZipArchive archive, string name)
         => archive.Entries.FirstOrDefault(entry => string.Equals(entry.FullName, name, StringComparison.Ordinal));
 
-    private static byte[] ReadEntry(ZipArchiveEntry entry)
+    private static byte[] ReadEntry(ZipArchiveEntry entry, long limit)
     {
         using var stream = entry.Open();
         using var memory = new MemoryStream();
-        stream.CopyTo(memory);
+        var buffer = new byte[81920];
+        int read;
+        while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            if (memory.Length + read > limit)
+                throw new InvalidDataException("Bundle entry exceeds the supported limit.");
+            memory.Write(buffer, 0, read);
+        }
         return memory.ToArray();
     }
 

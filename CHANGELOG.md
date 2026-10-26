@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
+## [1.0.1] — 2026-10-26
+
+### Security & Safety Hardening
+
+- **WOW6432Node Registry Hierarchy:** Fixed 32-bit registry key handling under `SOFTWARE\WOW6432Node` so product subkeys can be cleaned while strictly protecting shared vendor root containers (`parts.Length < 4`).
+- **AppData\LocalLow Leftover Scanning:** Added full scanning and protection support for `%USERPROFILE%\AppData\LocalLow`, catching leftover files from Unity runtimes, games, and modern apps.
+- **Developer Vault Protections:** Hardened `PathGuard` and `JunkService` with explicit safeguards preventing accidental deletion of developer and cloud credential directories (`.kube`, `.docker`, `.gnupg`, `.gcloud`, `.oci`, `.terraform.d`).
+- **Drive Root & Profile Safety:** Enforced strict rejection for drive roots (e.g., `C:\`) and user profile parent folders (`C:\Users`).
+- **Vendor Suite Isolation:** Expanded `KnownMultiProductVendors` to isolate sub-products within major security (Bitdefender, Kaspersky, ESET, Malwarebytes), audio/creative (Affinity/Serif, Ableton, Steinberg, Corel), and developer suites.
+- **Enhanced Test Suite:** Added comprehensive tests for false positive safety, bringing total automated test coverage to 142 passing tests.
+
 ## [1.0.0] — 2026-10-25
 
 ### Initial Public Release

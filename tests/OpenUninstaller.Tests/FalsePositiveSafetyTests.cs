@@ -152,5 +152,76 @@ public sealed class FalsePositiveSafetyTests
         Assert.False(guard.ValidateJunkItem(Path.Combine(docs, "important.docx"), docs).Allowed);
         Assert.False(guard.ValidateJunkItem(Path.Combine(desktop, "file.txt"), desktop).Allowed);
         Assert.False(guard.ValidateJunkItem(sshKey, env.Paths.UserProfile).Allowed);
+
+        // Extended credentials: .gcloud, .oci, .terraform.d
+        var gcloudDir = Path.Combine(env.Paths.UserProfile, ".gcloud");
+        var ociDir = Path.Combine(env.Paths.UserProfile, ".oci");
+        var tfDir = Path.Combine(env.Paths.UserProfile, ".terraform.d");
+
+        Assert.False(guard.ValidateForDeletion(gcloudDir, recursive: true).Allowed);
+        Assert.False(guard.ValidateForDeletion(ociDir, recursive: true).Allowed);
+        Assert.False(guard.ValidateForDeletion(tfDir, recursive: true).Allowed);
+    }
+
+    [Fact]
+    public void PathGuard_rejects_drive_roots_and_profile_parent()
+    {
+        using var env = new TestEnvironment();
+        var guard = new PathGuard(env.Paths);
+
+        Assert.False(guard.ValidateForDeletion("C:\\").Allowed);
+        Assert.False(guard.ValidateForDeletion("D:\\").Allowed);
+        Assert.False(guard.ValidateForDeletion("E:").Allowed);
+
+        var profileParent = Path.GetDirectoryName(env.Paths.UserProfile);
+        if (profileParent != null)
+        {
+            Assert.False(guard.ValidateForDeletion(profileParent).Allowed);
+        }
+    }
+
+    [Fact]
+    public async Task Scanner_detects_leftovers_in_LocalLow_and_protects_vendor_root()
+    {
+        using var env = new TestEnvironment();
+        var localLow = env.Paths.AppDataLocalLow;
+        Directory.CreateDirectory(localLow);
+
+        var vendorDir = Path.Combine(localLow, "Serif");
+        var affinityPhotoDir = Path.Combine(vendorDir, "Affinity Photo");
+        var affinityDesignerDir = Path.Combine(vendorDir, "Affinity Designer");
+        Directory.CreateDirectory(affinityPhotoDir);
+        Directory.CreateDirectory(affinityDesignerDir);
+
+        File.WriteAllText(Path.Combine(affinityPhotoDir, "settings.dat"), "photo");
+        File.WriteAllText(Path.Combine(affinityDesignerDir, "settings.dat"), "designer");
+
+        var scanner = CreateScanner(env);
+        var program = TestPrograms.Create(
+            "Affinity Photo",
+            publisher: "Serif (Europe) Ltd",
+            installLocation: Path.Combine(env.Paths.ProgramFiles, "Serif", "Affinity Photo"));
+
+        var scan = await scanner.ScanAsync(program, otherPrograms: []);
+
+        // The specific product folder in LocalLow should be found as a leftover
+        Assert.Contains(scan.Items, i => string.Equals(i.FilePath, affinityPhotoDir, StringComparison.OrdinalIgnoreCase));
+
+        // The vendor root in LocalLow MUST NOT be offered as leftover
+        Assert.DoesNotContain(scan.Items, i => string.Equals(i.FilePath, vendorDir, StringComparison.OrdinalIgnoreCase));
+
+        // The other product folder in LocalLow MUST NOT be offered as leftover
+        Assert.DoesNotContain(scan.Items, i => string.Equals(i.FilePath, affinityDesignerDir, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void IsVendorFolder_identifies_major_security_and_creative_vendors()
+    {
+        Assert.True(LeftoverScanner.IsVendorFolder("Bitdefender", null));
+        Assert.True(LeftoverScanner.IsVendorFolder("Kaspersky Lab", null));
+        Assert.True(LeftoverScanner.IsVendorFolder("Serif", null));
+        Assert.True(LeftoverScanner.IsVendorFolder("Ableton", null));
+        Assert.True(LeftoverScanner.IsVendorFolder("Docker", null));
+        Assert.True(LeftoverScanner.IsVendorFolder("PostgreSQL", null));
     }
 }

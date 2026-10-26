@@ -29,8 +29,10 @@ public sealed class PathGuard
             paths.ProgramFilesX86,
             paths.ProgramData,
             paths.UserProfile,
+            Path.GetDirectoryName(paths.UserProfile) is { Length: > 0 } userParent ? userParent : string.Empty,
             paths.AppData,
             paths.LocalAppData,
+            paths.AppDataLocalLow,
             paths.Public,
             paths.UserDesktop,
             paths.PublicDesktop,
@@ -60,7 +62,13 @@ public sealed class PathGuard
             Path.Combine(paths.UserProfile, "Searches"),
             Path.Combine(paths.UserProfile, ".ssh"),
             Path.Combine(paths.UserProfile, ".aws"),
-            Path.Combine(paths.UserProfile, ".azure")
+            Path.Combine(paths.UserProfile, ".azure"),
+            Path.Combine(paths.UserProfile, ".kube"),
+            Path.Combine(paths.UserProfile, ".gnupg"),
+            Path.Combine(paths.UserProfile, ".docker"),
+            Path.Combine(paths.UserProfile, ".gcloud"),
+            Path.Combine(paths.UserProfile, ".oci"),
+            Path.Combine(paths.UserProfile, ".terraform.d")
         ];
         _ownRoots = [paths.DataDirectory, paths.LocalDataDirectory, paths.AppBaseDirectory];
     }
@@ -138,7 +146,10 @@ public sealed class PathGuard
             || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".azure"))
             || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".kube"))
             || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".gnupg"))
-            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".docker")))
+            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".docker"))
+            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".gcloud"))
+            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".oci"))
+            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".terraform.d")))
         {
             return GuardResult.Reject("Protected user credential directory.");
         }
@@ -238,7 +249,13 @@ public sealed class PathGuard
             Path.Combine(_paths.UserProfile, "Searches"),
             Path.Combine(_paths.UserProfile, ".ssh"),
             Path.Combine(_paths.UserProfile, ".aws"),
-            Path.Combine(_paths.UserProfile, ".azure")
+            Path.Combine(_paths.UserProfile, ".azure"),
+            Path.Combine(_paths.UserProfile, ".kube"),
+            Path.Combine(_paths.UserProfile, ".gnupg"),
+            Path.Combine(_paths.UserProfile, ".docker"),
+            Path.Combine(_paths.UserProfile, ".gcloud"),
+            Path.Combine(_paths.UserProfile, ".oci"),
+            Path.Combine(_paths.UserProfile, ".terraform.d")
         ];
 
         foreach (var sensitive in sensitiveRoots)

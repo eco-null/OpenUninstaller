@@ -63,7 +63,20 @@ public sealed class LeftoverScanner
         "CD Projekt Red", "CD Projekt", "LucasArts", "Activision", "Activision Blizzard",
         "Konami", "Bandai", "Namco", "THQ Nordic", "Paradox Interactive", "Deep Silver",
         "Focus Home Interactive", "Focus Entertainment", "Bungie", "Crytek", "Rebellion",
-        "IO Interactive", "Remedy", "Remedy Entertainment", "Techland", "Krafton"
+        "IO Interactive", "Remedy", "Remedy Entertainment", "Techland", "Krafton",
+        "Bitdefender", "Kaspersky", "Kaspersky Lab", "ESET", "Malwarebytes", "Avast", "Avast Software",
+        "AVG", "McAfee", "Symantec", "Norton", "Trend Micro", "Sophos", "F-Secure", "Webroot", "SentinelOne",
+        "Affinity", "Serif", "Serif (Europe) Ltd", "Ableton", "Steinberg", "Native Instruments", "Corel",
+        "CyberLink", "MAGIX", "Blackmagic Design", "Blender Foundation", "Audacity", "DaVinci", "Avid",
+        "Avid Technology", "Canva", "Figma", "SketchUp", "Citrix", "PostgreSQL", "MySQL", "MongoDB",
+        "Docker", "Red Hat", "Canonical", "HashiCorp", "DBeaver Corp", "Insomnia", "Postman", "Git",
+        "TortoiseSVN", "TortoiseGit", "Wireshark", "Notepad++", "Sublime Text", "Python Software Foundation",
+        "Ruby", "Rust", "Node.js", "Eclipse Foundation", "ASUS", "MSI", "Gigabyte", "ASRock", "Dell",
+        "HP", "Lenovo", "Acer", "Realtek", "Qualcomm", "Broadcom", "Synaptics", "Creative", "Creative Labs",
+        "Creative Technology", "AOC", "Western Digital", "Seagate", "Kingston", "SanDisk", "Crucial",
+        "AIDA64", "CPUID", "Futuremark", "UL", "OneDrive", "Google Drive", "iCloud", "Mega", "Nextcloud",
+        "OwnCloud", "Proton", "Proton AG", "NordVPN", "ExpressVPN", "Surfshark", "CyberGhost", "TeamViewer",
+        "AnyDesk", "Telegram", "WhatsApp", "Signal", "Viber"
     };
 
     public static bool IsVendorFolder(
@@ -554,6 +567,7 @@ public sealed class LeftoverScanner
         {
             _paths.ProgramData,
             _paths.LocalAppData,
+            _paths.AppDataLocalLow,
             _paths.AppData,
             _paths.Public,
             Path.Combine(_paths.LocalAppData, "Programs"),

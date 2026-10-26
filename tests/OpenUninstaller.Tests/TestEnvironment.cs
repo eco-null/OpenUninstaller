@@ -21,6 +21,7 @@ public sealed class TestEnvironment : IDisposable
         {
             ProgramData = Path.Combine(Root, "ProgramData"),
             LocalAppData = Path.Combine(Root, "LocalAppData"),
+            AppDataLocalLow = Path.Combine(Root, "LocalLow"),
             AppData = Path.Combine(Root, "Roaming"),
             UserProfile = Path.Combine(Root, "User"),
             WindowsDirectory = Path.Combine(Root, "Windows"),

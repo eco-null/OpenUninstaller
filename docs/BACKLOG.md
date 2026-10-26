@@ -5,6 +5,13 @@ live in [TODO.md](../TODO.md); plans live in [docs/PLAN](PLAN/).
 
 ## Progress log
 
+### 2026-10-26 — v1.0.2 backup, restore and cleanup safety
+
+- Hardened restore destination and registry import boundaries, preserved empty backup directories,
+  rejected linked trees, and protected active restores from retention pruning.
+- Kept recent and unexamined junk descendants and bounded trace bundle manifest reads.
+- Added regression tests for the identified failures and Windows filesystem race attempts.
+
 ### 2026-10-25 — v0.6.0 packaging, MSIX inventory, shortcut resolution and UI automation
 
 - Added read-only Microsoft Store / MSIX package inventory (`MsixInventoryService`) scanning per-user

@@ -174,7 +174,7 @@ public sealed class JunkService
                         continue;
                     }
 
-                    if (IsRecent(entry, cutoff))
+                    if (!IsSafeOldTree(entry, root, cutoff, cancellationToken))
                     {
                         continue;
                     }
@@ -275,7 +275,7 @@ public sealed class JunkService
                         continue;
                     }
 
-                    if (IsRecent(entry, cutoff))
+                    if (!IsSafeOldTree(entry, root, cutoff, cancellationToken))
                     {
                         result.SkippedItems++;
                         continue;
@@ -710,6 +710,34 @@ public sealed class JunkService
         if (!category.Warnings.Contains(warning, StringComparer.OrdinalIgnoreCase))
         {
             category.Warnings.Add(warning);
+        }
+    }
+
+    // Never recursively delete a tree unless every descendant has been examined.
+    private bool IsSafeOldTree(string path, string root, DateTime cutoff, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pending = new Stack<string>();
+            pending.Push(path);
+            while (pending.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var current = pending.Pop();
+                if (IsExcluded(current) || !_guard.ValidateJunkItem(current, root).Allowed)
+                    return false;
+                var attributes = File.GetAttributes(current);
+                if ((attributes & FileAttributes.ReparsePoint) != 0 || IsRecent(current, cutoff))
+                    return false;
+                if ((attributes & FileAttributes.Directory) != 0)
+                    foreach (var child in Directory.EnumerateFileSystemEntries(current))
+                        pending.Push(child);
+            }
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 

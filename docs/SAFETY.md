@@ -92,6 +92,16 @@ Restore imports registry files and extracts the archive. Existing files are skip
 **Preview** lists each target as restore, overwrite, skip or blocked without changing anything.
 Retention keeps the newest N backups (default 20) and refuses to prune during a restore.
 
+File and folder restores use Windows Transactional NTFS (TxF) to lock the destination directory
+metadata and write through verified file handles. Ordinary Windows share modes do not prevent
+attribute-only handles from changing reparse metadata. Each file or folder item commits separately;
+an error or cancellation rolls back that item's changes. Restore fails closed if TxF is unavailable,
+the target is encrypted, the filesystem is unsupported, permissions do not permit the metadata lock,
+or another handle conflicts. Existing files with multiple hard links are refused. The preview cannot
+predict every such runtime conflict. Microsoft documents [TxF locking](https://learn.microsoft.com/en-us/windows/win32/fileio/txf-basic-concepts)
+and its [filesystem limitations](https://learn.microsoft.com/en-us/windows/win32/fileio/programming-considerations-for-transacted-fileio-);
+Microsoft also warns that [TxF may not be available in future Windows releases](https://learn.microsoft.com/en-us/windows/win32/fileio/transactional-ntfs-portal).
+
 Portable trace bundles contain a normalized trace document and a manifest with its SHA-256. Import
 rejects missing entries, hash mismatches, unknown path tokens, relative paths, UNC/device paths and
 traversal. Known roots are expanded against the importing machine; every resulting path still goes

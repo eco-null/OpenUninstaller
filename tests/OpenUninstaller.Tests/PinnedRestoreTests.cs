@@ -65,6 +65,74 @@ public sealed class PinnedRestoreTests
     }
 
     [Fact]
+    public async Task Independent_restores_can_run_in_parallel_under_a_shared_temp_ancestor()
+    {
+        const int count = 8;
+        var environments = new List<TestEnvironment>();
+        using var entered = new CountdownEvent(count);
+        using var release = new ManualResetEventSlim();
+        try
+        {
+            var work = new List<(BackupService Service, string Id, string File)>();
+            for (var i = 0; i < count; i++)
+            {
+                var env = new TestEnvironment();
+                environments.Add(env);
+                var file = env.CreateFile("Fixtures/Parallel/data.txt", "backup");
+                var service = Service(env);
+                var backup = await service.CreateAsync("parallel", [Item(file)]);
+                File.Delete(file);
+                service.RestoreTestHook = (stage, _) =>
+                {
+                    if (stage != "before-pin") return;
+                    entered.Signal();
+                    if (!release.Wait(TimeSpan.FromSeconds(30))) throw new IOException("Parallel gate timed out.");
+                };
+                work.Add((service, backup.BackupId, file));
+            }
+            var tasks = work.Select(item => Task.Factory.StartNew(
+                () => item.Service.RestoreAsync(item.Id, true), CancellationToken.None,
+                TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap()).ToArray();
+            try { Assert.True(entered.Wait(TimeSpan.FromSeconds(20)), "Not all restores reached the gate."); }
+            finally { release.Set(); }
+            var results = await Task.WhenAll(tasks);
+            Assert.All(results, result => Assert.True(result.Succeeded,
+                string.Join("; ", result.Entries.Select(e => e.Detail).Concat(result.Warnings))));
+            Assert.All(work, item => Assert.Equal("backup", File.ReadAllText(item.File)));
+        }
+        finally
+        {
+            release.Set();
+            foreach (var env in environments) env.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Unrelated_ancestor_writer_does_not_block_restore()
+    {
+        using var env = new TestEnvironment();
+        var file = env.CreateFile("Fixtures/Ancestor/App/data.txt", "backup");
+        var ancestor = Path.Combine(env.Root, "Fixtures");
+        var service = Service(env);
+        var backup = await service.CreateAsync("ancestor", [Item(file)]);
+        File.Delete(file);
+        using var writer = CreateFileW(ancestor, 0x102, 7, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
+        Assert.False(writer.IsInvalid);
+        var outside = env.CreateDirectory("Windows", "Outside");
+        var attempted = false;
+        service.RestoreTestHook = (stage, _) =>
+        {
+            if (stage != "before-file-open") return;
+            attempted = true;
+            Assert.False(SetJunction(writer, outside));
+        };
+        var restore = await service.RestoreAsync(backup.BackupId, true);
+        Assert.True(restore.Succeeded, string.Join("; ", restore.Entries.Select(e => e.Detail).Concat(restore.Warnings)));
+        Assert.True(attempted);
+        Assert.Equal("backup", File.ReadAllText(file));
+    }
+
+    [Fact]
     public async Task Ancestor_swapped_after_guard_is_refused()
     {
         using var env = new TestEnvironment();

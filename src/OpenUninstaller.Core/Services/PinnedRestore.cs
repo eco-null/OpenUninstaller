@@ -15,7 +15,7 @@ namespace OpenUninstaller.Core.Services;
 internal sealed class PinnedRestore : IDisposable
 {
     private const uint ReadData = 0x1, ReadAttributes = 0x80, WriteAttributes = 0x100;
-    private const uint GenericWrite = 0x40000000, ShareRead = 1, ShareAll = 7;
+    private const uint GenericWrite = 0x40000000, ShareReadWrite = 3, ShareAll = 7;
     private const uint OpenExisting = 3, OpenAlways = 4, CreateNew = 1;
     private const uint DirectoryFlag = 0x02000000, NoFollow = 0x00200000;
     private const uint DirectoryAttribute = 0x10, ReparseAttribute = 0x400;
@@ -157,7 +157,9 @@ internal sealed class PinnedRestore : IDisposable
 
     private bool PinExisting(string path, bool allowMissing = false)
     {
-        var handle = CreateFileW(path, ReadData | ReadAttributes, ShareRead, IntPtr.Zero,
+        // The held child prevents reparse conversion of each ancestor. Allow unrelated
+        // writers but never share delete, so an ancestor or its pinned child cannot be renamed.
+        var handle = CreateFileW(path, ReadData | ReadAttributes, ShareReadWrite, IntPtr.Zero,
             OpenExisting, DirectoryFlag | NoFollow, IntPtr.Zero);
         if (handle.IsInvalid)
         {

@@ -93,7 +93,7 @@ public sealed class CleanupSafetyTests
         Assert.Equal("keep", File.ReadAllText(sibling));
         Assert.Equal(file, Assert.Single(backup.Get(result.BackupId!)!.Manifest.Files).OriginalPath);
         var restore = await backup.RestoreAsync(result.BackupId!, overwrite: false);
-        Assert.True(restore.Succeeded);
+        Assert.True(restore.Succeeded, string.Join("; ", restore.Entries.Select(e => e.Detail).Concat(restore.Warnings)));
         Assert.Equal("executable", File.ReadAllText(file));
     }
 

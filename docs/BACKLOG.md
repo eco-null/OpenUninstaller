@@ -5,7 +5,7 @@ live in [TODO.md](../TODO.md); plans live in [docs/PLAN](PLAN/).
 
 ## Progress log
 
-### 2026-10-26 — v1.0.2 backup, restore and cleanup safety
+### 2026-10-26 — v1.0.3 backup, restore and cleanup safety
 
 - Hardened restore destination and registry import boundaries, preserved empty backup directories,
   rejected linked trees, and protected active restores from retention pruning.

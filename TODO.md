@@ -2,7 +2,7 @@
 
 Legend: `[x]` done and verified · `[~]` partially done · `[ ]` not done.
 This file is the single source of truth for what remains. Update it with every merged change.
-Last updated: 2026-10-26 (v1.0.2 backup, restore and cleanup safety fixes).
+Last updated: 2026-10-26 (v1.0.3 backup, restore and cleanup safety fixes).
 
 ## Phase 1 — Foundations
 

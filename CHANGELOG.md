@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
-## [1.0.2] — 2026-10-26
+## [1.0.3] — 2026-10-26
 
 ### Safety fixes
 
@@ -17,6 +17,7 @@ the project uses semantic versioning.
 - Skip junk trees with recent, excluded, linked or inaccessible descendants.
 - Limit trace bundle manifest size and decompressed entry reads.
 - Prevent backup deletion or retention pruning while a restore is active across processes.
+- Allow unrelated ancestor directory writers during restore while keeping rename and reparse protections.
 
 ## [1.0.1] — 2026-10-26
 

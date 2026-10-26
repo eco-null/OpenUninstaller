@@ -63,7 +63,8 @@ public sealed class SafetyRegressionTests
         Assert.True(backup.Succeeded);
         Directory.Delete(root);
         Assert.True(service.PreviewRestore(backup.BackupId, true).CanRestore);
-        Assert.True((await service.RestoreAsync(backup.BackupId, true)).Succeeded);
+        var restore = await service.RestoreAsync(backup.BackupId, true);
+        Assert.True(restore.Succeeded, string.Join("; ", restore.Entries.Select(e => e.Detail).Concat(restore.Warnings)));
         Assert.True(Directory.Exists(root));
     }
 

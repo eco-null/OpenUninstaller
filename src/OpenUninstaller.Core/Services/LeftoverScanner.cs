@@ -30,7 +30,9 @@ public sealed class LeftoverScanner
     private static readonly HashSet<string> RegistryVendorExclusions = new(StringComparer.OrdinalIgnoreCase)
     {
         "Microsoft", "Classes", "Clients", "Policies", "RegisteredApplications", "OpenUninstaller",
-        "Wow6432Node", "Windows NT", "Windows", "Intel", "WOW6432Node"
+        "Wow6432Node", "Windows NT", "Windows", "Intel", "WOW6432Node",
+        "System", "CurrentControlSet", "Control", "Services", "Hardware", "SAM", "SECURITY",
+        "App Paths", "Explorer", "Shell", "Shell Extensions"
     };
 
     private static readonly HashSet<string> FileNameExclusions = new(StringComparer.OrdinalIgnoreCase)
@@ -39,8 +41,77 @@ public sealed class LeftoverScanner
         "package cache", "nuget", "connecteddevicesplatform", "microsoft shared", "application data",
         "desktop.ini", "openuninstaller", "startup", "public", "default", "default user",
         "all users", "$recycle.bin", "system volume information", "winsxs", "assembly", "clipsvc",
-        "deliveryoptimization"
+        "deliveryoptimization", "system32", "syswow64", "program files", "program files (x86)",
+        "programdata", "appdata", "local", "locallow", "roaming", "users", "windows nt",
+        "driverstore", "servicing", "catroot", "catroot2", "system", "dotnet",
+        "reference assemblies", "msbuild", "windows kits", "windows defender", "windows powershell",
+        "windowspowershell", "internet explorer", "microsoft.net", "windows security", "windows mail",
+        "windows media player", "windows portable devices", "windows photo viewer", "windows collaboration",
+        "directx", "steamapps", "common"
     };
+
+    public static readonly HashSet<string> KnownMultiProductVendors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Microsoft", "Adobe", "Google", "Mozilla", "Apple", "Oracle", "JetBrains",
+        "Autodesk", "Atlassian", "Valve", "Epic Games", "Ubisoft", "Electronic Arts", "EA", "EA Games",
+        "Blizzard", "Blizzard Entertainment", "Riot Games", "Amazon", "Dropbox", "Spotify",
+        "Discord", "Zoom", "Slack", "Cisco", "VMware", "NVIDIA", "AMD", "Intel",
+        "Sony", "Samsung", "Corsair", "Logitech", "Razer", "SteelSeries", "GOG", "GOG.com", "GOG Galaxy",
+        "Origin", "Steam", "Bethesda", "Rockstar Games", "2K Games", "Sega", "Bandai Namco",
+        "Capcom", "Square Enix", "Unity", "Embarcadero", "Borland", "Apache", "GitHub",
+        "GOM", "GOM & Company", "GOMCompany", "Wargaming", "Wargaming.net", "Battlestate Games",
+        "CD Projekt Red", "CD Projekt", "LucasArts", "Activision", "Activision Blizzard",
+        "Konami", "Bandai", "Namco", "THQ Nordic", "Paradox Interactive", "Deep Silver",
+        "Focus Home Interactive", "Focus Entertainment", "Bungie", "Crytek", "Rebellion",
+        "IO Interactive", "Remedy", "Remedy Entertainment", "Techland", "Krafton"
+    };
+
+    public static bool IsVendorFolder(
+        string folderName,
+        IReadOnlyList<string>? publisherTokens,
+        IReadOnlyList<string>? productTokens = null)
+    {
+        if (string.IsNullOrWhiteSpace(folderName))
+        {
+            return false;
+        }
+
+        var clean = folderName.Trim();
+        if (KnownMultiProductVendors.Contains(clean))
+        {
+            return true;
+        }
+
+        if (publisherTokens != null && publisherTokens.Count > 0)
+        {
+            var folderTokens = NameNormalizer.Tokens(clean);
+            if (folderTokens.Count > 0 && folderTokens.All(ft => publisherTokens.Contains(ft, StringComparer.OrdinalIgnoreCase)))
+            {
+                if (productTokens != null && productTokens.Count > 0)
+                {
+                    var distinctiveProductTokens = productTokens
+                        .Where(pt => !publisherTokens.Contains(pt, StringComparer.OrdinalIgnoreCase))
+                        .ToList();
+
+                    if (distinctiveProductTokens.Count > 0)
+                    {
+                        var hasProductToken = folderTokens.Any(ft =>
+                            distinctiveProductTokens.Contains(ft, StringComparer.OrdinalIgnoreCase));
+                        if (!hasProductToken)
+                        {
+                            return true;
+                        }
+                    }
+                }
+                else
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 
     private readonly IRegistryStore _registry;
     private readonly TraceStore _traces;
@@ -373,6 +444,12 @@ public sealed class LeftoverScanner
                 return;
             }
 
+            if (isDirectory && IsVendorFolder(Path.GetFileName(path.TrimEnd('\\')), publisherTokens, combinedTokens))
+            {
+                result.Warnings.Add($"Vendor folder '{path}' was preserved to protect other products.");
+                return;
+            }
+
             var guard = _pathGuard.ValidateForDeletion(path, recursive: isDirectory);
             if (!guard.Allowed)
             {
@@ -526,14 +603,18 @@ public sealed class LeftoverScanner
                     continue;
                 }
 
-                var score = Score(folderName);
-                if (score >= (int)LeftoverConfidence.Medium)
+                var isVendor = IsVendorFolder(folderName, publisherTokens, combinedTokens);
+                if (!isVendor)
                 {
-                    AddFile(child, score, "Folder name matches the application name.");
-                    continue;
+                    var score = Score(folderName, allowPublisherOnly: false);
+                    if (score >= (int)LeftoverConfidence.Medium)
+                    {
+                        AddFile(child, score, "Folder name matches the application name.");
+                        continue;
+                    }
                 }
 
-                if (score == 0 && !LooksLikeVendor(folderName, combinedTokens, publisherTokens))
+                if (!isVendor && Score(folderName, allowPublisherOnly: true) == 0 && !LooksLikeVendor(folderName, combinedTokens, publisherTokens))
                 {
                     continue;
                 }
@@ -561,12 +642,19 @@ public sealed class LeftoverScanner
                         continue;
                     }
 
+                    if (IsVendorFolder(grandName, publisherTokens, combinedTokens))
+                    {
+                        continue;
+                    }
+
                     if (FindOwningProgram(grandchild, program, otherPrograms) is not null)
                     {
                         continue;
                     }
 
-                    var grandScore = Score($"{folderName} {grandName}");
+                    var grandScore = Math.Max(
+                        Score(grandName, allowPublisherOnly: false),
+                        Score($"{folderName} {grandName}", allowPublisherOnly: false));
                     if (grandScore >= (int)LeftoverConfidence.Medium)
                     {
                         AddFile(
@@ -619,7 +707,6 @@ public sealed class LeftoverScanner
                     continue;
                 }
 
-                var matches = NameNormalizer.CountTokenMatches(name, combinedTokens);
                 var target = ShortcutResolver.TryResolve(entry);
                 var underInstall = target is not null && IsSameOrUnder(target, program.InstallLocation);
                 var targetMissing = target is not null && !File.Exists(target) && !Directory.Exists(target);
@@ -637,7 +724,9 @@ public sealed class LeftoverScanner
                     continue;
                 }
 
-                if (targetMissing && matches >= 1)
+                var shortcutScore = Score(name, allowPublisherOnly: false);
+
+                if (targetMissing && shortcutScore >= (int)LeftoverConfidence.Medium)
                 {
                     AddFile(
                         entry,
@@ -646,11 +735,14 @@ public sealed class LeftoverScanner
                     continue;
                 }
 
-                if (matches >= 2
-                    || (matches == 1
-                        && string.Equals(Path.GetExtension(entry), ".lnk", StringComparison.OrdinalIgnoreCase)))
+                if (shortcutScore >= (int)LeftoverConfidence.Strong)
                 {
-                    AddFile(entry, (int)LeftoverConfidence.Strong, "Shortcut name matches the application name.");
+                    if (target is not null && File.Exists(target) && FindOwningProgram(target, program, otherPrograms) is not null)
+                    {
+                        continue;
+                    }
+
+                    AddFile(entry, shortcutScore, "Shortcut name matches the application name.");
                 }
             }
         }
@@ -1580,36 +1672,102 @@ public sealed class LeftoverScanner
     /// Scores a folder or key name against the product. Only values that map to a defined
     /// confidence level are returned. Publisher-only matches are deliberately low: they are useful
     /// for descending into a vendor folder, never for selecting the vendor folder itself.
+    /// Strictly rejects candidates containing foreign distinctive tokens or missing required product tokens.
     /// </summary>
-    private static int ScoreName(
+    internal static int ScoreName(
         string candidate,
         string nameCompact,
         IReadOnlyList<string> productTokens,
         IReadOnlyList<string> publisherTokens,
         bool allowPublisherOnly)
     {
-        var compact = NameNormalizer.Compact(candidate);
-        if (compact.Length == 0)
+        if (string.IsNullOrWhiteSpace(candidate))
         {
             return 0;
         }
 
-        if (compact == nameCompact)
+        var candidateCompact = NameNormalizer.Compact(candidate);
+        if (candidateCompact.Length == 0)
+        {
+            return 0;
+        }
+
+        if (candidateCompact == nameCompact)
         {
             return (int)LeftoverConfidence.High;
         }
 
+        var candidateTokens = NameNormalizer.Tokens(candidate);
+        if (candidateTokens.Count == 0)
+        {
+            return 0;
+        }
+
+        // 1. Foreign distinctive tokens check:
+        // Any token in candidate not in productTokens, not in publisherTokens,
+        // not a stop word, and not numeric/version indicates a different product.
+        foreach (var cToken in candidateTokens)
+        {
+            if (productTokens.Contains(cToken, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (publisherTokens.Contains(cToken, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (NameNormalizer.IsStopWord(cToken))
+            {
+                continue;
+            }
+
+            if (cToken.All(char.IsDigit) || NameNormalizer.LooksLikeVersion(cToken))
+            {
+                continue;
+            }
+
+            if (productTokens.Any(pt => cToken.StartsWith(pt, StringComparison.OrdinalIgnoreCase) && cToken[pt.Length..].All(char.IsDigit)))
+            {
+                continue;
+            }
+
+            if (publisherTokens.Any(pub => cToken.StartsWith(pub, StringComparison.OrdinalIgnoreCase) && cToken[pub.Length..].All(char.IsDigit)))
+            {
+                continue;
+            }
+
+            return 0;
+        }
+
         var productMatches = NameNormalizer.CountTokenMatches(candidate, productTokens);
+
+        // 2. Missing required tokens check:
+        // If the uninstalled product has multiple distinctive tokens, candidate must match all of them.
+        if (productTokens.Count >= 2 && productMatches < productTokens.Count)
+        {
+            return 0;
+        }
+
         if (productMatches >= 2)
         {
-            return (int)LeftoverConfidence.Strong;
+            return (int)LeftoverConfidence.High;
         }
 
         if (productMatches == 1)
         {
-            return NameNormalizer.CountTokenMatches(candidate, publisherTokens) > 0
-                ? (int)LeftoverConfidence.Strong
-                : (int)LeftoverConfidence.Medium;
+            if (publisherTokens.Count > 0 && NameNormalizer.CountTokenMatches(candidate, publisherTokens) > 0)
+            {
+                return (int)LeftoverConfidence.Strong;
+            }
+
+            if (productTokens.Count == 1 && candidateTokens.Count == 1 && string.Equals(candidateTokens[0], productTokens[0], StringComparison.OrdinalIgnoreCase))
+            {
+                return (int)LeftoverConfidence.Strong;
+            }
+
+            return (int)LeftoverConfidence.Medium;
         }
 
         if (allowPublisherOnly
@@ -1626,7 +1784,8 @@ public sealed class LeftoverScanner
         string folderName,
         IReadOnlyList<string> productTokens,
         IReadOnlyList<string> publisherTokens)
-        => NameNormalizer.CountTokenMatches(folderName, publisherTokens) > 0
+        => KnownMultiProductVendors.Contains(folderName)
+           || NameNormalizer.CountTokenMatches(folderName, publisherTokens) > 0
            || NameNormalizer.CountTokenMatches(folderName, productTokens) > 0;
 
     /// <summary>

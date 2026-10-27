@@ -36,6 +36,7 @@ When standard Windows programs are uninstalled via the default "Add/Remove Progr
 
 ### Core Highlights
 
+- **Leftover Scan:** Find and review application remnants using installation traces and heuristic matching, with confidence scores and safety guards.
 - **100% Offline & Private:** Zero telemetry, zero analytics, zero update beacons, and zero network calls. All operations occur strictly locally.
 - **Fail-Safe Protection (`PathGuard` & `RegistryGuard`):** Strict, hard-coded kernel and system protection guards prevent accidental modification or deletion of operating system files or registry keys.
 - **Mandatory Pre-Deletion Backups:** Every file and registry key scheduled for deletion is automatically archived into a timestamped, compressed backup with SHA-256 manifests and one-click rollback.
@@ -47,18 +48,25 @@ When standard Windows programs are uninstalled via the default "Add/Remove Progr
 
 | Feature | Description |
 | :--- | :--- |
-| 🧹 **Deep Clean Uninstaller** | Comprehensive registry and filesystem scanning to locate and eliminate orphaned vendor keys, folders, AppData, ProgramData, and shortcuts. |
-| 🔍 **Installation Tracer** | Real-time registry and filesystem differential snapshotting (Schema 2 value-level precision) before and after running setup executables. Export and import portable `.outrace.zip` packages. |
-| 📦 **Windows Apps & MSIX Manager** | Native management of modern Windows Store, UWP, and MSIX packages. Support for app termination, data reset, package removal, and manifest location discovery. |
-| ⚡ **Startup & Autorun Manager** | Inspect and toggle Run/RunOnce registry entries, Startup folders, services, and scheduled tasks. Full audit logging with reversible rollback history. |
-| 🗑️ **Junk & Temporary File Cleaner** | Scan and clean temporary directories, application caches, crash dumps, and pattern remnants without affecting active user data. |
-| 🔒 **Privacy & History Cleaner** | Clean Windows Explorer run history, recent documents, typed paths, and thumbnail caches with typed safety confirmation. |
-| 💾 **Evidence Remover (Free Space Wiper)** | Securely wipe unallocated free disk space with multi-pass zero-pattern sector overwriting to prevent recovery of previously deleted confidential data. |
-| 🧰 **23 Built-in Windows Tools** | Quick-launcher dashboard for essential native Windows administration and diagnostic consoles (Disk Management, Services, Event Viewer, Group Policy, etc.). |
-| 🎯 **Hunter Mode** | Interactive floating crosshair desktop widget. Drag and drop onto any open window to immediately reveal its executable, owning process, and uninstall package. |
-| 💥 **File Shredder** | Cryptographic multi-pass file and directory shredder (overwrite, flush, truncate, rename, delete) for unrecoverable data destruction. |
-| 🔄 **Backup & Rollback Engine** | Full pre-deletion backup archives with SHA-256 manifests, `.reg` export files, and one-click rollback restore functionality. |
-| ⚙️ **Optional Maintenance Service** | An optional, self-contained Windows Service for automated backup retention, audit log rotation, and scan history housekeeping. |
+| **Leftover Scan** | Scan for remaining files, folders, registry entries, shortcuts, services, and scheduled tasks using trace evidence and heuristic matching. Review candidates before backed-up deletion. |
+| **Deep Clean Uninstaller** | Comprehensive registry and filesystem scanning to locate and eliminate orphaned vendor keys, folders, AppData, ProgramData, and shortcuts. |
+| **Installation Tracer** | Real-time registry and filesystem differential snapshotting (Schema 2 value-level precision) before and after running setup executables. Export and import portable `.outrace.zip` packages. |
+| **Windows Apps & MSIX Manager** | Native management of modern Windows Store, UWP, and MSIX packages. Support for app termination, data reset, package removal, and manifest location discovery. |
+| **Startup & Autorun Manager** | Inspect and toggle Run/RunOnce registry entries, Startup folders, services, and scheduled tasks. Full audit logging with reversible rollback history. |
+| **Junk & Temporary File Cleaner** | Scan and clean temporary directories, application caches, crash dumps, and pattern remnants without affecting active user data. |
+| **Privacy & History Cleaner** | Clean Windows Explorer run history, recent documents, typed paths, and thumbnail caches with typed safety confirmation. |
+| **Evidence Remover (Free Space Wiper)** | Securely wipe unallocated free disk space with multi-pass zero-pattern sector overwriting to prevent recovery of previously deleted confidential data. |
+| **23 Built-in Windows Tools** | Quick-launcher dashboard for essential native Windows administration and diagnostic consoles (Disk Management, Services, Event Viewer, Group Policy, etc.). |
+| **Hunter Mode** | Interactive floating crosshair desktop widget. Drag and drop onto any open window to immediately reveal its executable, owning process, and uninstall package. |
+| **File Shredder** | Cryptographic multi-pass file and directory shredder (overwrite, flush, truncate, rename, delete) for unrecoverable data destruction. |
+| **Backup & Rollback Engine** | Full pre-deletion backup archives with SHA-256 manifests, `.reg` export files, and one-click rollback restore functionality. |
+| **Optional Maintenance Service** | An optional, self-contained Windows Service for automated backup retention, audit log rotation, and scan history housekeeping. |
+
+### Leftover Scan
+
+After an uninstall, OpenUninstaller scans for remaining application data. When an installation trace is available, the scan combines exact trace evidence with heuristic matches. Results show confidence and reasons, protect guarded items, and let you review candidates before deletion. You can also ignore items in future scans and compare results with the previous scan. Deletion requires confirmation and a backup.
+
+The CLI can scan without uninstalling: `oucli scan-leftovers "Example Application" --json`. Add `--diff` to compare with the previous scan. See [Leftover and Junk Algorithms](docs/ALGORITHMS.md) and the [User Guide](docs/USER-GUIDE.md#leftover-review) for details.
 
 ---
 

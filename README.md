@@ -2,6 +2,8 @@
 
 <div align="center">
 
+<img src="src/OpenUninstaller.App/Assets/app.png" alt="OpenUninstaller icon" width="128">
+
 <h1>OpenUninstaller</h1>
 
 <p><strong>A high-performance, fully open-source Windows application manager, deep uninstaller, and system optimization utility.</strong></p>

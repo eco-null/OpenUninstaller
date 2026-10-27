@@ -1,9 +1,4 @@
----
-
 <div align="center">
-
-<br>
-<br>
 
 <img src="src/OpenUninstaller.App/Assets/app.png" alt="OpenUninstaller icon" width="128">
 

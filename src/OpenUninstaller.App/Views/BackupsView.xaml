@@ -8,7 +8,7 @@
              d:DataContext="{d:DesignInstance Type=vm:BackupsViewModel}"
              d:DesignHeight="700" d:DesignWidth="1040">
 
-  <Grid Margin="28,24,28,18">
+  <Grid Margin="32,28,32,22">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
@@ -17,18 +17,19 @@
     </Grid.RowDefinitions>
 
     <Grid Grid.Row="0" Margin="0,0,0,16">
+      <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
       <StackPanel>
         <TextBlock Text="Backups" Style="{StaticResource PageTitle}" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,0"
                    Text="Every deletion is preceded by a registry export and a file archive. Restore returns captured items to their original locations." />
       </StackPanel>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+      <WrapPanel Grid.Row="1" Margin="0,16,0,0">
         <TextBlock Text="{Binding CountLabel}" Style="{StaticResource Muted}" VerticalAlignment="Center"
                    Margin="0,0,12,0" />
         <Button Content="Prune old" Style="{StaticResource BaseButton}" Command="{Binding PruneCommand}"
                 Margin="0,0,8,0" />
         <Button Content="Refresh" Style="{StaticResource PrimaryButton}" Command="{Binding RefreshCommand}" />
-      </StackPanel>
+      </WrapPanel>
     </Grid>
 
     <Border Grid.Row="1" Style="{StaticResource Card}" Padding="4">
@@ -36,12 +37,12 @@
                 ItemsSource="{Binding Backups}"
                 SelectedItem="{Binding SelectedBackup, Mode=TwoWay}">
         <DataGrid.Columns>
-          <DataGridTextColumn Header="Program" Binding="{Binding ProgramName}" Width="*" />
-          <DataGridTextColumn Header="Created" Binding="{Binding CreatedDisplay}" Width="150" />
-          <DataGridTextColumn Header="Keys" Binding="{Binding RegistryCount}" Width="70" />
-          <DataGridTextColumn Header="Files" Binding="{Binding FileCount}" Width="70" />
-          <DataGridTextColumn Header="Size" Binding="{Binding TotalBytes, StringFormat={}{0:N0} B}" Width="100" />
-          <DataGridTemplateColumn Header="State" Width="90">
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Program" Binding="{Binding ProgramName}" Width="*" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Created" Binding="{Binding CreatedDisplay}" Width="150" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Keys" Binding="{Binding RegistryCount}" Width="70" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Files" Binding="{Binding FileCount}" Width="70" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Size" Binding="{Binding TotalBytes, StringFormat={}{0:N0} B}" Width="100" />
+          <DataGridTemplateColumn Header="State" Width="120">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <Border Style="{StaticResource Badge}" HorizontalAlignment="Left">

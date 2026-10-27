@@ -1,30 +1,27 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <SolidColorBrush x:Key="AppBackground" Color="#F3F6FA" />
+  <SolidColorBrush x:Key="AppBackground" Color="#F4F4F4" />
   <SolidColorBrush x:Key="SidebarBackground" Color="#FFFFFF" />
   <SolidColorBrush x:Key="Surface" Color="#FFFFFF" />
-  <SolidColorBrush x:Key="SurfaceAlt" Color="#EDF2F8" />
-  <SolidColorBrush x:Key="SurfaceHover" Color="#E2EAF3" />
-  <SolidColorBrush x:Key="Border" Color="#D7E0EA" />
-  <SolidColorBrush x:Key="BorderStrong" Color="#B9C7D6" />
-  <SolidColorBrush x:Key="TextPrimary" Color="#15212E" />
-  <SolidColorBrush x:Key="TextSecondary" Color="#516476" />
-  <SolidColorBrush x:Key="TextMuted" Color="#7C8E9E" />
-  <SolidColorBrush x:Key="Accent" Color="#0B6FA4" />
-  <SolidColorBrush x:Key="AccentHover" Color="#0E86C4" />
+  <SolidColorBrush x:Key="SurfaceAlt" Color="#F3F3F3" />
+  <SolidColorBrush x:Key="SurfaceHover" Color="#E7E7E7" />
+  <SolidColorBrush x:Key="Border" Color="#DEDEDE" />
+  <SolidColorBrush x:Key="BorderStrong" Color="#A7A7A7" />
+  <SolidColorBrush x:Key="TextPrimary" Color="#171717" />
+  <SolidColorBrush x:Key="TextSecondary" Color="#555555" />
+  <SolidColorBrush x:Key="TextMuted" Color="#666666" />
+  <SolidColorBrush x:Key="Accent" Color="#202020" />
+  <SolidColorBrush x:Key="AccentHover" Color="#424242" />
   <SolidColorBrush x:Key="AccentForeground" Color="#FFFFFF" />
-  <SolidColorBrush x:Key="AccentSoft" Color="#DCEFFA" />
-  <SolidColorBrush x:Key="Danger" Color="#C0362C" />
-  <SolidColorBrush x:Key="DangerHover" Color="#D9483D" />
-  <SolidColorBrush x:Key="DangerSoft" Color="#FBE7E5" />
-  <SolidColorBrush x:Key="Success" Color="#178046" />
-  <SolidColorBrush x:Key="Warning" Color="#9A6700" />
-  <SolidColorBrush x:Key="SelectionBackground" Color="#DCEFFA" />
+  <SolidColorBrush x:Key="AccentSoft" Color="#E9E9E9" />
+  <SolidColorBrush x:Key="Danger" Color="#292929" />
+  <SolidColorBrush x:Key="DangerHover" Color="#484848" />
+  <SolidColorBrush x:Key="DangerSoft" Color="#F0F0F0" />
+  <SolidColorBrush x:Key="Success" Color="#3C3C3C" />
+  <SolidColorBrush x:Key="Warning" Color="#545454" />
+  <SolidColorBrush x:Key="SelectionBackground" Color="#E7E7E7" />
 
-  <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
-    <GradientStop Offset="0" Color="#0B6FA4" />
-    <GradientStop Offset="1" Color="#0E86C4" />
-  </LinearGradientBrush>
+  <SolidColorBrush x:Key="AccentGradient" Color="#202020" />
 
 </ResourceDictionary>

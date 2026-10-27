@@ -123,7 +123,7 @@ public sealed class AppPaths
             "System32",
             "Tasks");
 
-    public string AppVersion { get; init; } = "0.5.0";
+    public string AppVersion { get; init; } = typeof(AppPaths).Assembly.GetName().Version?.ToString(3) ?? "unknown";
 
     public static AppPaths CreateDefault() => new();
 

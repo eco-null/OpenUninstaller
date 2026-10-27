@@ -1,6 +1,7 @@
 <Window x:Class="OpenUninstaller.App.Views.HunterActionDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="/OpenUninstaller;component/Assets/app.ico"
         Title="Hunter Mode - Target Action"
         Width="580" SizeToContent="Height"
         WindowStartupLocation="CenterScreen"

@@ -8,7 +8,7 @@
              d:DataContext="{d:DesignInstance Type=vm:PrivacyViewModel}"
              d:DesignHeight="820" d:DesignWidth="1040">
 
-  <Grid Margin="28,24,28,18">
+  <Grid Margin="32,28,32,22">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
@@ -32,8 +32,7 @@
                 <TextBlock Style="{StaticResource Muted}" MaxWidth="640" HorizontalAlignment="Left"
                            Text="Each file is overwritten with random bytes for every pass, flushed to disk, truncated, renamed and deleted. The recycle bin is bypassed. SSD wear-levelling, filesystem journals or existing backups may still retain copies, so treat this as best effort." />
               </StackPanel>
-              <Border Style="{StaticResource Badge}" HorizontalAlignment="Right" VerticalAlignment="Top"
-                      Background="{DynamicResource AccentSoft}">
+              <Border Style="{StaticResource Badge}" HorizontalAlignment="Right" VerticalAlignment="Top">
                 <TextBlock Text="No backup" Style="{StaticResource BadgeText}" Foreground="{DynamicResource Accent}" />
               </Border>
             </Grid>

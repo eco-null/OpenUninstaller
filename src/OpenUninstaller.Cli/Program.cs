@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
@@ -8,10 +7,7 @@ namespace OpenUninstaller.Cli;
 
 internal static class Program
 {
-    private static string AppVersion =>
-        typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-        ?? typeof(Program).Assembly.GetName().Version?.ToString(3)
-        ?? "unknown";
+    private static string AppVersion => AppPaths.CreateDefault().AppVersion;
 
     public static async Task<int> Main(string[] args)
     {

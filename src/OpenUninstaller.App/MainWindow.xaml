@@ -1,6 +1,7 @@
 <Window x:Class="OpenUninstaller.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="/OpenUninstaller;component/Assets/app.ico"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:OpenUninstaller.App.ViewModels"
@@ -17,29 +18,34 @@
 
   <Grid>
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="232" />
+      <ColumnDefinition Width="246" />
       <ColumnDefinition Width="*" />
     </Grid.ColumnDefinitions>
 
     <Border Grid.Column="0" Background="{DynamicResource SidebarBackground}"
             BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
-      <DockPanel Margin="0,20,0,14">
-        <StackPanel DockPanel.Dock="Top" Margin="22,0,22,24">
+      <DockPanel Margin="0,26,0,18">
+        <StackPanel DockPanel.Dock="Top" Margin="24,0,20,30">
           <StackPanel Orientation="Horizontal">
-            <Border Width="32" Height="32" CornerRadius="9" Background="{DynamicResource AccentGradient}"
-                    VerticalAlignment="Center" Margin="0,0,10,0">
-              <TextBlock Text="O" Foreground="{DynamicResource AccentForeground}" FontWeight="Bold"
-                         FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
+            <Viewbox Width="38" Height="38" VerticalAlignment="Center" Margin="0,0,10,0"
+                     AutomationProperties.Name="OpenUninstaller">
+              <Canvas Width="256" Height="256">
+                <Rectangle Width="256" Height="256" RadiusX="42" RadiusY="42" Fill="{DynamicResource Accent}" />
+                <Ellipse Canvas.Left="62" Canvas.Top="62" Width="134" Height="134"
+                         Stroke="{DynamicResource AccentForeground}" StrokeThickness="30" />
+                <Rectangle Canvas.Left="186" Canvas.Top="186" Width="27" Height="27"
+                           Fill="{DynamicResource AccentForeground}" />
+              </Canvas>
+            </Viewbox>
             <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="OpenUninstaller" FontSize="16" FontWeight="SemiBold" />
-              <TextBlock Text="DEEP UNINSTALLER" FontSize="9" FontWeight="SemiBold"
+              <TextBlock Text="OpenUninstaller" FontSize="15" FontWeight="SemiBold" />
+              <TextBlock Text="APPLICATION MANAGER" FontSize="9" FontWeight="SemiBold"
                          Foreground="{DynamicResource TextMuted}" Margin="1,2,0,0" />
             </StackPanel>
           </StackPanel>
         </StackPanel>
 
-        <Border DockPanel.Dock="Bottom" Margin="14,16,14,0" Padding="12" CornerRadius="9"
+        <Border DockPanel.Dock="Bottom" Margin="16,16,16,0" Padding="14" CornerRadius="12"
                 Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1">
           <StackPanel>
             <StackPanel Orientation="Horizontal">
@@ -89,7 +95,7 @@
       <ContentControl Content="{Binding CurrentPage}" />
 
       <Border Grid.Row="1" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0"
-              Padding="22,8" Background="{DynamicResource SidebarBackground}">
+              Padding="28,10" Background="{DynamicResource SidebarBackground}">
         <DockPanel LastChildFill="False">
           <TextBlock DockPanel.Dock="Left" Text="{Binding StatusLabel}" FontSize="11" Foreground="{DynamicResource TextMuted}"
                      VerticalAlignment="Center" />

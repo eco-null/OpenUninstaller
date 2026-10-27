@@ -8,7 +8,7 @@
              d:DataContext="{d:DesignInstance Type=vm:WindowsToolsViewModel}"
              d:DesignHeight="700" d:DesignWidth="1040">
 
-  <Grid Margin="28,24,28,18">
+  <Grid Margin="32,28,32,22">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
@@ -28,8 +28,8 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock Text="Search:" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Width="220" Margin="0,0,16,0" />
+          <TextBox Style="{StaticResource SearchInput}" Tag="Search tools…" AutomationProperties.Name="Search tools"
+                   Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,0" />
           <TextBlock Text="Category:" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
           <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Width="140" />
         </StackPanel>
@@ -46,7 +46,7 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate>
-            <Border Style="{StaticResource Card}" Width="318" Margin="0,0,14,14" Padding="18">
+            <Border Style="{StaticResource Card}" Width="290" Margin="0,0,12,10" Padding="14">
               <Grid>
                 <Grid.RowDefinitions>
                   <RowDefinition Height="Auto" />
@@ -55,21 +55,20 @@
                   <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0" Margin="0,0,0,12">
-                  <Border Width="38" Height="38" CornerRadius="9" Background="{DynamicResource AccentSoft}"
+                <Grid Grid.Row="0" Margin="0,0,0,7">
+                  <Border Width="30" Height="30" CornerRadius="7" Background="{DynamicResource AccentSoft}"
                           HorizontalAlignment="Left">
-                    <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="17"
+                    <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="15"
                                Foreground="{DynamicResource Accent}" HorizontalAlignment="Center"
                                VerticalAlignment="Center" />
                   </Border>
-                  <Border Background="{DynamicResource CardElevated}" CornerRadius="4" Padding="6,2"
-                          HorizontalAlignment="Right" VerticalAlignment="Top">
-                    <TextBlock Text="{Binding Category}" FontSize="11" Style="{StaticResource Muted}" />
+                  <Border Style="{StaticResource Badge}" HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <TextBlock Text="{Binding Category}" Style="{StaticResource BadgeText}" />
                   </Border>
                 </Grid>
 
                 <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Row="2" Text="{Binding Description}" Style="{StaticResource Muted}" Margin="0,6,0,14" TextWrapping="Wrap" />
+                <TextBlock Grid.Row="2" Text="{Binding Description}" Style="{StaticResource Muted}" Margin="0,4,0,8" TextWrapping="Wrap" />
 
                 <StackPanel Grid.Row="3" Orientation="Horizontal">
                   <Button Content="Launch" Style="{StaticResource BaseButton}" HorizontalAlignment="Left"

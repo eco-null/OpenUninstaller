@@ -8,7 +8,7 @@
              d:DataContext="{d:DesignInstance Type=vm:ProgramsViewModel}"
              d:DesignHeight="700" d:DesignWidth="1040">
 
-  <Grid Margin="28,24,28,18">
+  <Grid Margin="32,28,32,22">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
@@ -17,12 +17,13 @@
     </Grid.RowDefinitions>
 
     <Grid Grid.Row="0" Margin="0,0,0,18">
+      <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
       <StackPanel>
         <TextBlock Text="Programs" Style="{StaticResource PageTitle}" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,0"
                    Text="Inventory, uninstall, review leftovers. OpenUninstaller runs the vendor uninstaller and never deletes without your approval." />
       </StackPanel>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+      <WrapPanel Grid.Row="1" Margin="0,16,0,0">
         <Button Content="{Binding QueueActionLabel}" Style="{StaticResource BaseButton}"
                 Command="{Binding QueueUninstallCommand}" Margin="0,0,8,0"
                 ToolTip="Review several ticked applications one after another." />
@@ -39,34 +40,19 @@
                 Command="{Binding ExportCommand}" Margin="0,0,8,0" />
         <Button Content="Refresh" Style="{StaticResource PrimaryButton}"
                 Command="{Binding RefreshCommand}" />
-      </StackPanel>
+      </WrapPanel>
     </Grid>
 
     <Grid Grid.Row="1" Margin="0,0,0,14">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="300" />
+        <ColumnDefinition Width="230" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
-      <Grid Grid.Column="0">
-        <TextBox Style="{StaticResource Input}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                 ToolTip="Search by name, publisher or install location" />
-        <TextBlock Text="Search programs…" FontSize="12.5" Margin="13,0,0,0"
-                   Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"
-                   IsHitTestVisible="False">
-          <TextBlock.Style>
-            <Style TargetType="TextBlock">
-              <Setter Property="Visibility" Value="Collapsed" />
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding SearchText}" Value="">
-                  <Setter Property="Visibility" Value="Visible" />
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </TextBlock.Style>
-        </TextBlock>
-      </Grid>
+      <TextBox Grid.Column="0" Style="{StaticResource SearchInput}" Tag="Search programs…"
+               AutomationProperties.Name="Search programs" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+               ToolTip="Search by name, publisher or install location" />
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
         <TextBlock Text="Filter:" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
         <ComboBox ItemsSource="{Binding AvailableFilters}" SelectedItem="{Binding SelectedFilter}" Width="160" />
@@ -81,7 +67,7 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="8" />
-        <ColumnDefinition Width="326" />
+        <ColumnDefinition Width="300" />
       </Grid.ColumnDefinitions>
 
       <Border Grid.Column="0" Style="{StaticResource Card}" Padding="4">
@@ -117,10 +103,10 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn Header="Version" Binding="{Binding VersionDisplay}" Width="90" />
-            <DataGridTextColumn Header="Size" Binding="{Binding SizeDisplay}" Width="80" />
-            <DataGridTextColumn Header="Arch" Binding="{Binding ArchitectureDisplay}" Width="70" />
-            <DataGridTextColumn Header="Installed" Binding="{Binding InstallDateDisplay}" Width="88" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Version" Binding="{Binding VersionDisplay}" Width="90" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Size" Binding="{Binding SizeDisplay}" Width="80" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Arch" Binding="{Binding ArchitectureDisplay}" Width="70" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Installed" Binding="{Binding InstallDateDisplay}" Width="88" />
           </DataGrid.Columns>
         </DataGrid>
       </Border>
@@ -168,11 +154,11 @@
               <TextBlock Text="{Binding SelectedRow.UninstallDisplay}" Style="{StaticResource Mono}"
                          TextWrapping="Wrap" Margin="0,0,0,16" />
 
-              <Button Content="Uninstall…" Style="{StaticResource PrimaryButton}"
+              <Button Content="Uninstall…" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left"
                       Command="{Binding UninstallCommand}" Margin="0,0,0,8" />
-              <Button Content="Scan leftovers…" Style="{StaticResource BaseButton}"
+              <Button Content="Scan leftovers…" Style="{StaticResource BaseButton}" HorizontalAlignment="Left"
                       Command="{Binding ScanCommand}" Margin="0,0,0,8" />
-              <Button Content="Forced uninstall…" Style="{StaticResource BaseButton}"
+              <Button Content="Forced uninstall…" Style="{StaticResource BaseButton}" HorizontalAlignment="Left"
                       Command="{Binding ForceUninstallCommand}" />
               <TextBlock Style="{StaticResource Muted}" Margin="0,12,0,0"
                          Text="Double-click a row to uninstall. Forced uninstall removes only the registration and then scans for leftovers." />

@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
+## [1.0.4] — 2026-10-27
+
+### Changed
+
+- Refresh the desktop interface with coordinated light and dark monochrome themes, compact controls,
+  consistent search fields, improved list alignment and clearer status labels.
+- Improve scrolling and card layouts, including three Windows tools columns at the default size.
+- Update application and setup icons while preserving the original mark.
+- Derive the application and CLI version from the build so displayed and package versions agree.
+
 ## [1.0.3] — 2026-10-26
 
 ### Safety fixes

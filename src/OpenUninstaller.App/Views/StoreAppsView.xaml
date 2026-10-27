@@ -8,7 +8,7 @@
              d:DataContext="{d:DesignInstance Type=vm:StoreAppsViewModel}"
              d:DesignHeight="700" d:DesignWidth="1040">
 
-  <Grid Margin="28,24,28,18">
+  <Grid Margin="32,28,32,22">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
@@ -23,20 +23,20 @@
         <TextBlock Style="{StaticResource Muted}" Margin="0,4,0,0" MaxWidth="760" HorizontalAlignment="Left"
                    Text="Inventory, uninstall, and reset Microsoft Store and MSIX packages for this user." />
       </StackPanel>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-        <Button Content="Refresh" Style="{StaticResource PrimaryButton}" Command="{Binding RefreshCommand}" />
-      </StackPanel>
     </Grid>
 
     <Grid Grid.Row="1" Margin="0,0,0,12">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="340" />
-        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="230" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
-      <TextBox Style="{StaticResource Input}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+      <TextBox Grid.Column="0" Style="{StaticResource SearchInput}" Tag="Search apps…"
+               AutomationProperties.Name="Search apps" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                ToolTip="Search by package name, publisher or full name" />
-      <TextBlock Grid.Column="1" Text="{Binding CountLabel}" Style="{StaticResource Muted}"
+      <Button Grid.Column="1" Content="Refresh" Style="{StaticResource PrimaryButton}"
+              Command="{Binding RefreshCommand}" Margin="12,0,0,0" VerticalAlignment="Center" />
+      <TextBlock Grid.Column="2" Text="{Binding CountLabel}" Style="{StaticResource Muted}"
                  VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
     </Grid>
 
@@ -55,45 +55,37 @@
           </ContextMenu>
         </DataGrid.ContextMenu>
         <DataGrid.Columns>
-          <DataGridTextColumn Header="Package" Binding="{Binding DisplayName}" Width="*" MinWidth="240" />
-          <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="110" />
-          <DataGridTextColumn Header="Arch" Binding="{Binding Architecture}" Width="70" />
-          <DataGridTextColumn Header="Kind" Binding="{Binding KindDisplay}" Width="90" />
-          <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="220" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Package" Binding="{Binding DisplayName}" Width="*" MinWidth="240" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Version" Binding="{Binding Version}" Width="110" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Arch" Binding="{Binding Architecture}" Width="70" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Kind" Binding="{Binding KindDisplay}" Width="90" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Publisher" Binding="{Binding Publisher}" Width="220" />
         </DataGrid.Columns>
       </DataGrid>
     </Border>
 
     <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,12,0,0" Padding="16"
             Visibility="{Binding HasSelection, Converter={StaticResource BoolVisibility}}">
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0">
-          <TextBlock Text="{Binding SelectedPackage.DisplayName}" FontSize="15" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding SelectedPackage.PackageFullName}" Style="{StaticResource Mono}"
-                     TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5" />
-          <TextBlock Text="{Binding SelectedPackage.InstallLocation}" Style="{StaticResource Muted}"
-                     TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5" />
-        </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+      <StackPanel>
+        <TextBlock Text="{Binding SelectedPackage.DisplayName}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="{Binding SelectedPackage.PackageFullName}" Style="{StaticResource Mono}"
+                   TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5" />
+        <TextBlock Text="{Binding SelectedPackage.InstallLocation}" Style="{StaticResource Muted}"
+                   TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5" />
+        <WrapPanel Margin="0,12,0,0">
           <Button Content="Uninstall" Style="{StaticResource DangerButton}"
-                  Command="{Binding UninstallCommand}" Margin="0,0,8,0"
+                  Command="{Binding UninstallCommand}" Margin="0,0,8,4"
                   ToolTip="Remove this package for the current user" />
           <Button Content="Reset" Style="{StaticResource BaseButton}"
-                  Command="{Binding ResetCommand}" Margin="0,0,8,0"
-                  ToolTip="Reset app data and state" />
+                  Command="{Binding ResetCommand}" Margin="0,0,8,4" ToolTip="Reset app data and state" />
           <Button Content="Terminate" Style="{StaticResource BaseButton}"
-                  Command="{Binding TerminateCommand}" Margin="0,0,8,0"
-                  ToolTip="Terminate running processes" />
+                  Command="{Binding TerminateCommand}" Margin="0,0,8,4" ToolTip="Terminate running processes" />
           <Button Content="Open folder" Style="{StaticResource GhostButton}"
-                  Command="{Binding OpenLocationCommand}" Margin="0,0,8,0" />
+                  Command="{Binding OpenLocationCommand}" Margin="0,0,8,4" />
           <Button Content="Copy name" Style="{StaticResource GhostButton}"
-                  Command="{Binding CopyNameCommand}" />
-        </StackPanel>
-      </Grid>
+                  Command="{Binding CopyNameCommand}" Margin="0,0,0,4" />
+        </WrapPanel>
+      </StackPanel>
     </Border>
 
     <Grid Grid.Row="4" Margin="0,10,0,0">

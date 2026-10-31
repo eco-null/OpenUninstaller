@@ -30,6 +30,8 @@ internal static class Program
     private static int Main(string[] args)
     {
         if (args is ["--verify-sorting"]) return SortingChecks.Run();
+        if (args is ["--verify-layout"]) return LayoutChecks.Run();
+        if (LayoutChecks.Run() != 0) return 1;
         var exe = args.Length > 0
             ? Path.GetFullPath(args[0])
             : Path.GetFullPath(Path.Combine(
@@ -74,6 +76,8 @@ internal static class Program
             foreach (var (width, height, size) in new[] { (1440d, 860d, "desktop"), (1040d, 620d, "compact") })
             {
                 transform.Resize(width, height);
+                var columns = ActualCardColumns(window);
+                Console.WriteLine($"Window {size}: requested {width}x{height}, actual {window.Current.BoundingRectangle}; expecting {columns} card column(s).");
                 foreach (var theme in new[] { "Dark", "Light" })
                 {
                     Select(Find(themePicker, ControlType.ListItem, theme)
@@ -96,7 +100,7 @@ internal static class Program
                         {
                             var firstHeading = page == "Settings" ? "Appearance" : "Windows history and app state";
                             var secondHeading = page == "Settings" ? "Background maintenance service" : "Shred files permanently";
-                            VerifyCardColumns(pageRoot!, firstHeading, secondHeading, size == "desktop" ? 2 : 1);
+                            VerifyCardColumns(pageRoot!, firstHeading, secondHeading, columns);
                         }
                         if (page == "Autoruns") VerifyAutorunModes(pageRoot!);
                         if (page is "Programs" or "Autoruns" or "Store apps")
@@ -140,14 +144,15 @@ internal static class Program
                 }
             }
             transform.Resize(1920, 1080);
+            var wideColumns = ActualCardColumns(window);
             foreach (var page in new[] { "Settings", "Privacy & shredder" })
             {
                 Select(Find(window, ControlType.ListItem, page)!);
                 var first = page == "Settings" ? "Appearance" : "Windows history and app state";
                 var second = page == "Settings" ? "Background maintenance service" : "Shred files permanently";
-                VerifyCardColumns(window, first, second, 2);
+                VerifyCardColumns(window, first, second, wideColumns);
                 if (screenshotDirectory is not null) Capture(window, Path.Combine(screenshotDirectory, $"wide-{page.Split(' ')[0].ToLowerInvariant()}.png"));
-                Console.WriteLine($"ok  wide/{page}/two-stable-columns");
+                Console.WriteLine($"ok  wide/{page}/{wideColumns}-column(s) at actual window width");
             }
             Select(Find(themePicker, ControlType.ListItem, originalTheme)!);
 
@@ -179,6 +184,17 @@ internal static class Program
         var sideBySide = Math.Abs(a.Top - b.Top) < 3 && b.Left > a.Left + 100;
         if ((columns > 1) != sideBySide)
             throw new InvalidOperationException($"Expected {columns} column(s) for '{first}': first={a}, second={b}.");
+    }
+
+    private static int ActualCardColumns(AutomationElement window)
+    {
+        // UI Automation resize requests can be capped by the runner's desktop.
+        // Use the target's client size and DPI, not the requested physical pixels.
+        var handle = new IntPtr(window.Current.NativeWindowHandle);
+        if (!GetClientRect(handle, out var client)) throw new InvalidOperationException("Cannot read window client size.");
+        var logicalWidth = (client.Right - client.Left) * 96d / GetDpiForWindow(handle);
+        const double sidebar = 216, pageMargins = 56, scrollbar = 17;
+        return logicalWidth - sidebar - pageMargins - scrollbar >= 980 ? 2 : 1;
     }
 
     private static void VerifyAutorunModes(AutomationElement page)
@@ -274,6 +290,8 @@ internal static class Program
     [StructLayout(LayoutKind.Sequential)]
     private struct WindowRect { public int Left, Top, Right, Bottom; }
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out WindowRect rect);
+    [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hwnd, out WindowRect rect);
+    [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
     [DllImport("user32.dll")] private static extern bool PrintWindow(IntPtr hwnd, IntPtr dc, uint flags);

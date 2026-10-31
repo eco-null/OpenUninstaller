@@ -5,6 +5,8 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+## [1.0.7] — 2026-10-31
+
 ### Changed
 
 - Add synchronized sort pickers and column-header sorting to Programs, Autoruns, autorun history

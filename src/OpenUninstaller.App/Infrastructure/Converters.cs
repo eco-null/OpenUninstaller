@@ -4,6 +4,17 @@ using System.Windows.Data;
 
 namespace OpenUninstaller.App.Infrastructure;
 
+public sealed class WidthBelowConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is double width && parameter is string threshold
+            && double.TryParse(threshold, NumberStyles.Float, CultureInfo.InvariantCulture, out var limit)
+            && width < limit;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 public sealed class InverseBooleanConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)

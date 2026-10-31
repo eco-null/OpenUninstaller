@@ -25,6 +25,9 @@ logs/
 *.log
 *.jsonl
 
+# Local design-tool state and diagnostic captures
+.impeccable/
+
 # OS files
 Thumbs.db
 desktop.ini

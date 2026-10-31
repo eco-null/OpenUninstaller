@@ -9,7 +9,7 @@
         ShowInTaskbar="False"
         Background="{DynamicResource AppBackground}"
         Foreground="{DynamicResource TextPrimary}"
-        FontFamily="Segoe UI">
+        FontFamily="Segoe UI Variable Text, Segoe UI">
 
   <Border Padding="24">
     <StackPanel>

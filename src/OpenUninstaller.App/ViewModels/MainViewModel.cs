@@ -23,7 +23,6 @@ public sealed class MainViewModel : ObservableObject
     {
         _services = services;
         _windows = windows;
-        services.SettingsChanged += (_, _) => OnPropertyChanged(nameof(StatusLabel));
         services.Localization.LanguageChanged += _ => RefreshLocalization();
 
         Programs = new ProgramsViewModel(services, windows);
@@ -58,7 +57,6 @@ public sealed class MainViewModel : ObservableObject
         NavItems = BuildNavItems();
         _selectedNav = NavItems.FirstOrDefault(n => n.Key == currentKey) ?? NavItems[0];
         OnPropertyChanged(nameof(SelectedNav));
-        OnPropertyChanged(nameof(StatusLabel));
     }
 
     public ProgramsViewModel Programs { get; }
@@ -102,7 +100,6 @@ public sealed class MainViewModel : ObservableObject
 
     public string AdminLabel => _services.IsElevated ? "Administrator" : "Standard user";
     public string VersionLabel => $"v{_services.Version}";
-    public string StatusLabel => "100% Offline · No telemetry · Zero external connections";
 
     public async Task InitializeAsync()
     {

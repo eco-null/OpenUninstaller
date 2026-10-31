@@ -12,7 +12,7 @@
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppBackground}"
         Foreground="{DynamicResource TextPrimary}"
-        FontFamily="Segoe UI"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
         TextOptions.TextFormattingMode="Display"
         Closing="OnClosing"
         Loaded="OnLoaded">
@@ -78,7 +78,7 @@
               <CheckBox Content="Forced uninstall (remove registration only)" IsChecked="{Binding Force}"
                         Margin="0,0,0,4" />
               <TextBlock Style="{StaticResource Muted}"
-                         Text="Forced uninstall skips the vendor uninstaller. Use it only when the vendor uninstaller is missing or broken; it cannot remove application files by itself." />
+                         Text="Skips the vendor uninstaller and removes the registration only. Use when normal uninstall is unavailable." />
             </StackPanel>
           </Border>
 
@@ -86,7 +86,7 @@
             <StackPanel>
               <TextBlock Text="What happens next" FontSize="13" FontWeight="SemiBold" />
               <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,0"
-                         Text="The vendor uninstaller runs first. OpenUninstaller then scans for leftovers and shows every candidate with its evidence. Nothing is deleted until you review the list and confirm. A backup is created automatically before any deletion." />
+                         Text="Runs the vendor uninstaller, then lets you review leftovers before deletion. Deleted leftovers are backed up." />
             </StackPanel>
           </Border>
         </StackPanel>
@@ -101,7 +101,7 @@
                    HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,14" />
         <ProgressBar IsIndeterminate="True" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,14,0,0" TextAlignment="Center"
-                   Text="The vendor uninstaller may open its own window. OpenUninstaller waits for it and never terminates it. Do not close this window while the scan is running." />
+                   Text="Wait for the vendor uninstaller to finish. Keep this window open during scanning." />
         <Button Content="Cancel" Style="{StaticResource BaseButton}" Command="{Binding CancelCommand}"
                 HorizontalAlignment="Center" Margin="0,18,0,0" />
       </StackPanel>
@@ -237,7 +237,7 @@
             <StackPanel>
               <TextBlock Text="Review database" Style="{StaticResource SectionTitle}" />
               <TextBlock Style="{StaticResource Muted}"
-                         Text="A leftover is only deleted after it has been captured in the backup. Restore the backup from the Backups page if an application misbehaves after cleanup." />
+                         Text="Restore deleted leftovers from Backups." />
               <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                 <Button Content="Open backup folder" Style="{StaticResource BaseButton}"
                         Command="{Binding OpenBackupCommand}" Margin="0,0,8,0" />

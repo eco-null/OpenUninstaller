@@ -1,6 +1,10 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Automation;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Media.Imaging;
+using System.Windows.Interop;
 
 namespace OpenUninstaller.UiSmoke;
 
@@ -11,16 +15,16 @@ namespace OpenUninstaller.UiSmoke;
 /// </summary>
 internal static class Program
 {
-    private static readonly (string Nav, string Marker)[] Pages =
+    private static readonly (string Nav, string AutomationId)[] Pages =
     [
-        ("Programs", "Inventory, uninstall, review leftovers. OpenUninstaller runs the vendor uninstaller and never deletes without your approval."),
-        ("Autoruns", "Programs, services and scheduled tasks that start with Windows. Disabling is reversible: the original value, service start mode or task state is recorded locally and can be restored."),
-        ("Junk files", "Allow-listed caches and temporary files. Only children of known roots are touched, and files modified in the last ten minutes are skipped."),
-        ("Privacy & shredder", "Remove Windows history traces and overwrite files before deletion. History cleanup is intentionally irreversible, so the privacy data is not copied into a backup."),
-        ("Store apps", "Inventory, uninstall, and reset Microsoft Store and MSIX packages for this user."),
-        ("Backups", "Every deletion is preceded by a registry export and a file archive. Restore returns captured items to their original locations."),
-        ("Windows tools", "Shortcuts to built-in maintenance applets. These launch Windows components; OpenUninstaller does not modify them."),
-        ("Settings", "Preferences are stored locally in the OpenUninstaller data directory. Fully offline, no telemetry, zero external network connections.")
+        ("Programs", "ProgramsPage"),
+        ("Autoruns", "AutorunsPage"),
+        ("Junk files", "JunkPage"),
+        ("Privacy & shredder", "PrivacyPage"),
+        ("Store apps", "StoreAppsPage"),
+        ("Backups", "BackupsPage"),
+        ("Windows tools", "WindowsToolsPage"),
+        ("Settings", "SettingsPage")
     ];
 
     private static int Main(string[] args)
@@ -52,54 +56,75 @@ internal static class Program
 
         try
         {
-            var window = WaitForWindow(TimeSpan.FromSeconds(30));
+            var window = WaitForWindow(process.Id, TimeSpan.FromSeconds(30));
             if (window is null)
             {
                 Console.Error.WriteLine("The main window did not appear.");
                 return 1;
             }
 
-            foreach (var (page, marker) in Pages)
+            var screenshotDirectory = args.Length > 1 ? Path.GetFullPath(args[1]) : null;
+            if (screenshotDirectory is not null) Directory.CreateDirectory(screenshotDirectory);
+            var transform = (TransformPattern)window.GetCurrentPattern(TransformPattern.Pattern);
+            var themePicker = Find(window, ControlType.List, "Color theme")
+                ?? throw new InvalidOperationException("The shell theme selector is missing.");
+            var originalTheme = ((SelectionPattern)themePicker.GetCurrentPattern(SelectionPattern.Pattern))
+                .Current.GetSelection().FirstOrDefault()?.Current.Name ?? "Dark";
+            foreach (var (width, height, size) in new[] { (1440d, 860d, "desktop"), (1040d, 620d, "compact") })
             {
-                var item = window.FindFirst(
-                    TreeScope.Descendants,
-                    new AndCondition(
-                        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
-                        new PropertyCondition(AutomationElement.NameProperty, page)));
-                if (item is null)
+                transform.Resize(width, height);
+                foreach (var theme in new[] { "Dark", "Light" })
                 {
-                    Console.Error.WriteLine($"Navigation entry '{page}' was not found.");
-                    return 1;
+                    Select(Find(themePicker, ControlType.ListItem, theme)
+                        ?? throw new InvalidOperationException($"Theme '{theme}' is missing."));
+                    foreach (var (page, automationId) in Pages)
+                    {
+                        var item = Find(window, ControlType.ListItem, page)
+                            ?? throw new InvalidOperationException($"Navigation entry '{page}' is missing.");
+                        Select(item);
+                        var pageRoot = WaitFor(() => window.FindFirst(TreeScope.Descendants,
+                            new PropertyCondition(AutomationElement.AutomationIdProperty, automationId)));
+                        var title = pageRoot is null ? null : WaitFor(() => Find(pageRoot, ControlType.Text, page));
+                        foreach (var removedLabel in new[] { "Local workspace", "Windows application manager", "100% Offline · No telemetry · Zero external connections" })
+                            if (Find(window, ControlType.Text, removedLabel) is not null)
+                                throw new InvalidOperationException($"Removed shell label is still present: {removedLabel}");
+                        if (title is null || title.Current.IsOffscreen)
+                            throw new InvalidOperationException($"'{page}' did not render at {size}/{theme}.");
+                        if (process.HasExited) throw new InvalidOperationException($"The app exited on '{page}'.");
+                        if (screenshotDirectory is not null)
+                        {
+                            // Wait for an initial inventory scan to complete before capturing its result.
+                            var deadline = DateTime.UtcNow.AddSeconds(20);
+                            while (DateTime.UtcNow < deadline && window.FindFirst(TreeScope.Descendants,
+                                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ProgressBar)) is { } progress
+                                && !progress.Current.IsOffscreen) Thread.Sleep(100);
+                            Capture(window, Path.Combine(screenshotDirectory,
+                                $"{size}-{theme.ToLowerInvariant()}-{page.Split(' ')[0].ToLowerInvariant()}.png"));
+                        }
+                        Console.WriteLine($"ok  {size}/{theme}/{page}");
+                    }
+                    Select(Find(window, ControlType.ListItem, "Programs")!);
+                    var search = WaitFor(() => Find(window, ControlType.Edit, "Search programs"))!;
+                    ((ValuePattern)search.GetCurrentPattern(ValuePattern.Pattern)).SetValue("__ui_smoke_no_such_application_64f28__");
+                    var empty = WaitFor(() => Find(window, ControlType.Text, "No applications to show"));
+                    if (empty is null || empty.Current.IsOffscreen)
+                        throw new InvalidOperationException("The no-results state did not render.");
+                    ((ValuePattern)search.GetCurrentPattern(ValuePattern.Pattern)).SetValue("");
+                    Console.WriteLine($"ok  {size}/{theme}/search-empty-and-reset");
+                    var row = WaitFor(() => window.FindFirst(TreeScope.Descendants,
+                        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.DataItem)));
+                    if (row is not null)
+                    {
+                        Select(row);
+                        if (Find(window, ControlType.Button, "Uninstall\u2026") is null)
+                            throw new InvalidOperationException("Selecting a program did not expose inspector actions.");
+                        if (screenshotDirectory is not null)
+                            Capture(window, Path.Combine(screenshotDirectory, $"{size}-{theme.ToLowerInvariant()}-programs-selected.png"));
+                        Console.WriteLine($"ok  {size}/{theme}/selection-inspector");
+                    }
                 }
-
-                if (!item.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var pattern)
-                    || pattern is not SelectionItemPattern selection)
-                {
-                    Console.Error.WriteLine($"Navigation entry '{page}' cannot be selected.");
-                    return 1;
-                }
-
-                selection.Select();
-                Thread.Sleep(400);
-                if (process.HasExited)
-                {
-                    Console.Error.WriteLine($"The app exited while opening '{page}'.");
-                    return 1;
-                }
-
-                var title = window.FindFirst(
-                    TreeScope.Descendants,
-                    new AndCondition(
-                        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text),
-                        new PropertyCondition(AutomationElement.NameProperty, marker)));
-                if (title is null)
-                {
-                    Console.Error.WriteLine($"Page marker '{marker}' for '{page}' did not render.");
-                    return 1;
-                }
-
-                Console.WriteLine($"ok  {page}");
             }
+            Select(Find(themePicker, ControlType.ListItem, originalTheme)!);
 
             if (window.TryGetCurrentPattern(WindowPattern.Pattern, out var windowPattern)
                 && windowPattern is WindowPattern wp)
@@ -108,7 +133,7 @@ internal static class Program
             }
 
             process.WaitForExit(10_000);
-            Console.WriteLine("UI smoke passed: 8 pages rendered, no destructive action invoked.");
+            Console.WriteLine("UI smoke passed: 8 pages x 2 themes x 2 sizes, plus search empty/reset and selection inspector; no destructive action invoked.");
             return 0;
         }
         finally
@@ -120,7 +145,68 @@ internal static class Program
         }
     }
 
-    private static AutomationElement? WaitForWindow(TimeSpan timeout)
+    private static AutomationElement? Find(AutomationElement parent, ControlType type, string name) =>
+        parent.FindFirst(TreeScope.Descendants, new AndCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, type),
+            new PropertyCondition(AutomationElement.NameProperty, name)));
+
+    private static AutomationElement? WaitFor(Func<AutomationElement?> find)
+    {
+        var until = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < until)
+        {
+            var element = find();
+            if (element is not null && !element.Current.IsOffscreen) return element;
+            Thread.Sleep(80);
+        }
+        return null;
+    }
+
+    private static void Select(AutomationElement element)
+    {
+        ((SelectionItemPattern)element.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+        Thread.Sleep(180);
+    }
+
+    private static void Capture(AutomationElement window, string path)
+    {
+        var handle = new IntPtr(window.Current.NativeWindowHandle);
+        GetWindowRect(handle, out var rect);
+        var dc = GetDC(IntPtr.Zero);
+        var memory = CreateCompatibleDC(dc);
+        var bitmap = CreateCompatibleBitmap(dc, rect.Right - rect.Left, rect.Bottom - rect.Top);
+        var previous = SelectObject(memory, bitmap);
+        try
+        {
+            if (!PrintWindow(handle, memory, 2)) throw new InvalidOperationException("Window capture failed.");
+            var source = Imaging.CreateBitmapSourceFromHBitmap(bitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(source));
+            using var stream = File.Create(path);
+            encoder.Save(stream);
+        }
+        finally
+        {
+            SelectObject(memory, previous);
+            DeleteObject(bitmap);
+            DeleteDC(memory);
+            ReleaseDC(IntPtr.Zero, dc);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowRect { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out WindowRect rect);
+    [DllImport("user32.dll")] private static extern IntPtr GetDC(IntPtr hwnd);
+    [DllImport("user32.dll")] private static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
+    [DllImport("user32.dll")] private static extern bool PrintWindow(IntPtr hwnd, IntPtr dc, uint flags);
+    [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleDC(IntPtr dc);
+    [DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleBitmap(IntPtr dc, int width, int height);
+    [DllImport("gdi32.dll")] private static extern IntPtr SelectObject(IntPtr dc, IntPtr obj);
+    [DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
+    [DllImport("gdi32.dll")] private static extern bool DeleteDC(IntPtr dc);
+
+    private static AutomationElement? WaitForWindow(int processId, TimeSpan timeout)
     {
         var until = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < until)
@@ -131,7 +217,8 @@ internal static class Program
                     TreeScope.Children,
                     new AndCondition(
                         new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window),
-                        new PropertyCondition(AutomationElement.NameProperty, "OpenUninstaller")));
+                        new PropertyCondition(AutomationElement.NameProperty, "OpenUninstaller"),
+                        new PropertyCondition(AutomationElement.ProcessIdProperty, processId)));
                 if (window is not null)
                 {
                     return window;

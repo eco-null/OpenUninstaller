@@ -19,6 +19,7 @@
             <infra:InverseBooleanConverter x:Key="InverseBool" />
             <infra:NullToVisibilityConverter x:Key="NullToVis" />
             <infra:EmptyStringToVisibilityConverter x:Key="TextToVis" />
+            <infra:WidthBelowConverter x:Key="WidthBelow" />
 
             <DataTemplate DataType="{x:Type vm:ProgramsViewModel}">
                 <views:ProgramsView />

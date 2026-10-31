@@ -2,84 +2,54 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Icon="/OpenUninstaller;component/Assets/app.ico"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="clr-namespace:OpenUninstaller.App.ViewModels"
-        mc:Ignorable="d"
-        d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
-        Title="OpenUninstaller"
-        Height="800" Width="1280" MinHeight="620" MinWidth="1040"
+        Title="OpenUninstaller" Height="860" Width="1440" MinHeight="620" MinWidth="1040"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource AppBackground}"
-        Foreground="{DynamicResource TextPrimary}"
-        FontFamily="Segoe UI"
-        TextOptions.TextFormattingMode="Display"
-        Loaded="OnLoaded">
-
+        Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display" Loaded="OnLoaded">
   <Grid>
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="246" />
+      <ColumnDefinition Width="216" />
       <ColumnDefinition Width="*" />
     </Grid.ColumnDefinitions>
 
-    <Border Grid.Column="0" Background="{DynamicResource SidebarBackground}"
-            BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
-      <DockPanel Margin="0,26,0,18">
-        <StackPanel DockPanel.Dock="Top" Margin="24,0,20,30">
+    <Border Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+      <DockPanel Margin="0,24,0,16">
+        <StackPanel DockPanel.Dock="Top" Margin="20,0,16,30">
           <StackPanel Orientation="Horizontal">
-            <Viewbox Width="38" Height="38" VerticalAlignment="Center" Margin="0,0,10,0"
-                     AutomationProperties.Name="OpenUninstaller">
+            <Viewbox Width="30" Height="30" Margin="0,0,10,0" AutomationProperties.Name="OpenUninstaller">
               <Canvas Width="256" Height="256">
-                <Rectangle Width="256" Height="256" RadiusX="42" RadiusY="42" Fill="{DynamicResource Accent}" />
-                <Ellipse Canvas.Left="62" Canvas.Top="62" Width="134" Height="134"
-                         Stroke="{DynamicResource AccentForeground}" StrokeThickness="30" />
-                <Rectangle Canvas.Left="186" Canvas.Top="186" Width="27" Height="27"
-                           Fill="{DynamicResource AccentForeground}" />
+                <Rectangle Canvas.Left="8" Canvas.Top="8" Width="240" Height="240" RadiusX="56" RadiusY="56" Fill="{DynamicResource Accent}" />
+                <Ellipse Canvas.Left="58" Canvas.Top="58" Width="132" Height="132" Stroke="{DynamicResource AccentForeground}" StrokeThickness="28" />
+                <Rectangle Canvas.Left="184" Canvas.Top="184" Width="28" Height="28" RadiusX="6" RadiusY="6" Fill="{DynamicResource AccentForeground}" />
               </Canvas>
             </Viewbox>
             <StackPanel VerticalAlignment="Center">
-              <TextBlock Text="OpenUninstaller" FontSize="15" FontWeight="SemiBold" />
-              <TextBlock Text="APPLICATION MANAGER" FontSize="9" FontWeight="SemiBold"
-                         Foreground="{DynamicResource TextMuted}" Margin="1,2,0,0" />
+              <TextBlock Text="OpenUninstaller" FontSize="14" FontWeight="SemiBold" />
             </StackPanel>
           </StackPanel>
         </StackPanel>
 
-        <Border DockPanel.Dock="Bottom" Margin="16,16,16,0" Padding="14" CornerRadius="12"
-                Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="1">
-          <StackPanel>
-            <StackPanel Orientation="Horizontal">
-              <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,7,0">
-                <Ellipse.Style>
-                  <Style TargetType="Ellipse">
-                    <Setter Property="Fill" Value="{DynamicResource Warning}" />
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding AdminLabel}" Value="Administrator">
-                        <Setter Property="Fill" Value="{DynamicResource Success}" />
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </Ellipse.Style>
-              </Ellipse>
-              <TextBlock Text="{Binding AdminLabel}" FontSize="11.5" FontWeight="SemiBold" />
-            </StackPanel>
-            <TextBlock Text="HKLM cleanup needs elevation." FontSize="10.5"
-                       Foreground="{DynamicResource TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap" />
-            <TextBlock Text="{Binding VersionLabel}" FontSize="10.5"
-                       Foreground="{DynamicResource TextMuted}" Margin="0,6,0,0" />
+        <StackPanel DockPanel.Dock="Bottom" Margin="20,20,20,0">
+          <Border Height="1" Background="{DynamicResource Border}" Margin="0,0,0,16" />
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource TextMuted}" FontSize="14" Margin="0,0,10,0" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding AdminLabel}" ToolTip="System-wide cleanup requires administrator rights." FontSize="12" FontWeight="SemiBold" />
           </StackPanel>
-        </Border>
+          <TextBlock Text="{Binding VersionLabel}" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="0,12,0,0" />
+        </StackPanel>
 
-        <ListBox Style="{StaticResource NavList}"
-                 ItemsSource="{Binding NavItems}"
+        <ListBox Style="{StaticResource NavList}" ItemsSource="{Binding NavItems}"
+                 AutomationProperties.Name="Main navigation"
                  SelectedItem="{Binding SelectedNav, Mode=TwoWay}">
           <ListBox.ItemTemplate>
             <DataTemplate>
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="15"
-                           Width="24" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding Label}" FontSize="13" VerticalAlignment="Center" />
-              </StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="28" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+              </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
@@ -88,21 +58,23 @@
 
     <Grid Grid.Column="1">
       <Grid.RowDefinitions>
+        <RowDefinition Height="56" />
         <RowDefinition Height="*" />
-        <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
-
-      <ContentControl Content="{Binding CurrentPage}" />
-
-      <Border Grid.Row="1" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0"
-              Padding="28,10" Background="{DynamicResource SidebarBackground}">
-        <DockPanel LastChildFill="False">
-          <TextBlock DockPanel.Dock="Left" Text="{Binding StatusLabel}" FontSize="11" Foreground="{DynamicResource TextMuted}"
-                     VerticalAlignment="Center" />
-          <TextBlock DockPanel.Dock="Right" Text="{Binding VersionLabel}" FontSize="11"
-                     Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
-        </DockPanel>
+      <Border Background="{DynamicResource SidebarBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="28,0">
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="{Binding SelectedNav.Label}" FontSize="12" FontWeight="SemiBold" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <ListBox Style="{StaticResource ThemeSelector}" AutomationProperties.Name="Color theme"
+                     ItemsSource="{Binding Settings.ThemeOptions}" SelectedItem="{Binding Settings.Theme, Mode=TwoWay}" />
+          </StackPanel>
+        </Grid>
       </Border>
+      <ContentControl Grid.Row="1" Content="{Binding CurrentPage}" />
+
     </Grid>
   </Grid>
 </Window>

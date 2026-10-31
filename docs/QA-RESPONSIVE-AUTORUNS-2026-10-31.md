@@ -55,6 +55,12 @@ Pre-push verification of the combined changes under `artifacts/push-validation/`
 Release solution build with zero warnings/errors, all 227 core/CLI tests, sorting regression
 checks and the full UI Automation matrix, including wide two-column placement.
 
+The first GitHub CI run passed build, core tests and CLI smoke, but its desktop capped the
+requested window size and the UI test incorrectly expected two columns. Live UI assertions
+now use the target window's actual client width and DPI. Separate in-memory checks measure
+the real Settings/Privacy XAML at 820/1220/1700/2300 DIP page widths and verify one/two/two/two
+stable columns, including content growth, independently of the runner's screen resolution.
+
 ## Sources
 
 - User-provided Revo screenshots and the explicit decision to retain Microsoft user applications.

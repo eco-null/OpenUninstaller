@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Windows.Data;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
 
@@ -14,18 +17,33 @@ public sealed class AutorunsViewModel : PageViewModel
     private AutorunEntry? _selected;
     private AutorunHistoryEntry? _selectedHistory;
     private string _searchText = string.Empty;
-    private bool _isHistoryView;
+    private string _selectedMode = "Basic";
 
     public AutorunsViewModel(AppServices services, WindowService windows)
     {
         _services = services;
         _windows = windows;
+        EntriesView = CollectionViewSource.GetDefaultView(Entries);
+        HistoryView = CollectionViewSource.GetDefaultView(HistoryEntries);
+        Sort = new ResultSort(EntriesView, nameof(AutorunEntry.Name),
+            new("Name", nameof(AutorunEntry.Name)),
+            new("Publisher", nameof(AutorunEntry.Publisher)),
+            new("State", nameof(AutorunEntry.IsEnabled), "Disabled first", "Enabled first"),
+            new("Source", nameof(AutorunEntry.SourceLabel)),
+            new("Command", nameof(AutorunEntry.Command)));
+        HistorySort = new ResultSort(HistoryView, nameof(AutorunHistoryEntry.Name),
+            new("Timestamp", nameof(AutorunHistoryEntry.Timestamp), "Oldest first", "Newest first"),
+            new("Name", nameof(AutorunHistoryEntry.Name)),
+            new("Action", nameof(AutorunHistoryEntry.ActionLabel)),
+            new("Source", nameof(AutorunHistoryEntry.SourceLabel)),
+            new("Details", nameof(AutorunHistoryEntry.Detail)));
+        HistorySort.SelectedOption = HistorySort.Options[1];
         RefreshCommand = new AsyncRelayCommand(_ => RefreshAsync(), _ => !IsBusy);
         ToggleCommand = new AsyncRelayCommand(
             ToggleAsync,
             parameter => (parameter is AutorunEntry || SelectedEntry is not null) && !IsBusy);
-        ShowAutorunsCommand = new RelayCommand(_ => IsHistoryView = false);
-        ShowHistoryCommand = new RelayCommand(_ => IsHistoryView = true);
+        ShowAutorunsCommand = new RelayCommand(_ => SelectedMode = "Basic");
+        ShowHistoryCommand = new RelayCommand(_ => SelectedMode = "History & rollback");
         RollbackCommand = new AsyncRelayCommand(
             RollbackAsync,
             parameter => (parameter is AutorunHistoryEntry h ? h.CanRollback : SelectedHistoryEntry?.CanRollback == true) && !IsBusy);
@@ -36,6 +54,10 @@ public sealed class AutorunsViewModel : PageViewModel
 
     public ObservableCollection<AutorunEntry> Entries { get; } = [];
     public ObservableCollection<AutorunHistoryEntry> HistoryEntries { get; } = [];
+    public ICollectionView EntriesView { get; }
+    public ICollectionView HistoryView { get; }
+    public ResultSort Sort { get; }
+    public ResultSort HistorySort { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand ToggleCommand { get; }
     public AsyncRelayCommand RollbackCommand { get; }
@@ -43,17 +65,26 @@ public sealed class AutorunsViewModel : PageViewModel
     public RelayCommand ShowAutorunsCommand { get; }
     public RelayCommand ShowHistoryCommand { get; }
 
-    public bool IsHistoryView
+    public IReadOnlyList<string> ModeOptions { get; } = ["Basic", "Advanced", "History & rollback"];
+
+    public string SelectedMode
     {
-        get => _isHistoryView;
+        get => _selectedMode;
         set
         {
-            if (SetProperty(ref _isHistoryView, value))
+            if (ModeOptions.Contains(value) && SetProperty(ref _selectedMode, value))
             {
+                OnPropertyChanged(nameof(IsHistoryView));
                 OnPropertyChanged(nameof(IsAutorunsView));
                 ApplyFilter();
             }
         }
+    }
+
+    public bool IsHistoryView
+    {
+        get => SelectedMode == "History & rollback";
+        set => SelectedMode = value ? "History & rollback" : "Basic";
     }
 
     public bool IsAutorunsView => !IsHistoryView;
@@ -94,11 +125,12 @@ public sealed class AutorunsViewModel : PageViewModel
         }
     }
 
-    public int EnabledCount => _allEntries.Count(e => e.IsEnabled);
-    public int DisabledCount => _allEntries.Count(e => !e.IsEnabled);
+    public int EnabledCount => Entries.Count(e => e.IsEnabled);
+    public int DisabledCount => Entries.Count(e => !e.IsEnabled);
     public int HistoryCount => _allHistory.Count;
     public int CanRollbackCount => _allHistory.Count(h => h.CanRollback);
-    public string CountLabel => $"{EnabledCount} enabled · {DisabledCount} disabled";
+    public string CountLabel => IsHistoryView ? $"{HistoryEntries.Count} history entries"
+        : $"{Entries.Count} entries · {EnabledCount} enabled · {DisabledCount} disabled";
 
     public override void Activate() => _ = RefreshAsync();
 
@@ -245,6 +277,14 @@ public sealed class AutorunsViewModel : PageViewModel
             return;
         }
 
+        if (entry.Source == AutorunSourceKind.PackagedStartupTask)
+        {
+            try { Process.Start(new ProcessStartInfo("ms-settings:startupapps") { UseShellExecute = true }); }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+            { _windows.Error($"Windows Startup settings could not be opened: {ex.Message}"); }
+            return;
+        }
+
         var action = entry.IsEnabled ? "Disable" : "Enable";
         var explanation = entry.Source switch
         {
@@ -256,6 +296,8 @@ public sealed class AutorunsViewModel : PageViewModel
                 "The task is disabled through the Task Scheduler and the original definition is kept.",
             AutorunSourceKind.ScheduledTask or AutorunSourceKind.DisabledScheduledTask =>
                 "The task is enabled again through the Task Scheduler. Its definition is kept.",
+            _ when !entry.IsEnabled && entry.StartupApprovalLocation is not null =>
+                "The existing startup entry is enabled in Windows. Its launch command is kept.",
             _ when entry.IsEnabled =>
                 "The entry is copied to OpenUninstaller's disabled store and can be re-enabled later.",
             _ => "The entry is restored from the disabled store."
@@ -296,10 +338,14 @@ public sealed class AutorunsViewModel : PageViewModel
 
     private void ApplyFilter()
     {
+        var selectedEntry = SelectedEntry;
+        var selectedHistory = SelectedHistoryEntry;
         var query = SearchText.Trim();
+        var scope = _allEntries.Where(entry => SelectedMode != "Basic"
+            || (entry.IsApplicationStartup && !entry.IsWindowsComponent));
         var matches = string.IsNullOrEmpty(query)
-            ? _allEntries
-            : _allEntries.Where(entry =>
+            ? scope
+            : scope.Where(entry =>
                 entry.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || entry.Command.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || entry.SourceLabel.Contains(query, StringComparison.OrdinalIgnoreCase)
@@ -312,10 +358,7 @@ public sealed class AutorunsViewModel : PageViewModel
             Entries.Add(entry);
         }
 
-        if (SelectedEntry is not null && !Entries.Contains(SelectedEntry))
-        {
-            SelectedEntry = null;
-        }
+        SelectedEntry = selectedEntry is not null && Entries.Contains(selectedEntry) ? selectedEntry : null;
 
         HistoryEntries.Clear();
         var historyMatches = string.IsNullOrEmpty(query)
@@ -332,9 +375,9 @@ public sealed class AutorunsViewModel : PageViewModel
             HistoryEntries.Add(h);
         }
 
-        if (SelectedHistoryEntry is not null && !HistoryEntries.Contains(SelectedHistoryEntry))
-        {
-            SelectedHistoryEntry = null;
-        }
+        SelectedHistoryEntry = selectedHistory is not null && HistoryEntries.Contains(selectedHistory) ? selectedHistory : null;
+        OnPropertyChanged(nameof(EnabledCount));
+        OnPropertyChanged(nameof(DisabledCount));
+        OnPropertyChanged(nameof(CountLabel));
     }
 }

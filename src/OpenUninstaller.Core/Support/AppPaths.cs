@@ -76,6 +76,15 @@ public sealed class AppPaths
 
     public string DisabledAutorunsRegistryPath { get; init; } = @"Software\OpenUninstaller\DisabledAutoruns";
 
+    public string AutorunRegistryPath { get; init; } = @"Software\Microsoft\Windows\CurrentVersion";
+
+    public string StartupApprovedRegistryPath { get; init; } =
+        @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved";
+
+    public RegistryLocation PackagedStartupStateRoot { get; init; } = new(
+        RegistryHive.CurrentUser, RegistryView.Registry64,
+        @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\SystemAppData");
+
     /// <summary>Container for per-executable App Paths registrations (machine or user hive).</summary>
     public string AppPathsRegistryPath { get; init; } = @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths";
 

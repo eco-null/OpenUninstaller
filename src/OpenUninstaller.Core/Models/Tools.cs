@@ -15,7 +15,8 @@ public enum AutorunSourceKind
     DisabledRegistry,
     DisabledStartupFolder,
     DisabledService,
-    DisabledScheduledTask
+    DisabledScheduledTask,
+    PackagedStartupTask
 }
 
 public sealed record AutorunEntry
@@ -30,9 +31,15 @@ public sealed record AutorunEntry
     public string? FilePath { get; init; }
     public string? TaskName { get; init; }
     public string? Publisher { get; init; }
+    public string? ExecutablePath { get; init; }
+    public bool IsWindowsComponent { get; init; }
+    public bool IsApplicationStartup { get; init; } = true;
+    public RegistryLocation? StartupApprovalLocation { get; init; }
+    public string? StartupApprovalValueName { get; init; }
 
     public string StateLabel => IsEnabled ? "Enabled" : "Disabled";
-    public string ToggleLabel => IsEnabled ? "Disable" : "Enable";
+    public string ToggleLabel => Source == AutorunSourceKind.PackagedStartupTask
+        ? "Manage" : IsEnabled ? "Disable" : "Enable";
 
     public string SourceLabel => Source switch
     {
@@ -47,6 +54,7 @@ public sealed record AutorunEntry
         AutorunSourceKind.DisabledRegistry => "Disabled (registry)",
         AutorunSourceKind.DisabledService => "Disabled (service)",
         AutorunSourceKind.DisabledScheduledTask => "Disabled (task)",
+        AutorunSourceKind.PackagedStartupTask => "Windows app",
         _ => "Disabled (Startup folder)"
     };
 }

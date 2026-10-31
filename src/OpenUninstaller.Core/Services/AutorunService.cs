@@ -67,13 +67,17 @@ public sealed class AutorunService
                     continue;
                 }
 
+                var approval = StartupApproval(source.Location.Hive, name,
+                    source.Location.View == RegistryView.Registry32 ? "Run32" : "Run");
                 result.Entries.Add(new AutorunEntry
                 {
                     Id = Hashing.StableId(source.Kind.ToString(), source.Location.DisplayPath, name),
                     Name = name,
                     Command = command,
                     Source = source.Kind,
-                    IsEnabled = true,
+                    IsEnabled = approval.Enabled,
+                    StartupApprovalLocation = approval.Location,
+                    StartupApprovalValueName = name,
                     RegistryLocation = source.Location,
                     LocationDisplay = source.Location.DisplayPath,
                     Publisher = TryGetPublisher(command)
@@ -102,13 +106,18 @@ public sealed class AutorunService
             foreach (var file in files)
             {
                 var name = Path.GetFileName(file);
+                if (name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase)) continue;
+                var approval = StartupApproval(folder.Kind == AutorunSourceKind.CommonStartupFolder
+                    ? RegistryHive.LocalMachine : RegistryHive.CurrentUser, name, "StartupFolder");
                 result.Entries.Add(new AutorunEntry
                 {
                     Id = Hashing.StableId(folder.Kind.ToString(), folder.Path, name),
                     Name = name,
                     Command = file,
                     Source = folder.Kind,
-                    IsEnabled = true,
+                    IsEnabled = approval.Enabled,
+                    StartupApprovalLocation = approval.Location,
+                    StartupApprovalValueName = name,
                     FilePath = file,
                     LocationDisplay = folder.Path,
                     Publisher = TryGetPublisher(file)
@@ -118,6 +127,7 @@ public sealed class AutorunService
 
         AddServiceEntries(result);
         AddScheduledTaskEntries(result);
+        new PackagedStartupReader(_registry, _paths).AddEntries(result);
         AddDisabledEntries(result);
 
         var unique = new Dictionary<string, AutorunEntry>(StringComparer.Ordinal);
@@ -135,6 +145,30 @@ public sealed class AutorunService
 
         result.Entries.Clear();
         result.Entries.AddRange(unique.Values);
+        for (var index = 0; index < result.Entries.Count; index++)
+        {
+            var entry = result.Entries[index];
+            var executable = entry.ExecutablePath ?? AutorunIdentity.ExecutablePath(entry.Command);
+            var publisher = entry.Publisher;
+            if (entry.Source is AutorunSourceKind.MachineService or AutorunSourceKind.DisabledService
+                && string.Equals(Path.GetFileName(executable), "svchost.exe", StringComparison.OrdinalIgnoreCase)
+                && entry.RegistryLocation is { } service)
+            {
+                var parameters = service with { Path = service.Path + @"\Parameters" };
+                try
+                {
+                    if (_registry.GetValue(parameters, "ServiceDll")?.AsString() is { } serviceDll)
+                    {
+                        executable = Environment.ExpandEnvironmentVariables(serviceDll.Trim('"'));
+                        publisher = AutorunIdentity.Publisher(executable);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+                { result.Warnings.Add($"Service identity: {entry.Name}: {ex.Message}"); }
+            }
+            entry = entry with { ExecutablePath = executable, Publisher = publisher };
+            result.Entries[index] = entry with { IsWindowsComponent = AutorunIdentity.IsWindowsComponent(entry, _paths) };
+        }
         result.Entries.Sort((a, b) =>
         {
             var enabled = b.IsEnabled.CompareTo(a.IsEnabled);
@@ -158,6 +192,12 @@ public sealed class AutorunService
         if (!entry.IsEnabled)
         {
             error = "The entry is already disabled.";
+            return false;
+        }
+
+        if (entry.Source == AutorunSourceKind.PackagedStartupTask)
+        {
+            error = "Manage this Windows app in Windows Settings > Apps > Startup.";
             return false;
         }
 
@@ -314,6 +354,32 @@ public sealed class AutorunService
         {
             error = "The entry is already enabled.";
             return false;
+        }
+
+        if (entry.Source == AutorunSourceKind.PackagedStartupTask)
+        {
+            error = "Manage this Windows app in Windows Settings > Apps > Startup.";
+            return false;
+        }
+
+        if (entry.StartupApprovalLocation is { } approval && entry.StartupApprovalValueName is { } valueName
+            && _registry.GetValue(approval, valueName)?.Data is byte[] { Length: >= 12 } data
+            && data[0] is 3 or 7)
+        {
+            try
+            {
+                var enabledData = new byte[data.Length];
+                enabledData[0] = (byte)(data[0] & ~1);
+                _registry.SetValue(approval, valueName, RegistryValueKind.Binary, enabledData);
+                RecordHistory(entry, AutorunHistoryAction.Enabled, "Enabled in Windows Startup approval.");
+                _log.Write("autorun", "enable-startup-approved", entry.Name, "completed", entry.LocationDisplay);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                error = ex.Message;
+                return false;
+            }
         }
 
         var store = DisabledStoreLocation(id);
@@ -660,12 +726,15 @@ public sealed class AutorunService
             var displayName = _registry.GetValue(location, "DisplayName")?.AsString();
             var imagePath = _registry.GetValue(location, "ImagePath")?.AsString();
             var start = _registry.GetValue(location, "Start")?.AsInt32() ?? 3;
+            var serviceType = _registry.GetValue(location, "Type")?.AsInt32() ?? 16;
             if (start is 0 or 1)
             {
                 continue;
             }
 
             var name = string.IsNullOrWhiteSpace(displayName) ? service : displayName;
+            if (name.StartsWith("@oem", StringComparison.OrdinalIgnoreCase) && name.LastIndexOf(';') is var separator && separator > 0)
+                name = name[(separator + 1)..].Trim();
             var command = string.IsNullOrWhiteSpace(imagePath) ? name : imagePath;
 
             result.Entries.Add(new AutorunEntry
@@ -674,6 +743,7 @@ public sealed class AutorunService
                 Name = name,
                 Command = command,
                 Source = AutorunSourceKind.MachineService,
+                IsApplicationStartup = !string.IsNullOrWhiteSpace(imagePath) && (serviceType & 0x30) != 0 && start is 2 or 4,
                 IsEnabled = start != 4,
                 RegistryLocation = location,
                 LocationDisplay = location.DisplayPath,
@@ -684,6 +754,15 @@ public sealed class AutorunService
 
     private void AddScheduledTaskEntries(AutorunScanResult result)
     {
+        var existingTasks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var systemTasksDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "Tasks");
+        if (string.Equals(Path.GetFullPath(_paths.ScheduledTasksDirectory), systemTasksDirectory, StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var task in ScheduledTaskInventory.Read(result.Warnings))
+            {
+                if (existingTasks.Add(task.Name)) AddTaskEntry(result, task.Name, task.Xml, null);
+            }
+        }
         if (!Directory.Exists(_paths.ScheduledTasksDirectory))
         {
             return;
@@ -706,7 +785,7 @@ public sealed class AutorunService
             return;
         }
 
-        if (files.Count == 0)
+        if (files.Count == 0 && existingTasks.Count == 0)
         {
             result.Warnings.Add(
                 "Scheduled tasks: no task files were readable. Run as administrator to list them.");
@@ -716,6 +795,7 @@ public sealed class AutorunService
         {
             var taskName = Path.GetRelativePath(_paths.ScheduledTasksDirectory, file)
                 .Replace(Path.DirectorySeparatorChar, '\\');
+            if (existingTasks.Contains(taskName)) continue;
             string xml;
             try
             {
@@ -731,6 +811,12 @@ public sealed class AutorunService
                 continue;
             }
 
+            AddTaskEntry(result, taskName, xml, file);
+        }
+    }
+
+    private void AddTaskEntry(AutorunScanResult result, string taskName, string xml, string? file)
+    {
             var (command, arguments, enabled) = ReadTaskXml(xml);
             var commandLine = string.Join(" ", new[] { command, arguments }
                 .Where(part => !string.IsNullOrWhiteSpace(part)));
@@ -748,7 +834,6 @@ public sealed class AutorunService
                 LocationDisplay = $"Task Scheduler: {taskName}",
                 Publisher = TryGetPublisher(command ?? string.Empty)
             });
-        }
     }
 
     private static (string? Command, string? Arguments, bool Enabled) ReadTaskXml(string xml)
@@ -759,7 +844,8 @@ public sealed class AutorunService
             var exec = document.Descendants().FirstOrDefault(element => element.Name.LocalName == "Exec");
             var command = exec?.Elements().FirstOrDefault(element => element.Name.LocalName == "Command")?.Value.Trim();
             var arguments = exec?.Elements().FirstOrDefault(element => element.Name.LocalName == "Arguments")?.Value.Trim();
-            var enabledElement = document.Descendants().FirstOrDefault(element => element.Name.LocalName == "Enabled");
+            var enabledElement = document.Root?.Elements().FirstOrDefault(element => element.Name.LocalName == "Settings")?
+                .Elements().FirstOrDefault(element => element.Name.LocalName == "Enabled");
             var enabled = !string.Equals(enabledElement?.Value.Trim(), "false", StringComparison.OrdinalIgnoreCase);
             return (command, arguments, enabled);
         }
@@ -899,26 +985,26 @@ public sealed class AutorunService
     private RegistryLocation DisabledStoreLocation(string id)
         => new(RegistryHive.CurrentUser, RegistryView.Registry64, $"{_paths.DisabledAutorunsRegistryPath}\\{id}");
 
-    private static IEnumerable<(AutorunSourceKind Kind, RegistryLocation Location)> RegistrySources()
+    private IEnumerable<(AutorunSourceKind Kind, RegistryLocation Location)> RegistrySources()
     {
         yield return (AutorunSourceKind.UserRun, new RegistryLocation(
             RegistryHive.CurrentUser, RegistryView.Registry64,
-            @"Software\Microsoft\Windows\CurrentVersion\Run"));
+            _paths.AutorunRegistryPath + @"\Run"));
         yield return (AutorunSourceKind.UserRunOnce, new RegistryLocation(
             RegistryHive.CurrentUser, RegistryView.Registry64,
-            @"Software\Microsoft\Windows\CurrentVersion\RunOnce"));
+            _paths.AutorunRegistryPath + @"\RunOnce"));
         yield return (AutorunSourceKind.MachineRun, new RegistryLocation(
             RegistryHive.LocalMachine, RegistryView.Registry64,
-            @"Software\Microsoft\Windows\CurrentVersion\Run"));
+            _paths.AutorunRegistryPath + @"\Run"));
         yield return (AutorunSourceKind.MachineRun, new RegistryLocation(
             RegistryHive.LocalMachine, RegistryView.Registry32,
-            @"Software\Microsoft\Windows\CurrentVersion\Run"));
+            _paths.AutorunRegistryPath + @"\Run"));
         yield return (AutorunSourceKind.MachineRunOnce, new RegistryLocation(
             RegistryHive.LocalMachine, RegistryView.Registry64,
-            @"Software\Microsoft\Windows\CurrentVersion\RunOnce"));
+            _paths.AutorunRegistryPath + @"\RunOnce"));
         yield return (AutorunSourceKind.MachineRunOnce, new RegistryLocation(
             RegistryHive.LocalMachine, RegistryView.Registry32,
-            @"Software\Microsoft\Windows\CurrentVersion\RunOnce"));
+            _paths.AutorunRegistryPath + @"\RunOnce"));
     }
 
     private IEnumerable<(AutorunSourceKind Kind, string Path)> StartupFolders()
@@ -929,30 +1015,24 @@ public sealed class AutorunService
             _paths.ProgramData, @"Microsoft\Windows\Start Menu\Programs\Startup"));
     }
 
-    private static string? TryGetPublisher(string command)
+    private (RegistryLocation? Location, bool Enabled) StartupApproval(RegistryHive sourceHive, string name, string category)
     {
-        try
+        foreach (var hive in sourceHive == RegistryHive.CurrentUser
+                     ? new[] { RegistryHive.CurrentUser } : new[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
         {
-            var tokens = CommandLineSplitter.Split(command);
-            if (tokens.Count == 0)
+            var location = new RegistryLocation(hive, RegistryView.Registry64, $"{_paths.StartupApprovedRegistryPath}\\{category}");
+            try
             {
-                return null;
+                if (_registry.GetValue(location, name)?.Data is byte[] { Length: >= 12 } data && data[0] is 2 or 3 or 6 or 7)
+                    return (location, (data[0] & 1) == 0);
             }
-
-            var executable = Environment.ExpandEnvironmentVariables(tokens[0]);
-            if (!File.Exists(executable))
-            {
-                return null;
-            }
-
-            var info = FileVersionInfo.GetVersionInfo(executable);
-            return string.IsNullOrWhiteSpace(info.CompanyName) ? null : info.CompanyName.Trim();
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
-        {
-            return null;
-        }
+        return (null, true);
     }
+
+    private static string? TryGetPublisher(string command)
+        => AutorunIdentity.Publisher(AutorunIdentity.ExecutablePath(command));
 
     private sealed record DisabledAutorunPayload
     {

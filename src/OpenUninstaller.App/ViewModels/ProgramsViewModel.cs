@@ -35,6 +35,8 @@ public sealed class ProgramRow : ObservableObject
     public string PublisherDisplay => Program.Publisher ?? "—";
     public string VersionDisplay => Program.Version ?? "—";
     public string SizeDisplay => Program.SizeDisplay;
+    public bool HasSize => Program.EstimatedSizeBytes is > 0;
+    public bool HasInstallDate => Program.InstallDate.HasValue;
     public string InstallDateDisplay => Program.InstallDate?.ToString("yyyy-MM-dd") ?? "—";
     public string ArchitectureDisplay => Program.ArchitectureDisplay;
     public string LocationDisplay => Program.InstallLocation ?? "No install location recorded";
@@ -71,6 +73,13 @@ public sealed class ProgramsViewModel : PageViewModel
         _windows = windows;
         RowsView = CollectionViewSource.GetDefaultView(_rows);
         RowsView.Filter = FilterRow;
+        Sort = new ResultSort(RowsView, nameof(ProgramRow.Name),
+            new("Name", nameof(ProgramRow.Name)),
+            new("Publisher", "Program.Publisher"),
+            new("Size", "Program.EstimatedSizeBytes", "Smallest first", "Largest first", nameof(ProgramRow.HasSize)),
+            new("Installed", "Program.InstallDate", "Oldest first", "Newest first", nameof(ProgramRow.HasInstallDate)),
+            new("Version", nameof(ProgramRow.VersionDisplay)),
+            new("Type", nameof(ProgramRow.ArchitectureDisplay)));
 
         RefreshCommand = new AsyncRelayCommand(_ => RefreshAsync(), _ => !IsBusy);
         UninstallCommand = new RelayCommand(_ => OpenUninstall(force: false), _ => CanActOnSelection);
@@ -85,6 +94,7 @@ public sealed class ProgramsViewModel : PageViewModel
     }
 
     public ICollectionView RowsView { get; }
+    public ResultSort Sort { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public RelayCommand UninstallCommand { get; }
     public RelayCommand ForceUninstallCommand { get; }

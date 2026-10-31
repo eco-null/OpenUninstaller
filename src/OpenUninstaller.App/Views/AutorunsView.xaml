@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:OpenUninstaller.App.ViewModels"
+             xmlns:infra="clr-namespace:OpenUninstaller.App.Infrastructure"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:AutorunsViewModel}"
              d:DesignHeight="700" d:DesignWidth="1040">
@@ -21,35 +22,46 @@
       <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
       <StackPanel Margin="0,0,0,14">
         <TextBlock Text="Autoruns" Style="{StaticResource PageTitle}" />
-        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-          <Button Content="Active autoruns" Style="{StaticResource BaseButton}"
-                  Command="{Binding ShowAutorunsCommand}" Margin="0,0,8,0" Padding="12,5" />
-          <Button Content="History &amp; rollback" Style="{StaticResource BaseButton}"
-                  Command="{Binding ShowHistoryCommand}" Margin="0,0,8,0" Padding="12,5" />
-        </StackPanel>
+        <ListBox ItemsSource="{Binding ModeOptions}" SelectedItem="{Binding SelectedMode, Mode=TwoWay}"
+                 Style="{StaticResource ThemeSelector}" HorizontalAlignment="Left" Margin="0,12,0,0"
+                 AutomationProperties.Name="Autorun mode"
+                 ToolTip="Basic shows application startup entries. Advanced includes Windows system entries." />
       </StackPanel>
       <WrapPanel Grid.Row="1" VerticalAlignment="Center">
-        <Button Content="Rollback all" Style="{StaticResource PrimaryButton}" Margin="0,0,12,0"
+        <Button Content="Rollback all" Style="{StaticResource PrimaryButton}" Margin="0,0,12,6"
                 Command="{Binding RollbackAllCommand}"
                 Visibility="{Binding IsHistoryView, Converter={StaticResource BoolVisibility}}" />
         <TextBlock Text="{Binding CountLabel}" Style="{StaticResource Muted}" VerticalAlignment="Center"
-                   Margin="0,0,12,0"
+                   Margin="0,0,12,6"
                    Visibility="{Binding IsAutorunsView, Converter={StaticResource BoolVisibility}}" />
-        <TextBox Style="{StaticResource SearchInput}" Tag="Search autoruns…" AutomationProperties.Name="Search autoruns" Margin="0,0,10,0"
+        <TextBox Style="{StaticResource SearchInput}" Tag="Search autoruns…" AutomationProperties.Name="Search autoruns" Margin="0,0,10,6"
                  VerticalAlignment="Center"
                  ToolTip="Filter by name, command, source, action or location"
                  Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-        <Button Content="Refresh" Style="{StaticResource PrimaryButton}" Command="{Binding RefreshCommand}" />
+        <Button Content="Refresh" Style="{StaticResource PrimaryButton}" Command="{Binding RefreshCommand}" Margin="0,0,12,6" />
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,6"
+                    Visibility="{Binding IsAutorunsView, Converter={StaticResource BoolVisibility}}">
+          <TextBlock Text="Sort by" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+          <ComboBox AutomationProperties.Name="Sort autoruns" Width="230" DisplayMemberPath="Label"
+                    ItemsSource="{Binding Sort.Options}" SelectedItem="{Binding Sort.SelectedOption, Mode=TwoWay}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,6"
+                    Visibility="{Binding IsHistoryView, Converter={StaticResource BoolVisibility}}">
+          <TextBlock Text="Sort by" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+          <ComboBox AutomationProperties.Name="Sort autorun history" Width="250" DisplayMemberPath="Label"
+                    ItemsSource="{Binding HistorySort.Options}" SelectedItem="{Binding HistorySort.SelectedOption, Mode=TwoWay}" />
+        </StackPanel>
       </WrapPanel>
     </Grid>
 
     <Border Grid.Row="2" Style="{StaticResource Card}" Padding="4"
             Visibility="{Binding IsAutorunsView, Converter={StaticResource BoolVisibility}}">
       <DataGrid Style="{StaticResource DataGridStyle}"
-                ItemsSource="{Binding Entries}"
+                infra:GridSorting.Sort="{Binding Sort}"
+                ItemsSource="{Binding EntriesView}"
                 SelectedItem="{Binding SelectedEntry, Mode=TwoWay}">
         <DataGrid.Columns>
-          <DataGridTemplateColumn Header="State" Width="106">
+          <DataGridTemplateColumn Header="State" Width="106" SortMemberPath="IsEnabled">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -70,7 +82,7 @@
           <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Command" Binding="{Binding Command}" Width="*" />
           <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Source" Binding="{Binding SourceLabel}" Width="130" />
           <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Publisher" Binding="{Binding Publisher}" Width="150" />
-          <DataGridTemplateColumn Header="" Width="92">
+          <DataGridTemplateColumn Header="" Width="92" CanUserSort="False">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <Button Content="{Binding ToggleLabel}" Style="{StaticResource GhostButton}"
@@ -86,11 +98,12 @@
     <Border Grid.Row="2" Style="{StaticResource Card}" Padding="4"
             Visibility="{Binding IsHistoryView, Converter={StaticResource BoolVisibility}}">
       <DataGrid Style="{StaticResource DataGridStyle}"
-                ItemsSource="{Binding HistoryEntries}"
+                infra:GridSorting.Sort="{Binding HistorySort}"
+                ItemsSource="{Binding HistoryView}"
                 SelectedItem="{Binding SelectedHistoryEntry, Mode=TwoWay}">
         <DataGrid.Columns>
-          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Timestamp" Binding="{Binding TimestampDisplay}" Width="150" />
-          <DataGridTemplateColumn Header="Action" Width="120">
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Timestamp" Binding="{Binding TimestampDisplay}" SortMemberPath="Timestamp" Width="150" />
+          <DataGridTemplateColumn Header="Action" Width="120" SortMemberPath="ActionLabel">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <Border Style="{StaticResource Badge}" HorizontalAlignment="Left">
@@ -102,7 +115,7 @@
           <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Name" Binding="{Binding Name}" Width="180" />
           <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Source" Binding="{Binding SourceLabel}" Width="130" />
           <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Details" Binding="{Binding Detail}" Width="*" />
-          <DataGridTemplateColumn Header="" Width="92">
+          <DataGridTemplateColumn Header="" Width="92" CanUserSort="False">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
                 <Button Content="Rollback" Style="{StaticResource GhostButton}"

@@ -2,7 +2,14 @@
 
 Legend: `[x]` done and verified · `[~]` partially done · `[ ]` not done.
 This file is the single source of truth for what remains. Update it with every merged change.
-Last updated: 2026-10-31 (v1.0.5 desktop interface and documentation refresh).
+Last updated: 2026-10-31 (v1.0.6 Hunter ownership and screenshot refresh).
+
+## v1.0.6 — Hunter ownership and screenshots
+
+- [x] Replace name/publisher guesses with executable-path evidence and specific install locations
+- [x] Handle ambiguous owners and identical shared HKCU views consistently
+- [x] Verify 26 new Hunter regression cases and the 193-test core/CLI suite
+- [x] Refresh all eight screens and Hunter mode in both themes with sample data
 
 ## v1.0.5 — Desktop interface and documentation
 

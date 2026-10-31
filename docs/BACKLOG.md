@@ -5,6 +5,12 @@ live in [TODO.md](../TODO.md); plans live in [docs/PLAN](PLAN/).
 
 ## Progress log
 
+### 2026-10-31 — v1.0.6 Hunter ownership and screenshots
+
+- Replaced name/publisher guesses with path evidence, specific install locations and ambiguity handling.
+- Recognized identical user uninstall records exposed through both registry views.
+- Added 26 Hunter regression cases and refreshed the README screenshot gallery in both themes.
+
 ### 2026-10-31 — v1.0.5 desktop interface and documentation
 
 - Coordinated light/dark themes, shared native controls and multi-resolution icon assets.

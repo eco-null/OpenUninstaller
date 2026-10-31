@@ -24,9 +24,11 @@ The WPF desktop application and command-line interface share the same core servi
 Light and dark themes share a restrained layout, searchable inventories and consistent controls. The application inspector can be resized; secondary instructions stay out of the main workflow.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings-dark.png">
-  <img src="docs/assets/settings-light.png" alt="OpenUninstaller settings with appearance, Explorer integration and cleanup preferences" width="1440">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/programs-dark.png">
+  <img src="docs/assets/programs-light.png" alt="OpenUninstaller 1.0.6 Programs screen with searchable sample inventory and the application inspector" width="1440">
 </picture>
+
+<p align="center"><sub>OpenUninstaller 1.0.6 · Screenshots use sample data. Images follow your GitHub light or dark theme.</sub></p>
 
 ## Features
 
@@ -45,6 +47,51 @@ Light and dark themes share a restrained layout, searchable inventories and cons
 | Maintenance | Configure an optional Windows service for backup retention, log expiry and supported cleanup tasks. |
 
 See the [capability matrix](docs/CAPABILITIES.md) for implementation details and boundaries.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%">
+      <p><strong>Autoruns</strong> — review startup entries, services and tasks.</p>
+      <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/autoruns-dark.png"><img src="docs/assets/autoruns-light.png" alt="Autoruns with sample enabled and disabled startup entries" width="720"></picture>
+    </td>
+    <td width="50%">
+      <p><strong>Junk files</strong> — inspect cache categories and preview cleanup.</p>
+      <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/junk-dark.png"><img src="docs/assets/junk-light.png" alt="Junk files with sample cache sizes and dry run enabled" width="720"></picture>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <p><strong>Store apps</strong> — inspect packages and their available actions.</p>
+      <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/store-dark.png"><img src="docs/assets/store-light.png" alt="Store apps with sample Windows packages and selected package details" width="720"></picture>
+    </td>
+    <td>
+      <p><strong>Backups</strong> — review recovery history before restoring.</p>
+      <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/backups-dark.png"><img src="docs/assets/backups-light.png" alt="Backups with sample complete records and restore preview actions" width="720"></picture>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <p><strong>Privacy &amp; shredder</strong> — review history and file-shredding targets.</p>
+      <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/privacy-dark.png"><img src="docs/assets/privacy-light.png" alt="Privacy and shredder with an example file, sample history counts and dry run enabled" width="720"></picture>
+    </td>
+    <td>
+      <p><strong>Windows tools</strong> — find built-in administrative utilities.</p>
+      <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/tools-dark.png"><img src="docs/assets/tools-light.png" alt="Windows tools with system, network and security utilities" width="720"></picture>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <p><strong>Settings</strong> — choose appearance, language and cleanup preferences.</p>
+      <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings-dark.png"><img src="docs/assets/settings-light.png" alt="Settings with theme, language, Explorer integration and backup preferences" width="720"></picture>
+    </td>
+    <td>
+      <p><strong>Hunter mode</strong> — identify a window's process and executable.</p>
+      <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/hunter-dark.png"><img src="docs/assets/hunter-light.png" alt="Hunter mode correctly identifying a sample OpenUninstaller executable" width="580"></picture>
+    </td>
+  </tr>
+</table>
 
 ## Getting started
 

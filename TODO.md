@@ -2,7 +2,15 @@
 
 Legend: `[x]` done and verified · `[~]` partially done · `[ ]` not done.
 This file is the single source of truth for what remains. Update it with every merged change.
-Last updated: 2026-10-26 (v1.0.3 backup, restore and cleanup safety fixes).
+Last updated: 2026-10-31 (v1.0.5 desktop interface and documentation refresh).
+
+## v1.0.5 — Desktop interface and documentation
+
+- [x] Coordinate light/dark zinc themes, shared controls and native icon assets
+- [x] Add resizable application details and compact-window adaptation
+- [x] Remove redundant interface copy and decorative status labels
+- [x] Refresh README, screenshots and design documentation
+- [x] Verify all eight screens in both themes and two window sizes, including search and selection
 
 ## Phase 1 — Foundations
 

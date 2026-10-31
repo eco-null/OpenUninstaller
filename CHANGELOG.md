@@ -3,6 +3,26 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
+## [1.0.5] — 2026-10-31
+
+### Changed
+
+- Refresh the native desktop interface with coordinated zinc light and dark themes, consistent
+  controls and a compact navigation rail.
+- Add a resizable application inspector and reclaim list space when no application is selected
+  in a compact window.
+- Simplify interface copy across all eight screens; remove decorative workspace and footer labels
+  while retaining action labels, live results, errors and necessary warnings.
+- Update the application and installer icon with an SVG source and nine Windows icon sizes.
+- Rewrite the README with current screenshots, corrected installation and CLI paths, and clearer
+  capability and recovery boundaries.
+
+### Tests
+
+- Expand desktop UI smoke coverage to eight screens in both themes at standard and compact window
+  sizes, including search, selection and checks for removed decorative labels.
+- Identify page roots by stable automation IDs instead of explanatory paragraphs.
+
 ## [1.0.4] — 2026-10-27
 
 ### Changed

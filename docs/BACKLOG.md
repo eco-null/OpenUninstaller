@@ -5,6 +5,14 @@ live in [TODO.md](../TODO.md); plans live in [docs/PLAN](PLAN/).
 
 ## Progress log
 
+### 2026-10-31 — v1.0.5 desktop interface and documentation
+
+- Coordinated light/dark themes, shared native controls and multi-resolution icon assets.
+- Added a resizable application inspector with compact-window adaptation.
+- Removed redundant copy, instructional banners and decorative status labels.
+- Rewrote the README with current screenshots and accurate installation and CLI instructions.
+- Expanded UI smoke coverage to 32 page/theme/size combinations plus search and selection checks.
+
 ### 2026-10-26 — v1.0.3 backup, restore and cleanup safety
 
 - Hardened restore destination and registry import boundaries, preserved empty backup directories,

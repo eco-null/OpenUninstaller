@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:OpenUninstaller.App.ViewModels"
+             xmlns:infra="clr-namespace:OpenUninstaller.App.Infrastructure"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:ProgramsViewModel}"
              d:DesignHeight="700" d:DesignWidth="1040">
@@ -55,9 +56,16 @@
           </Border>
         </Grid>
         <WrapPanel Grid.Row="1" Margin="0,12,0,0">
-          <TextBlock Text="Show" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
-          <ComboBox AutomationProperties.Name="Program filter" ItemsSource="{Binding AvailableFilters}" SelectedItem="{Binding SelectedFilter}" Width="170" />
-          <CheckBox Content="Show system components" Margin="20,0,0,0" VerticalAlignment="Center" IsChecked="{Binding IncludeSystemComponents}" />
+          <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+            <TextBlock Text="Show" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <ComboBox AutomationProperties.Name="Program filter" ItemsSource="{Binding AvailableFilters}" SelectedItem="{Binding SelectedFilter}" Width="170" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+            <TextBlock Text="Sort by" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <ComboBox AutomationProperties.Name="Sort programs" Width="230" DisplayMemberPath="Label"
+                      ItemsSource="{Binding Sort.Options}" SelectedItem="{Binding Sort.SelectedOption, Mode=TwoWay}" />
+          </StackPanel>
+          <CheckBox Content="Show system components" Margin="0,0,0,6" VerticalAlignment="Center" IsChecked="{Binding IncludeSystemComponents}" />
         </WrapPanel>
       </Grid>
     </Border>
@@ -97,11 +105,12 @@
       <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0">
         <Grid ClipToBounds="True">
         <DataGrid Style="{StaticResource DataGridStyle}"
+                  infra:GridSorting.Sort="{Binding Sort}"
                   ItemsSource="{Binding RowsView}"
                   SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                   MouseDoubleClick="OnRowDoubleClick" ToolTip="Double-click an application to uninstall.">
           <DataGrid.Columns>
-            <DataGridTemplateColumn Header="" Width="48">
+            <DataGridTemplateColumn Header="" Width="48" CanUserSort="False">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <CheckBox IsChecked="{Binding IsQueued, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -110,7 +119,7 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTemplateColumn Header="Application" Width="*" MinWidth="180">
+            <DataGridTemplateColumn Header="Application" Width="*" MinWidth="180" SortMemberPath="Name">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -129,9 +138,9 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
             <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Version" Binding="{Binding VersionDisplay}" Width="90" />
-            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Size" Binding="{Binding SizeDisplay}" Width="80" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Size" Binding="{Binding SizeDisplay}" SortMemberPath="Program.EstimatedSizeBytes" Width="80" />
             <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Type" Binding="{Binding ArchitectureDisplay}" Width="70" />
-            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Installed" Binding="{Binding InstallDateDisplay}" Width="88" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Installed" Binding="{Binding InstallDateDisplay}" SortMemberPath="Program.InstallDate" Width="88" />
           </DataGrid.Columns>
         </DataGrid>
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20" IsHitTestVisible="False">

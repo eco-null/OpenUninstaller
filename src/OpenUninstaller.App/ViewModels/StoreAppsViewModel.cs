@@ -23,6 +23,12 @@ public sealed class StoreAppsViewModel : PageViewModel
         _windows = windows;
         PackagesView = CollectionViewSource.GetDefaultView(_packages);
         PackagesView.Filter = Filter;
+        Sort = new ResultSort(PackagesView, nameof(MsixPackage.DisplayName),
+            new("Name", nameof(MsixPackage.DisplayName)),
+            new("Publisher", nameof(MsixPackage.Publisher)),
+            new("Type", nameof(MsixPackage.KindDisplay)),
+            new("Architecture", nameof(MsixPackage.Architecture)),
+            new("Version", nameof(MsixPackage.Version)));
         RefreshCommand = new AsyncRelayCommand(_ => RefreshAsync(), _ => !IsBusy);
         UninstallCommand = new AsyncRelayCommand(_ => UninstallSelectedAsync(), _ => CanActOnSelection);
         ResetCommand = new AsyncRelayCommand(_ => ResetSelectedAsync(), _ => CanActOnSelection);
@@ -32,6 +38,7 @@ public sealed class StoreAppsViewModel : PageViewModel
     }
 
     public ICollectionView PackagesView { get; }
+    public ResultSort Sort { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand UninstallCommand { get; }
     public AsyncRelayCommand ResetCommand { get; }

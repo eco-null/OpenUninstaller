@@ -169,7 +169,11 @@ The hierarchy is compact and practical. Page titles use the frontmatter title ro
 
 ## Layout
 
-The normal window is (1440 × 860 DIPs), with a minimum of (1040 × 620 DIPs). The stable navigation rail is (216 DIPs), the context bar (56 DIPs). Native Windows title-bar controls remain. Main page margins are typically (28 left/right, 26 top, 18 bottom); Settings ends with a (28 DIP) bottom margin and caps its content at (860 DIPs).
+The normal window is (1440 × 860 DIPs), with a minimum of (1040 × 620 DIPs). The stable navigation rail is (216 DIPs), the context bar (56 DIPs). Native Windows title-bar controls remain. Main page margins are typically (28 left/right, 26 top, 18 bottom); Settings ends with a (28 DIP) bottom margin.
+
+Settings and Privacy use stable semantic columns in a centered (1680 DIP) maximum content region. Their `ResponsiveCardPanel` has a (480 DIP) minimum target width, a two-column maximum and (20 DIP) column gaps. Each column is a fixed group of related cards with (16 DIP) vertical gaps, so asynchronous list growth cannot relocate unrelated forms. The minimum window stacks the groups; the default and wider windows use two columns. Settings combines related sections into five cards. Privacy keeps history/browser cleanup in the first group and file/free-space erasure in the second; long lists scroll within bounded viewports. Page titles remain above the scrolling card region.
+
+Junk and Windows tools continue to use the available content width through `ResponsiveCardPanel`, with (14 DIP) gaps and additional columns as space allows. Short cards retain their natural height.
 
 Use the observed compact spacing steps for labels and controls, then larger gaps for groups. Action and filter rows wrap. Data-heavy content stretches to fill available space and scrolls rather than forcing the window beyond its bounds.
 

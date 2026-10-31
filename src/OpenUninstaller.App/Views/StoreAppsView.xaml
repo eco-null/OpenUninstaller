@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:OpenUninstaller.App.ViewModels"
+             xmlns:infra="clr-namespace:OpenUninstaller.App.Infrastructure"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=vm:StoreAppsViewModel}"
              d:DesignHeight="700" d:DesignWidth="1040">
@@ -24,23 +25,23 @@
       </StackPanel>
     </Grid>
 
-    <Grid Grid.Row="1" Margin="0,0,0,12">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="230" />
-        <ColumnDefinition Width="Auto" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
-      <TextBox Grid.Column="0" Style="{StaticResource SearchInput}" Tag="Search apps…"
+    <WrapPanel Grid.Row="1" Margin="0,0,0,6">
+      <TextBox Style="{StaticResource SearchInput}" Tag="Search apps…" Margin="0,0,12,6"
                AutomationProperties.Name="Search apps" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                ToolTip="Search by package name, publisher or full name" />
-      <Button Grid.Column="1" Content="Refresh" Style="{StaticResource PrimaryButton}"
-              Command="{Binding RefreshCommand}" Margin="12,0,0,0" VerticalAlignment="Center" />
-      <TextBlock Grid.Column="2" Text="{Binding CountLabel}" Style="{StaticResource Muted}"
-                 VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0" />
-    </Grid>
+      <Button Content="Refresh" Style="{StaticResource PrimaryButton}"
+              Command="{Binding RefreshCommand}" Margin="0,0,16,6" VerticalAlignment="Center" />
+      <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+        <TextBlock Text="Sort by" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+        <ComboBox AutomationProperties.Name="Sort store apps" Width="230" DisplayMemberPath="Label"
+                  ItemsSource="{Binding Sort.Options}" SelectedItem="{Binding Sort.SelectedOption, Mode=TwoWay}" />
+      </StackPanel>
+      <TextBlock Text="{Binding CountLabel}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,0,6" />
+    </WrapPanel>
 
     <Border Grid.Row="2" Style="{StaticResource Card}" Padding="4">
       <DataGrid Style="{StaticResource DataGridStyle}"
+                infra:GridSorting.Sort="{Binding Sort}"
                 ItemsSource="{Binding PackagesView}"
                 SelectedItem="{Binding SelectedPackage, Mode=TwoWay}">
         <DataGrid.ContextMenu>

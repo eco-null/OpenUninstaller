@@ -29,6 +29,7 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        if (args is ["--verify-sorting"]) return SortingChecks.Run();
         var exe = args.Length > 0
             ? Path.GetFullPath(args[0])
             : Path.GetFullPath(Path.Combine(
@@ -91,6 +92,20 @@ internal static class Program
                         if (title is null || title.Current.IsOffscreen)
                             throw new InvalidOperationException($"'{page}' did not render at {size}/{theme}.");
                         if (process.HasExited) throw new InvalidOperationException($"The app exited on '{page}'.");
+                        if (page is "Settings" or "Privacy & shredder")
+                        {
+                            var firstHeading = page == "Settings" ? "Appearance" : "Windows history and app state";
+                            var secondHeading = page == "Settings" ? "Background maintenance service" : "Shred files permanently";
+                            VerifyCardColumns(pageRoot!, firstHeading, secondHeading, size == "desktop" ? 2 : 1);
+                        }
+                        if (page == "Autoruns") VerifyAutorunModes(pageRoot!);
+                        if (page is "Programs" or "Autoruns" or "Store apps")
+                            VerifySortPicker(pageRoot!, page switch
+                            {
+                                "Programs" => "Sort programs",
+                                "Autoruns" => "Sort autoruns",
+                                _ => "Sort store apps"
+                            });
                         if (screenshotDirectory is not null)
                         {
                             // Wait for an initial inventory scan to complete before capturing its result.
@@ -124,6 +139,16 @@ internal static class Program
                     }
                 }
             }
+            transform.Resize(1920, 1080);
+            foreach (var page in new[] { "Settings", "Privacy & shredder" })
+            {
+                Select(Find(window, ControlType.ListItem, page)!);
+                var first = page == "Settings" ? "Appearance" : "Windows history and app state";
+                var second = page == "Settings" ? "Background maintenance service" : "Shred files permanently";
+                VerifyCardColumns(window, first, second, 2);
+                if (screenshotDirectory is not null) Capture(window, Path.Combine(screenshotDirectory, $"wide-{page.Split(' ')[0].ToLowerInvariant()}.png"));
+                Console.WriteLine($"ok  wide/{page}/two-stable-columns");
+            }
             Select(Find(themePicker, ControlType.ListItem, originalTheme)!);
 
             if (window.TryGetCurrentPattern(WindowPattern.Pattern, out var windowPattern)
@@ -133,7 +158,7 @@ internal static class Program
             }
 
             process.WaitForExit(10_000);
-            Console.WriteLine("UI smoke passed: 8 pages x 2 themes x 2 sizes, plus search empty/reset and selection inspector; no destructive action invoked.");
+            Console.WriteLine("UI smoke passed: page/theme/size navigation, responsive cards, Basic/Advanced/history modes and search/selection; no destructive action invoked.");
             return 0;
         }
         finally
@@ -143,6 +168,58 @@ internal static class Program
                 process.Kill(entireProcessTree: true);
             }
         }
+    }
+
+    private static void VerifyCardColumns(AutomationElement root, string first, string second, int columns)
+    {
+        var a = Find(root, ControlType.Text, first)?.Current.BoundingRectangle
+            ?? throw new InvalidOperationException($"Card '{first}' is missing.");
+        var b = Find(root, ControlType.Text, second)?.Current.BoundingRectangle
+            ?? throw new InvalidOperationException($"Card '{second}' is missing.");
+        var sideBySide = Math.Abs(a.Top - b.Top) < 3 && b.Left > a.Left + 100;
+        if ((columns > 1) != sideBySide)
+            throw new InvalidOperationException($"Expected {columns} column(s) for '{first}': first={a}, second={b}.");
+    }
+
+    private static void VerifyAutorunModes(AutomationElement page)
+    {
+        var picker = Find(page, ControlType.List, "Autorun mode")
+            ?? throw new InvalidOperationException("Basic/Advanced mode selector is missing.");
+        var search = Find(page, ControlType.Edit, "Search autoruns")!;
+        foreach (var mode in new[] { "Basic", "Advanced", "History & rollback", "Basic" })
+        {
+            Select(Find(picker, ControlType.ListItem, mode)!);
+            var selected = ((SelectionPattern)picker.GetCurrentPattern(SelectionPattern.Pattern)).Current.GetSelection();
+            if (selected.Length != 1 || selected[0].Current.Name != mode)
+                throw new InvalidOperationException($"Autorun mode '{mode}' did not activate.");
+            if (mode == "History & rollback") VerifySortPicker(page, "Sort autorun history");
+        }
+        ((ValuePattern)search.GetCurrentPattern(ValuePattern.Pattern)).SetValue("__no_autorun_matches__");
+        Select(Find(picker, ControlType.ListItem, "Advanced")!);
+        if (((ValuePattern)search.GetCurrentPattern(ValuePattern.Pattern)).Current.Value != "__no_autorun_matches__")
+            throw new InvalidOperationException("Autorun search was lost when switching modes.");
+        ((ValuePattern)search.GetCurrentPattern(ValuePattern.Pattern)).SetValue("");
+        Select(Find(picker, ControlType.ListItem, "Basic")!);
+    }
+
+    private static void VerifySortPicker(AutomationElement page, string name)
+    {
+        var picker = Find(page, ControlType.ComboBox, name)
+            ?? throw new InvalidOperationException($"Sort picker '{name}' is missing.");
+        if (picker.Current.IsOffscreen || !picker.Current.IsEnabled)
+            throw new InvalidOperationException($"Sort picker '{name}' is inaccessible.");
+        var expand = (ExpandCollapsePattern)picker.GetCurrentPattern(ExpandCollapsePattern.Pattern);
+        expand.Expand();
+        var choices = picker.FindAll(TreeScope.Descendants,
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem));
+        if (choices.Count < 2) throw new InvalidOperationException($"Sort picker '{name}' has no choices.");
+        Select(choices[1]);
+        var selected = ((SelectionPattern)picker.GetCurrentPattern(SelectionPattern.Pattern)).Current.GetSelection();
+        if (selected.Length != 1 || selected[0].Current.Name != choices[1].Current.Name)
+            throw new InvalidOperationException($"Sort picker '{name}' did not change.");
+        expand.Expand();
+        Select(choices[0]);
+        expand.Collapse();
     }
 
     private static AutomationElement? Find(AutomationElement parent, ControlType type, string name) =>

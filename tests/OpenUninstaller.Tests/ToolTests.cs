@@ -15,7 +15,7 @@ public sealed class ToolTests
         var runKey = new RegistryLocation(
             RegistryHive.CurrentUser,
             RegistryView.Registry64,
-            @"Software\Microsoft\Windows\CurrentVersion\Run");
+            env.Paths.AutorunRegistryPath + @"\Run");
         var valueName = "OU Test " + Guid.NewGuid().ToString("N");
         env.Registry.SetValue(runKey, valueName, RegistryValueKind.String, "\"C:\\Windows\\System32\\notepad.exe\"");
 

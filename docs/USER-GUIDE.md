@@ -23,6 +23,11 @@ components and updates (hidden by default).
 Selecting a row shows its version, size, architecture, install location and the exact uninstall
 command. **Export** writes the current view to JSON or CSV. **Refresh** re-reads the registry.
 
+Use **Sort by** for name, publisher, size, install date, version or architecture in either direction.
+Size and date use their underlying values; unknown sizes and dates stay last. Column-header clicks
+update the same sort picker. Sorting keeps the selected application and uninstall queue intact,
+and the chosen order remains active when searching, filtering or refreshing within the page.
+
 Tick **Queue** on several rows and choose **Uninstall queued (N)** to review them one after another.
 Each application still opens its own confirmation and leftover review; the queue never deletes
 anything in the background. **Clear** removes the queue.
@@ -97,9 +102,25 @@ exports and archive. **Prune old** keeps the newest number configured in Setting
 
 ## Autoruns
 
-The Autoruns page lists Run/RunOnce values for the user and machine, both Startup folders,
-automatic/manual Windows services and scheduled tasks. Use the filter box to search by name,
-command, source, location or publisher. Boot and system drivers are excluded on purpose.
+Autoruns opens in **Basic**, showing application Run/RunOnce entries, both Startup folders,
+automatic or disabled application services, application/user scheduled tasks and Windows app
+startup tasks. Microsoft user applications such as PowerToys and Terminal remain visible.
+Windows system components, kernel drivers and manual-only services are hidden from Basic.
+
+**Advanced** shows the complete scanned inventory, including system entries. **History & rollback**
+keeps the existing audit and restore workflow. Search by name, command, source, location or publisher;
+the query is retained when switching views. Boot-start and system-start drivers are excluded from
+the underlying inventory as before.
+
+**Sort by** orders startup entries by name, publisher, enabled/disabled state, source or command.
+History has its own sort picker, with newest timestamps first by default, plus name, action, source
+and details. Header clicks and the pickers stay synchronized; mode changes retain both sort choices.
+
+Windows app startup tasks use **Manage** to open Windows Settings > Apps > Startup. Their state
+comes from the declared package task and current-user settings. Classic Run and Startup-folder
+entries disabled through Windows are shown as disabled and can be enabled without replacing their
+launch commands. Task Scheduler enumeration uses the caller's permissions, so protected tasks may
+still require administrator access.
 
 **Disable** is reversible and never deletes an entry:
 
@@ -175,6 +196,9 @@ history, cookies, passwords and account data are out of scope.
 The Store apps page provides a read-only inventory of Microsoft Store and MSIX packages registered
 for the current user. It enumerates package names, display labels, publisher names, architecture,
 version, install locations, and manifest paths.
+
+Use **Sort by** or click a column header to order by name, publisher, package type, architecture
+or version. Both directions work with the current search and retain the selected package.
 
 Because package manifests, deployment states, and Appx databases are managed by the Windows OS
 Package Manager, OpenUninstaller treats Store apps as strictly **read-only**: packages and their

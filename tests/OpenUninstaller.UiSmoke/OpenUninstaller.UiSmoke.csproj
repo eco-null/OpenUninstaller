@@ -9,4 +9,8 @@
     <RootNamespace>OpenUninstaller.UiSmoke</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenUninstaller.App\OpenUninstaller.App.csproj" />
+  </ItemGroup>
+
 </Project>

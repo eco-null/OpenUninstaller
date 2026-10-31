@@ -3,6 +3,25 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
+## [Unreleased]
+
+### Changed
+
+- Add synchronized sort pickers and column-header sorting to Programs, Autoruns, autorun history
+  and Store apps. Sort program sizes and install dates by their underlying values, keeping unknown
+  values last and preserving queued applications while reordering.
+- Reflow Settings, Privacy, Junk and Windows tools cards across the full content area.
+  The default window uses two columns; narrow and wider windows adapt to the available space.
+- Organize Settings and Privacy into two stable semantic columns with a centered content width.
+  Consolidate related settings and bound long privacy lists to avoid scattered narrow cards.
+- Add Basic and Advanced autorun views alongside History & rollback. Basic keeps application
+  startup entries, including Microsoft user applications, while hiding Windows system entries,
+  kernel drivers and manual-only services. Advanced retains the complete inventory.
+- Read packaged applications' declared startup tasks and their current user state; open Windows
+  Startup settings to manage them. Respect Windows-disabled Run and Startup-folder entries.
+- Enumerate scheduled tasks through Task Scheduler as well as readable task files, preserving
+  access to user tasks without requiring direct access to the task store.
+
 ## [1.0.6] — 2026-10-31
 
 ### Fixed

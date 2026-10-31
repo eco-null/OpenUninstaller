@@ -33,7 +33,7 @@ Tests are isolated from the real machine state:
 | Guards | every rule rejects, normalization `..`, UNC, reparse |
 | Autoruns | list, disable→hidden+enabled=false, enable→restored, conflict |
 | Junk | allow-list, recent-file skip, dry run, locked file reporting, Delivery Optimization, developer caches, report-only logs/prefetch |
-| Hunter resolver | path match, token match, no match |
+| Hunter resolver | exact executable paths, most-specific install location, ambiguous owners, shared HKCU views, name/publisher false positives, normalized paths, no match |
 | Privacy cleaner | allow-list, dry run, registry categories (HKCU fixture), file categories, app-state category, unknown id handling |
 | Shredder | plan/guard rejection, dry run, overwrite+delete, folder removal, reparse refusal, pass clamp |
 | Telemetry | off by default, endpoint validation (HTTPS, loopback HTTP), payload excludes paths/names, disabled send is a no-op |

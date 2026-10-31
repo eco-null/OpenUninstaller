@@ -76,49 +76,68 @@ public static class HunterService
         var normalizedExe = Normalize(exePath) ?? exePath;
         InstalledProgram? best = null;
         var bestScore = 0;
+        var bestLocationLength = 0;
+        var ambiguous = false;
         var reason = "No installed application matched this window.";
 
         foreach (var program in programs)
         {
             var score = 0;
+            var locationLength = 0;
             string? candidateReason = null;
             var installLocation = Normalize(program.InstallLocation);
 
-            if (installLocation is not null
-                && normalizedExe.StartsWith(installLocation.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))
+            // Only path evidence establishes ownership. Name/publisher fragments can be
+            // shared by unrelated apps (for example OpenCode and OpenUninstaller).
+            if (IconPath(program.DisplayIcon) is { } icon
+                && PathsEqual(icon, normalizedExe))
             {
-                score = 100;
-                candidateReason = "The executable is inside the application's install location.";
-            }
-            else if (IconPath(program.DisplayIcon) is { } icon
-                     && PathsEqual(icon, normalizedExe))
-            {
-                score = 95;
+                score = 120;
                 candidateReason = "The executable matches the application's display icon.";
             }
             else if (ExecutableFromCommand(program.UninstallCommand) is { } uninstaller
                      && PathsEqual(uninstaller, normalizedExe))
             {
-                score = 90;
+                score = 110;
                 candidateReason = "The executable is the application's uninstaller.";
             }
-            else if (NameNormalizer.CountTokenMatches(processName, NameNormalizer.MatchTokens(program.Name, program.Publisher)) >= 2)
+            else if (installLocation is not null
+                     && !PathsEqual(installLocation, Path.GetPathRoot(installLocation)!)
+                     && normalizedExe.StartsWith(installLocation.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))
             {
-                score = 70;
-                candidateReason = "The process name matches the application name.";
-            }
-            else if (NameNormalizer.Tokens(program.Publisher).Any(token => processName.Contains(token, StringComparison.OrdinalIgnoreCase)))
-            {
-                score = 30;
-                candidateReason = "The process name matches the publisher.";
+                score = 100;
+                locationLength = installLocation.TrimEnd('\\').Length;
+                candidateReason = "The executable is inside the application's install location.";
             }
 
-            if (score > bestScore)
+            if (score > bestScore || (score == bestScore && locationLength > bestLocationLength))
             {
                 bestScore = score;
+                bestLocationLength = locationLength;
                 best = program;
+                ambiguous = false;
                 reason = candidateReason ?? reason;
             }
+            else if (score > 0 && score == bestScore && locationLength == bestLocationLength
+                     && best is not null)
+            {
+                if (!SameOwner(program, best))
+                {
+                    // Never let inventory order choose which application's uninstall flow opens.
+                    ambiguous = true;
+                }
+                else if (program.Location.View == Microsoft.Win32.RegistryView.Registry64)
+                {
+                    best = program;
+                }
+            }
+        }
+
+        if (ambiguous)
+        {
+            best = null;
+            bestScore = 0;
+            reason = "The executable matches multiple installed applications equally; ownership is ambiguous.";
         }
 
         return new HunterMatch
@@ -138,6 +157,21 @@ public static class HunterService
         var buffer = new char[512];
         var length = GetWindowTextW(window, buffer, buffer.Length);
         return length > 0 ? new string(buffer, 0, length) : null;
+    }
+
+    private static bool SameOwner(InstalledProgram left, InstalledProgram right)
+    {
+        if (left.Id == right.Id)
+        {
+            return true;
+        }
+
+        // HKCU uninstall keys can be shared by both registry views. Only collapse
+        // identical metadata for the very same user key, not separate registrations.
+        return left.Location.Hive == Microsoft.Win32.RegistryHive.CurrentUser
+               && right.Location.Hive == left.Location.Hive
+               && string.Equals(left.Location.Path, right.Location.Path, StringComparison.OrdinalIgnoreCase)
+               && left with { Id = right.Id, Location = right.Location, Architecture = right.Architecture } == right;
     }
 
     private static string? GetExecutablePath(int processId)
@@ -175,7 +209,8 @@ public static class HunterService
 
         try
         {
-            return Path.GetFullPath(path.Trim().Trim('"'));
+            var expanded = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
+            return Path.IsPathFullyQualified(expanded) ? Path.GetFullPath(expanded) : null;
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
@@ -201,8 +236,8 @@ public static class HunterService
             path = path[..comma];
         }
 
-        path = path.Trim().Trim('"');
-        return File.Exists(path) ? path : null;
+        var normalized = Normalize(path);
+        return File.Exists(normalized) ? normalized : null;
     }
 
     private static string? ExecutableFromCommand(string? command)
@@ -218,7 +253,7 @@ public static class HunterService
             return null;
         }
 
-        var path = Environment.ExpandEnvironmentVariables(tokens[0]);
+        var path = Normalize(tokens[0]);
         return File.Exists(path) ? path : null;
     }
 

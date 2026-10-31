@@ -274,7 +274,7 @@ public sealed class ToolTests
         var other = TestPrograms.Create("Other App", installLocation: env.CreateDirectory("Program Files", "Other"));
 
         var match = HunterService.MatchExecutable(exe, "Tool", 1, [other, iconProgram]);
-        Assert.Equal(95, match.Score);
+        Assert.Equal(120, match.Score);
         Assert.Equal(iconProgram.Id, match.Program?.Id);
 
         var none = HunterService.MatchExecutable(Path.Combine(env.Root, "nope.exe"), "nope", 2, [other]);

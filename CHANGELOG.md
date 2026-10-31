@@ -3,6 +3,25 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
+## [1.0.6] — 2026-10-31
+
+### Fixed
+
+- Stop Hunter mode from assigning unrelated installed applications through shared name or
+  publisher fragments, such as OpenCode being selected for an OpenUninstaller window.
+- Resolve ownership using exact executable paths and the most specific install location;
+  leave conflicting owners unmatched and recognize identical shared HKCU registry views.
+- Normalize environment-variable paths and reject relative or root install locations.
+
+### Documentation
+
+- Replace the previous screenshots with current light/dark captures of all eight screens
+  and Hunter mode, using sample data, and expand the README gallery.
+
+### Tests
+
+- Add 26 Hunter regression cases; the core and CLI suite now contains 193 passing tests.
+
 ## [1.0.5] — 2026-10-31
 
 ### Changed

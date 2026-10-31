@@ -25,7 +25,7 @@ An elegant, simple and practical native interface: zinc neutrals, inverse primar
 - `src/OpenUninstaller.App/Themes/`: shared control styles and theme brushes.
 - `src/OpenUninstaller.App/Views/`: existing screens and dialogs.
 - `tests/OpenUninstaller.UiSmoke/Program.cs`: read-only navigation verification.
-- `docs/assets/`: interface screenshots; the README uses the current light and dark Settings captures.
+- `docs/assets/`: current light/dark screenshots of all eight screens and Hunter mode, using sample data in the README gallery.
 
 ## Product Principles
 

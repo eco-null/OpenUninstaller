@@ -9,6 +9,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         SourceInitialized += (_, _) => Infrastructure.ThemeManager.ApplyWindowChrome(this);
+        Closed += (_, _) => (DataContext as MainViewModel)?.Junk.Dispose();
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)

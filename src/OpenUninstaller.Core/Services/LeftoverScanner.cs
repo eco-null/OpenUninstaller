@@ -1,6 +1,7 @@
 using System.Diagnostics;
-using System.Net;
-using System.Text.RegularExpressions;
+using System.Runtime.InteropServices;
+using System.Xml;
+using System.Xml.Linq;
 using Microsoft.Win32;
 using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
@@ -131,19 +132,28 @@ public sealed class LeftoverScanner
     private readonly AppPaths _paths;
     private readonly PathGuard _pathGuard;
     private readonly IgnoredLeftoverStore? _ignored;
+    private readonly IReadOnlyList<RegistryLocation> _installerUserDataRoots;
 
     public LeftoverScanner(
         IRegistryStore registry,
         TraceStore traces,
         AppPaths paths,
         PathGuard pathGuard,
-        IgnoredLeftoverStore? ignored = null)
+        IgnoredLeftoverStore? ignored = null,
+        IReadOnlyList<RegistryLocation>? installerUserDataRoots = null)
     {
         _registry = registry;
         _traces = traces;
         _paths = paths;
         _pathGuard = pathGuard;
         _ignored = ignored;
+        _installerUserDataRoots = installerUserDataRoots ??
+        [
+            new(RegistryHive.LocalMachine, RegistryView.Registry64,
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData"),
+            new(RegistryHive.LocalMachine, RegistryView.Registry32,
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData")
+        ];
     }
 
     public Task<LeftoverScanResult> ScanAsync(
@@ -217,6 +227,9 @@ public sealed class LeftoverScanner
             progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning registry and common folders"));
             AddHeuristicItems(program, otherPrograms, result, cancellationToken);
 
+            progress?.Report(new OperationProgress(OperationStages.Scanning, "Inspecting Windows Installer references"));
+            AddInstallerReferenceItems(program, otherPrograms, result, cancellationToken);
+
             progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning application registrations"));
             AddAppRegistrationItems(program, otherPrograms, result, cancellationToken);
 
@@ -228,8 +241,8 @@ public sealed class LeftoverScanner
             AddServiceItems(program, otherPrograms, result, cancellationToken);
 
             progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning PATH entries and firewall rules"));
-            AddPathItems(program, result, cancellationToken);
-            AddFirewallItems(program, result, cancellationToken);
+            AddPathItems(program, otherPrograms, result, cancellationToken);
+            AddFirewallItems(program, otherPrograms, result, cancellationToken);
 
             progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning scheduled tasks"));
             AddScheduledTaskItems(program, otherPrograms, result, cancellationToken);
@@ -543,7 +556,7 @@ public sealed class LeftoverScanner
                         continue;
                     }
 
-                    foreach (var product in products.Take(250))
+                    foreach (var product in BoundedEntries(products, 250, vendorLocation.DisplayPath, result, cancellationToken))
                     {
                         var combined = $"{vendor} {product}";
                         var score = Score(combined);
@@ -569,6 +582,7 @@ public sealed class LeftoverScanner
             _paths.LocalAppData,
             _paths.AppDataLocalLow,
             _paths.AppData,
+            _paths.Temp,
             _paths.Public,
             Path.Combine(_paths.LocalAppData, "Programs"),
             _paths.ProgramFiles,
@@ -586,12 +600,12 @@ public sealed class LeftoverScanner
             IEnumerable<string> children;
             try
             {
-                children = Directory.EnumerateDirectories(root, "*", new EnumerationOptions
+                children = BoundedEntries(Directory.EnumerateDirectories(root, "*", new EnumerationOptions
                 {
                     RecurseSubdirectories = false,
                     IgnoreInaccessible = true,
                     AttributesToSkip = FileAttributes.ReparsePoint
-                }).Take(4000).ToList();
+                }), 4000, root, result, cancellationToken);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -636,12 +650,12 @@ public sealed class LeftoverScanner
                 IEnumerable<string> grandchildren;
                 try
                 {
-                    grandchildren = Directory.EnumerateDirectories(child, "*", new EnumerationOptions
+                    grandchildren = BoundedEntries(Directory.EnumerateDirectories(child, "*", new EnumerationOptions
                     {
                         RecurseSubdirectories = false,
                         IgnoreInaccessible = true,
                         AttributesToSkip = FileAttributes.ReparsePoint
-                    }).Take(500).ToList();
+                    }), 500, child, result, cancellationToken);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -680,6 +694,42 @@ public sealed class LeftoverScanner
             }
         }
 
+        // The finder can descend beyond the vendor/product pair
+        // and compare extension-free filenames. Broader name evidence is discovery only;
+        // it does not establish ownership or authorize recursive removal.
+        AddDeeperNameSuggestions(program, otherPrograms, result, combinedTokens, publisherTokens,
+            nameCompact, cancellationToken);
+
+        // WER local dumps carry the executable name, rather than the application's display
+        // name. Only exact, app-specific executable identities are used; no broad *.dmp scan.
+        var executableNames = new[] { IconPath(program.DisplayIcon) }
+            .Where(path => path is not null && IsSameOrUnder(path, program.InstallLocation))
+            .Select(path => Path.GetFileName(path!))
+            .Where(name => name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var dumpRoot = Path.Combine(_paths.LocalAppData, "CrashDumps");
+        if (executableNames.Count > 0 && Directory.Exists(dumpRoot))
+        {
+            try
+            {
+                foreach (var dump in BoundedEntries(Directory.EnumerateFiles(dumpRoot, "*.dmp"),
+                             5000, dumpRoot, result, cancellationToken))
+                {
+                    var leaf = Path.GetFileName(dump);
+                    if (executableNames.Any(name => leaf.StartsWith(name + ".", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        AddFile(dump, (int)LeftoverConfidence.Strong,
+                            "Crash dump name identifies an executable in the recorded install location; review before removal.");
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                result.Truncated = true;
+                result.Warnings.Add($"Could not inspect crash dumps at '{dumpRoot}': {ex.Message}");
+            }
+        }
+
         // ------------------------------------------------------------------ Shortcuts
         var shortcutRoots = new[]
         {
@@ -700,13 +750,13 @@ public sealed class LeftoverScanner
             IEnumerable<string> entries;
             try
             {
-                entries = Directory.EnumerateFileSystemEntries(root, "*", new EnumerationOptions
+                entries = BoundedEntries(Directory.EnumerateFileSystemEntries(root, "*", new EnumerationOptions
                 {
                     RecurseSubdirectories = true,
                     MaxRecursionDepth = 3,
                     IgnoreInaccessible = true,
                     AttributesToSkip = FileAttributes.ReparsePoint
-                }).Take(5000).ToList();
+                }), 5000, root, result, cancellationToken);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -715,6 +765,16 @@ public sealed class LeftoverScanner
 
             foreach (var entry in entries)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (Directory.Exists(entry)
+                    || !(entry.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase)
+                         || entry.EndsWith(".url", StringComparison.OrdinalIgnoreCase)))
+                {
+                    // A desktop or Start Menu folder can contain personal files. A matching
+                    // label alone never grants ownership of the directory or ordinary documents.
+                    continue;
+                }
+
                 var name = Path.GetFileNameWithoutExtension(entry);
                 if (FileNameExclusions.Contains(name))
                 {
@@ -756,8 +816,208 @@ public sealed class LeftoverScanner
                         continue;
                     }
 
-                    AddFile(entry, shortcutScore, "Shortcut name matches the application name.");
+                    AddFile(entry, Math.Min(shortcutScore, (int)LeftoverConfidence.Strong),
+                        "Shortcut name matches the application name; the target does not establish ownership, so review is required.");
                 }
+            }
+        }
+    }
+
+    private void AddDeeperNameSuggestions(
+        InstalledProgram program,
+        IReadOnlyList<InstalledProgram>? otherPrograms,
+        LeftoverScanResult result,
+        IReadOnlyList<string> productTokens,
+        IReadOnlyList<string> publisherTokens,
+        string nameCompact,
+        CancellationToken cancellationToken)
+    {
+        const int maxDepth = 4;
+        const int maxEntriesPerRoot = 20_000;
+        var roots = new[] { _paths.ProgramData, _paths.LocalAppData, _paths.AppDataLocalLow,
+            _paths.AppData, _paths.Temp };
+        var known = result.Items.Select(i => i.DisplayPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var nativeName = program.Name.Trim();
+        var useNativeName = nativeName.Length >= 4 && !nativeName.Contains('\0')
+            && !FileNameExclusions.Contains(nativeName) && !KnownMultiProductVendors.Contains(nativeName)
+            && NameNormalizer.Tokens(nativeName).Any(token => token.Length >= 4
+                && !NameNormalizer.IsStopWord(token)
+                && !publisherTokens.Contains(token, StringComparer.OrdinalIgnoreCase));
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = false, IgnoreInaccessible = false,
+            AttributesToSkip = FileAttributes.ReparsePoint | FileAttributes.Offline
+        };
+
+        foreach (var root in roots.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!Directory.Exists(root)) continue;
+            var stack = new Stack<(string Path, int Depth)>();
+            stack.Push((root, 0));
+            var count = 0;
+            var depthLimited = false;
+            var limitReached = false;
+            while (stack.Count > 0 && !limitReached)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var (directory, depth) = stack.Pop();
+                if (!visited.Add(Path.TrimEndingDirectorySeparator(directory))) continue;
+                try
+                {
+                    if ((File.GetAttributes(directory) & (FileAttributes.ReparsePoint | FileAttributes.Offline)) != 0)
+                        continue;
+                    foreach (var entry in Directory.EnumerateFileSystemEntries(directory, "*", options))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (++count > maxEntriesPerRoot)
+                        {
+                            limitReached = true;
+                            result.Truncated = true;
+                            result.Warnings.Add($"Discovery limit ({maxEntriesPerRoot}) reached at '{root}'; deeper name suggestions are incomplete.");
+                            break;
+                        }
+
+                        var attributes = File.GetAttributes(entry);
+                        if ((attributes & (FileAttributes.ReparsePoint | FileAttributes.Offline)) != 0) continue;
+                        var isDirectory = (attributes & FileAttributes.Directory) != 0;
+                        var leaf = isDirectory ? Path.GetFileName(entry) : Path.GetFileNameWithoutExtension(entry);
+                        if (FileNameExclusions.Contains(leaf) || IsSameOrUnder(entry, program.InstallLocation)
+                            || FindOwningProgram(entry, program, otherPrograms) is not null) continue;
+                        var guard = _pathGuard.ValidateForDeletion(entry, recursive: isDirectory);
+                        if (!guard.Allowed) continue;
+
+                        var nativeNameMatch = useNativeName ? NativeWholeNameMatch(leaf, nativeName) : null;
+                        // Existing token splitting can discard short prefixes or split case
+                        // changes (MyWidget / éWidget). For these new discovery suggestions,
+                        // an embedded full-name occurrence must also meet native boundaries.
+                        var ordinaryMatch = ScoreName(leaf, nameCompact, productTokens, publisherTokens, false)
+                            >= (int)LeftoverConfidence.Medium && nativeNameMatch != false;
+                        var nativeMatch = !ordinaryMatch && nativeNameMatch == true;
+                        if (!known.Contains(entry) && !IsVendorFolder(leaf, publisherTokens, productTokens)
+                            && (ordinaryMatch || nativeMatch))
+                        {
+                            known.Add(entry);
+                            result.Items.Add(new LeftoverItem
+                            {
+                                Id = $"file|{entry.ToLowerInvariant()}",
+                                Kind = isDirectory ? LeftoverKind.Directory : LeftoverKind.File,
+                                DisplayPath = entry, FilePath = entry,
+                                Confidence = LeftoverConfidence.Low,
+                                Reason = nativeMatch
+                                    ? "Recursive application-data discovery matched the full application name with native alphabetic boundaries; ownership is not established."
+                                    : "Recursive application-data discovery matched the filename or folder name; ownership is not established.",
+                                ProtectedReason = "Report-only name suggestion: additional application ownership evidence is required."
+                            });
+                        }
+
+                        if (!isDirectory || known.Contains(entry)) continue;
+                        if (depth + 1 < maxDepth) stack.Push((entry, depth + 1));
+                        else if (Directory.EnumerateFileSystemEntries(entry, "*", options).Any()) depthLimited = true;
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    result.Truncated = true;
+                    result.Warnings.Add($"Could not inspect deeper application data at '{directory}': {ex.Message}");
+                }
+            }
+
+            if (depthLimited)
+            {
+                result.Truncated = true;
+                result.Warnings.Add($"Discovery depth ({maxDepth}) reached at '{root}'; deeper name suggestions are incomplete.");
+            }
+        }
+    }
+
+    // StrStrIW plus C1_ALPHA at both sides.
+    // Digits are boundaries; Unicode alphabetic characters are not. This is used only
+    // for protected discovery suggestions, never to authorize selection or deletion.
+    private static bool? NativeWholeNameMatch(string candidate, string name)
+    {
+        if (candidate.Length == 0 || name.Length == 0 || candidate.Contains('\0')) return null;
+        var allocation = Marshal.StringToHGlobalUni(candidate);
+        try
+        {
+            var found = StrStrIW(allocation, name);
+            if (found == IntPtr.Zero) return null;
+            while (found != IntPtr.Zero)
+            {
+                var precedingIsAlpha = found != allocation
+                    && NativeAlphabetic(unchecked((char)Marshal.ReadInt16(found, -2)));
+                var followingIsAlpha = NativeAlphabetic(unchecked((char)Marshal.ReadInt16(found, name.Length * 2)));
+                if (!precedingIsAlpha && !followingIsAlpha) return true;
+                found = StrStrIW(IntPtr.Add(found, 2), name);
+            }
+
+            return false;
+        }
+        finally { Marshal.FreeHGlobal(allocation); }
+    }
+
+    private static bool NativeAlphabetic(char character)
+        => GetStringTypeW(1, character.ToString(), 1, out var classification) && (classification & 0x100) != 0;
+
+    [DllImport("shlwapi.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern IntPtr StrStrIW(IntPtr text, string search);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetStringTypeW(uint informationType, string source, int count, out ushort characterType);
+
+    private void AddInstallerReferenceItems(
+        InstalledProgram program,
+        IReadOnlyList<InstalledProgram>? otherPrograms,
+        LeftoverScanResult result,
+        CancellationToken cancellationToken)
+    {
+        var known = result.Items.Select(i => i.DisplayPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var root in _installerUserDataRoots)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                foreach (var sid in BoundedEntries(_registry.GetSubKeyNames(root), 1000,
+                             root.DisplayPath, result, cancellationToken))
+                {
+                    if (!sid.StartsWith("S-1-5-", StringComparison.OrdinalIgnoreCase)
+                        || sid[6..].Any(c => !char.IsAsciiDigit(c) && c != '-')) continue;
+                    var products = new RegistryLocation(root.Hive, root.View, $"{root.Path}\\{sid}\\Products");
+                    foreach (var product in BoundedEntries(_registry.GetSubKeyNames(products), 20_000,
+                                 products.DisplayPath, result, cancellationToken))
+                    {
+                        if (product.Length != 32 || !product.All(Uri.IsHexDigit)) continue;
+                        var properties = new RegistryLocation(root.Hive, root.View,
+                            $"{products.Path}\\{product}\\InstallProperties");
+                        var name = _registry.GetValue(properties, "DisplayName")?.AsString()?.Trim();
+                        var location = _registry.GetValue(properties, "InstallLocation")?.AsString()?.Trim().Trim('"');
+                        var sameName = !string.IsNullOrWhiteSpace(name)
+                            && string.Equals(name, program.Name.Trim(), StringComparison.OrdinalIgnoreCase);
+                        var sameLocation = !string.IsNullOrWhiteSpace(location)
+                            && IsSameOrUnder(location, program.InstallLocation)
+                            && IsSameOrUnder(program.InstallLocation!, location);
+                        if ((!sameName && !sameLocation) || known.Contains(properties.DisplayPath)) continue;
+                        if (!string.IsNullOrWhiteSpace(location)
+                            && FindOwningProgram(location, program, otherPrograms) is not null) continue;
+                        if (!_registry.KeyExists(properties)) continue;
+                        known.Add(properties.DisplayPath);
+                        result.Items.Add(new LeftoverItem
+                        {
+                            Id = $"registry|{properties.Hive}|{properties.View}|{properties.Path}",
+                            Kind = LeftoverKind.RegistryKey, RegistryLocation = properties,
+                            DisplayPath = properties.DisplayPath, Confidence = LeftoverConfidence.Low,
+                            Reason = $"Windows Installer identity reference matched {(sameLocation ? "the recorded install location" : "the exact display name")}; this is an identity seed, not proof of disposable installer state.",
+                            ProtectedReason = "Windows Installer bookkeeping is report-only and remains protected."
+                        });
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                result.Truncated = true;
+                result.Warnings.Add($"Could not inspect Windows Installer references at '{root.DisplayPath}': {ex.Message}");
             }
         }
     }
@@ -806,7 +1066,7 @@ public sealed class LeftoverScanner
                         continue;
                     }
 
-                    foreach (var child in children.Take(500))
+                    foreach (var child in BoundedEntries(children, 500, root.DisplayPath, result, cancellationToken))
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         var stem = Path.GetFileNameWithoutExtension(child);
@@ -913,7 +1173,7 @@ public sealed class LeftoverScanner
         {
             cancellationToken.ThrowIfCancellationRequested();
             var classes = new RegistryLocation(hive, view, _paths.ClassesRegistryPath);
-            foreach (var progId in SafeSubKeys(classes).Take(4000))
+            foreach (var progId in BoundedEntries(SafeSubKeys(classes), 4000, classes.DisplayPath, result, cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (progId.StartsWith('.') || AssociationContainers.Contains(progId))
@@ -1008,7 +1268,7 @@ public sealed class LeftoverScanner
         {
             cancellationToken.ThrowIfCancellationRequested();
             var clsidRoot = new RegistryLocation(hive, view, $"{_paths.ClassesRegistryPath}\\CLSID");
-            foreach (var clsid in SafeSubKeys(clsidRoot).Take(8000))
+            foreach (var clsid in BoundedEntries(SafeSubKeys(clsidRoot), 8000, clsidRoot.DisplayPath, result, cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!Guid.TryParse(clsid, out _))
@@ -1082,6 +1342,7 @@ public sealed class LeftoverScanner
     /// </summary>
     private void AddPathItems(
         InstalledProgram program,
+        IReadOnlyList<InstalledProgram>? otherPrograms,
         LeftoverScanResult result,
         CancellationToken cancellationToken)
     {
@@ -1124,6 +1385,11 @@ public sealed class LeftoverScanner
                 }
 
                 var exists = Directory.Exists(expanded);
+                if (FindOwningProgram(expanded, program, otherPrograms) is not null)
+                {
+                    continue;
+                }
+
                 var underInstall = IsSameOrUnder(expanded, program.InstallLocation);
                 if (!underInstall && exists)
                 {
@@ -1179,6 +1445,7 @@ public sealed class LeftoverScanner
     /// </summary>
     private void AddFirewallItems(
         InstalledProgram program,
+        IReadOnlyList<InstalledProgram>? otherPrograms,
         LeftoverScanResult result,
         CancellationToken cancellationToken)
     {
@@ -1190,9 +1457,9 @@ public sealed class LeftoverScanner
 
         var nameCompact = NameNormalizer.Compact(program.Name);
         var publisherTokens = NameNormalizer.Tokens(program.Publisher);
-        var known = result.Items.Select(i => i.DisplayPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var known = result.Items.Select(i => i.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var valueName in SafeValueNames(_paths.FirewallRulesRoot).Take(5000))
+        foreach (var valueName in BoundedEntries(SafeValueNames(_paths.FirewallRulesRoot), 5000, _paths.FirewallRulesRoot.DisplayPath, result, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var data = _registry.GetValue(_paths.FirewallRulesRoot, valueName)?.AsString();
@@ -1223,6 +1490,11 @@ public sealed class LeftoverScanner
             }
 
             var exists = File.Exists(executable);
+            if (FindOwningProgram(executable, program, otherPrograms) is not null)
+            {
+                continue;
+            }
+
             var underInstall = IsSameOrUnder(executable, program.InstallLocation);
             if (exists && !underInstall)
             {
@@ -1250,14 +1522,15 @@ public sealed class LeftoverScanner
             }
 
             var display = $"Firewall: {ruleName}";
-            if (!known.Add(display))
+            var id = $"firewall|{_paths.FirewallRulesRoot.Hive}|{_paths.FirewallRulesRoot.View}|{valueName.ToLowerInvariant()}";
+            if (!known.Add(id))
             {
                 continue;
             }
 
             result.Items.Add(new LeftoverItem
             {
-                Id = $"firewall|{_paths.FirewallRulesRoot.Hive}|{_paths.FirewallRulesRoot.View}|{valueName.ToLowerInvariant()}",
+                Id = id,
                 Kind = LeftoverKind.FirewallRule,
                 DisplayPath = display,
                 Confidence = underInstall ? LeftoverConfidence.High : LeftoverConfidence.Strong,
@@ -1364,7 +1637,7 @@ public sealed class LeftoverScanner
             return;
         }
 
-        foreach (var service in services.Take(5000))
+        foreach (var service in BoundedEntries(services, 5000, root.DisplayPath, result, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var location = new RegistryLocation(root.Hive, root.View, $"{root.Path}\\{service}");
@@ -1464,13 +1737,13 @@ public sealed class LeftoverScanner
         IEnumerable<string> files;
         try
         {
-            files = Directory.EnumerateFiles(_paths.ScheduledTasksDirectory, "*", new EnumerationOptions
+            files = BoundedEntries(Directory.EnumerateFiles(_paths.ScheduledTasksDirectory, "*", new EnumerationOptions
             {
                 RecurseSubdirectories = true,
                 MaxRecursionDepth = 3,
                 IgnoreInaccessible = true,
                 AttributesToSkip = FileAttributes.ReparsePoint
-            }).Take(5000).ToList();
+            }), 5000, _paths.ScheduledTasksDirectory, result, cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -1500,10 +1773,18 @@ public sealed class LeftoverScanner
                 continue;
             }
 
-            var command = XmlElement(xml, "Command");
-            var arguments = XmlElement(xml, "Arguments");
+            var action = ReadSingleTaskAction(xml);
+            if (action is null)
+            {
+                // A task can run several programs. One matching action does not establish
+                // ownership of the whole task, so never infer deletion from its first command.
+                continue;
+            }
+
+            var command = TaskElement(action, "Command");
+            var arguments = TaskElement(action, "Arguments");
             var executable = ExecutablePath(command, _paths.WindowsDirectory);
-            var classId = XmlElement(xml, "ClassId");
+            var classId = TaskElement(action, "ClassId");
             var comServer = executable is null && classId is not null ? ComServerPath(classId) : null;
             if (executable is null && comServer is null)
             {
@@ -1607,14 +1888,39 @@ public sealed class LeftoverScanner
         return null;
     }
 
-    private static string? XmlElement(string xml, string name)
+    private static XElement? ReadSingleTaskAction(string xml)
     {
-        var match = Regex.Match(
-            xml,
-            $"<{name}>(?<value>.*?)</{name}>",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
-        return match.Success ? WebUtility.HtmlDecode(match.Groups["value"].Value).Trim() : null;
+        try
+        {
+            using var text = new StringReader(xml);
+            using var reader = XmlReader.Create(text, new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+                MaxCharactersInDocument = 1_000_000
+            });
+            var document = XDocument.Load(reader);
+            var actions = document.Root?.Elements().Where(e => e.Name.LocalName == "Actions").ToList();
+            if (actions is not { Count: 1 })
+            {
+                return null;
+            }
+
+            var entries = actions[0].Elements().ToList();
+            return entries.Count == 1
+                   && entries[0].Name.LocalName is "Exec" or "ComHandler"
+                   && entries[0].Descendants().Count(e => e.Name.LocalName is "Command" or "ClassId") == 1
+                ? entries[0]
+                : null;
+        }
+        catch (XmlException)
+        {
+            return null;
+        }
     }
+
+    private static string? TaskElement(XElement action, string name)
+        => action.Descendants().FirstOrDefault(e => e.Name.LocalName == name)?.Value.Trim();
 
     /// <summary>
     /// Extracts an executable path from a registry command line or task command. Absolute paths are
@@ -1838,6 +2144,17 @@ public sealed class LeftoverScanner
             {
                 return other;
             }
+
+            // Some uninstall records omit InstallLocation and DisplayIcon. An explicit uninstaller
+            // still establishes that a candidate containing that executable is shared.
+            foreach (var command in new[] { other.UninstallCommand, other.QuietUninstallCommand })
+            {
+                var executable = ExecutablePath(command, string.Empty);
+                if (executable is not null && IsSameOrUnder(executable, path))
+                {
+                    return other;
+                }
+            }
         }
 
         return null;
@@ -1899,7 +2216,8 @@ public sealed class LeftoverScanner
         var byPath = new Dictionary<string, LeftoverItem>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in items.OrderByDescending(i => i.Confidence).ThenByDescending(i => i.IsFromTrace))
         {
-            var key = $"{item.Kind}|{item.DisplayPath}";
+            // Display labels are not identities: several firewall rules can have the same name.
+            var key = item.Kind == LeftoverKind.FirewallRule ? item.Id : $"{item.Kind}|{item.DisplayPath}";
             if (byPath.TryGetValue(key, out var existing))
             {
                 if (item.Confidence > existing.Confidence)
@@ -1956,6 +2274,30 @@ public sealed class LeftoverScanner
         }
 
         return result;
+    }
+
+    internal static IReadOnlyList<string> BoundedEntries(
+        IEnumerable<string> entries,
+        int limit,
+        string scope,
+        LeftoverScanResult result,
+        CancellationToken cancellationToken)
+    {
+        var bounded = new List<string>();
+        foreach (var entry in entries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (bounded.Count == limit)
+            {
+                result.Truncated = true;
+                result.Warnings.Add($"Scan limit ({limit}) reached at '{scope}'; some entries were not inspected.");
+                break;
+            }
+
+            bounded.Add(entry);
+        }
+
+        return bounded;
     }
 
     private static long SafeSize(string path, bool isDirectory)

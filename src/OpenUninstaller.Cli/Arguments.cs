@@ -7,7 +7,7 @@ internal sealed class ArgumentSet
     {
         "json", "yes", "force", "silent", "all", "csv", "dry-run", "overwrite", "delete",
         "no-scan", "help", "version", "verbose", "cursor", "diff", "ignore",
-        "clear", "enable", "disable", "service"
+        "clear", "enable", "disable", "service", "files", "no-known", "write-age-only", "no-default-exclusions", "no-age-filter"
     };
 
     private readonly Dictionary<string, string?> _options = new(StringComparer.OrdinalIgnoreCase);

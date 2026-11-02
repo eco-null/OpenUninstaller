@@ -193,6 +193,15 @@ public sealed class PathGuard
     /// caller has already established the root (for example <c>%WINDIR%\Temp</c>).
     /// </summary>
     public GuardResult ValidateJunkItem(string path, string categoryRoot)
+        => ValidateJunkPath(path, categoryRoot, checkComponents: true);
+
+    // Scan candidates are also opened through JunkFileHandle, which rejects reparse files
+    // and compares the resolved final path. Avoid restatting every ancestor per file here.
+    // Destructive operations must continue to call ValidateJunkItem above.
+    internal GuardResult ValidateJunkCandidate(string path, string categoryRoot)
+        => ValidateJunkPath(path, categoryRoot, checkComponents: false);
+
+    private GuardResult ValidateJunkPath(string path, string categoryRoot, bool checkComponents)
     {
         if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(categoryRoot))
         {
@@ -274,7 +283,7 @@ public sealed class PathGuard
             }
         }
 
-        return ValidatePathComponents(full);
+        return checkComponents ? ValidatePathComponents(full) : GuardResult.Allow(full);
     }
 
     private static GuardResult ValidatePathComponents(string full)

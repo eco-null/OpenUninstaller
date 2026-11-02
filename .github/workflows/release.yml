@@ -29,6 +29,16 @@ jobs:
       - name: Test
         run: dotnet test OpenUninstaller.sln -c Release --no-build --logger "trx;LogFileName=release-test-results.trx"
 
+      - name: UI smoke
+        shell: pwsh
+        run: |
+          $app = "src\OpenUninstaller.App\bin\Release\net8.0-windows\OpenUninstaller.exe"
+          $smoke = "tests\OpenUninstaller.UiSmoke\bin\Release\net8.0-windows\OpenUninstaller.UiSmoke.exe"
+          & $smoke --verify-junk artifacts/release-junk-checks
+          if ($LASTEXITCODE -ne 0) { throw "Junk UI checks failed" }
+          & $smoke $app
+          if ($LASTEXITCODE -ne 0) { throw "UI smoke failed" }
+
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress --no-color
@@ -37,6 +47,10 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}".TrimStart("v")
+          [xml]$props = Get-Content Directory.Build.props
+          if ([string]$props.Project.PropertyGroup.Version -ne $version) {
+            throw "Tag version $version does not match Directory.Build.props"
+          }
           ./scripts/package-release.ps1 -Version $version -Configuration Release -Runtime win-x64
           ./scripts/build-installer.ps1 -Version $version -Configuration Release -Runtime win-x64
 
@@ -50,11 +64,18 @@ jobs:
           $zipChecksum = Get-ChildItem "$($zip.FullName).sha256" -ErrorAction Stop
           $setup = Get-ChildItem "artifacts/release/OpenUninstaller-$version-setup.exe" -ErrorAction Stop
           $setupChecksum = Get-ChildItem "$($setup.FullName).sha256" -ErrorAction Stop
+          $notesPath = "docs/releases/$version.md"
           $existing = gh release view $env:GITHUB_REF_NAME 2>$null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $env:GITHUB_REF_NAME $zip.FullName $zipChecksum.FullName $setup.FullName $setupChecksum.FullName --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Release asset upload failed" }
+            if (Test-Path -LiteralPath $notesPath) {
+              gh release edit $env:GITHUB_REF_NAME --title "OpenUninstaller $version" --notes-file $notesPath
+              if ($LASTEXITCODE -ne 0) { throw "Release notes update failed" }
+            }
           } else {
+            $notesArguments = if (Test-Path -LiteralPath $notesPath) { @("--notes-file", $notesPath) } else { @("--generate-notes") }
             gh release create $env:GITHUB_REF_NAME $zip.FullName $zipChecksum.FullName $setup.FullName $setupChecksum.FullName `
-              --title "OpenUninstaller $version" `
-              --generate-notes
+              --title "OpenUninstaller $version" --verify-tag @notesArguments
+            if ($LASTEXITCODE -ne 0) { throw "Release creation failed" }
           }

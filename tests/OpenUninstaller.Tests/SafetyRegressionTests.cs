@@ -174,6 +174,38 @@ public sealed class SafetyRegressionTests
     }
 
     [Fact]
+    public void Junk_scan_and_reviewed_clean_reject_junctions_and_replaced_ancestors()
+    {
+        using var env = new TestEnvironment();
+        var outside = env.CreateDirectory("Fixtures", "Outside");
+        var preserved = env.CreateFile("Fixtures/Outside/data.bin", "keep", DateTime.UtcNow.AddDays(-3));
+        var alias = Path.Combine(env.Paths.Temp, "Alias");
+        MakeJunction(alias, outside);
+        var cache = env.CreateDirectory("Temp", "Cache");
+        var original = env.CreateFile("Temp/Cache/data.bin", "old", DateTime.UtcNow.AddDays(-3));
+        var service = new JunkService(env.Paths, new PathGuard(env.Paths), FileOperationLog.Null);
+        try
+        {
+            var scan = service.Scan();
+            Assert.DoesNotContain(scan.Files, file => PathGuard.IsUnder(file.Path, alias));
+            var reviewed = Assert.Single(scan.Files.Where(file => file.Path == original));
+            var moved = Path.Combine(env.Root, "Fixtures", "MovedCache");
+            Directory.Move(cache, moved);
+            MakeJunction(cache, outside);
+            try
+            {
+                var clean = service.CleanFiles([reviewed], false);
+                Assert.Equal(0, clean.DeletedItems);
+                Assert.Equal(1, clean.SkippedItems);
+                Assert.True(File.Exists(preserved));
+                Assert.True(File.Exists(Path.Combine(moved, "data.bin")));
+            }
+            finally { Directory.Delete(cache); }
+        }
+        finally { Directory.Delete(alias); }
+    }
+
+    [Fact]
     public void Junk_clean_skips_old_tree_with_fresh_or_excluded_descendants()
     {
         using var env = new TestEnvironment();

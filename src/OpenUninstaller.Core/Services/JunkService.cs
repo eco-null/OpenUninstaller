@@ -22,6 +22,31 @@ public sealed class JunkService
         "*.db$", "*.dmp", "thumbs.db", "*.??~"
     ];
 
+    // Default exclusion masks for the pattern search: system, cache and quarantine areas.
+    // These are report filters, never an allow-list for deletion.
+    public static readonly string[] DefaultExcludedPatterns =
+    [
+        "*/sendto/", "*/i386/", "*/resources/themes/", "*/temporary internet files/",
+        "*/application data/aim/", "*/system32/usmt/", "*/system32/dtclog/",
+        "*/norton antivirus/quarantine/", "*/temp/incredimail/", "%CommonProgramFiles%/",
+        "%ProgramFiles%/uninstall information/", "%windir%/security/", "?:/recycle?/",
+        "?:/_restore/", "?:/system volume information/", "*/system32/catroot2/",
+        "*/symantec shared/virusdefs/", "*/paprport/data/", "*/chaos32/",
+        "*/microsoft/money/webcache/", "*/microsoft/office/data/", "*/microsoft publisher/pagewiz/",
+        "*/application data/microsoft/", "?:/$recycle*/", "*.~enc", "%windir%/twain_32/",
+        "%CommonProgramFiles(x86)%/", "%ProgramFiles(x86)%/uninstall information/",
+        "%windir%/system32/catroot/", "%windir%/ServiceProfiles/LocalService/AppData/Local/FontCache/"
+    ];
+
+    // Always-on exclusions applied alongside the configurable default list.
+    private static readonly string[] BuiltInExcludedPatterns =
+    [
+        "%localappdata%/Microsoft/Windows/Notifications/",
+        "%windir%/System32/config/systemprofile/AppData/Local/Microsoft/Windows/Notifications/",
+        "%ProgramFiles%/WindowsApps/",
+        "%windir%/System32/drivers/"
+    ];
+
     public static readonly string[] ExcludedDirectories =
     [
         "$Recycle.Bin",
@@ -93,13 +118,14 @@ public sealed class JunkService
         "Cache",
         "Code Cache",
         "GPUCache",
-        "Service Worker\\CacheStorage",
         "DawnGraphiteCache",
         "DawnWebGPUCache",
         "Media Cache",
         "GrShaderCache",
         "ShaderCache"
     ];
+
+    private static readonly string[] ApplicationCacheSubdirectories = ["Cache", "Code Cache", "GPUCache", "DawnCache"];
 
     private static readonly string[] BrowserProcessNames =
     [
@@ -109,27 +135,61 @@ public sealed class JunkService
     private readonly AppPaths _paths;
     private readonly PathGuard _guard;
     private readonly IOperationLog _log;
+    private readonly TimeProvider _timeProvider;
 
-    public JunkService(AppPaths paths, PathGuard guard, IOperationLog log)
+    public JunkService(AppPaths paths, PathGuard guard, IOperationLog log, TimeProvider? timeProvider = null)
     {
         _paths = paths;
         _guard = guard;
         _log = log;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public JunkScanResult Scan(CancellationToken cancellationToken = default)
-        => Scan(progress: null, cancellationToken);
+        => Scan(new JunkScanOptions(), null, cancellationToken);
 
-    /// <summary>
-    /// Scans every category. Each finished category is reported as soon as it is measured so a
-    /// caller can render results while the remaining categories are still being inspected.
-    /// </summary>
     public JunkScanResult Scan(IProgress<JunkCategory>? progress, CancellationToken cancellationToken = default)
+        => Scan(new JunkScanOptions(), progress, cancellationToken);
+
+    public JunkScanResult Scan(JunkScanOptions options, IProgress<JunkCategory>? progress = null,
+        CancellationToken cancellationToken = default)
+        => ScanCore(options, progress, null, cancellationToken);
+
+    private JunkScanResult ScanCore(JunkScanOptions options, IProgress<JunkCategory>? progress,
+        HashSet<string>? selectedCategories, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.MinimumAge < TimeSpan.Zero || options.MinimumAge > TimeSpan.FromDays(36500))
+            throw new ArgumentOutOfRangeException(nameof(options), "Minimum age must be between zero and 100 years.");
+        ValidatePatterns(options.Patterns);
         var stopwatch = Stopwatch.StartNew();
         var result = new JunkScanResult();
-        var runningBrowsers = RunningBrowserNames();
-        foreach (var definition in BuildDefinitions())
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var definitions = options.IncludeKnownLocations ? BuildDefinitions().ToList() : [];
+        if (options.SearchRoots.Count > 0)
+            definitions.Add(new Definition(new JunkCategory
+            {
+                Id = "pattern-search", Title = "Additional folder and drive matches",
+                Description = "Wildcard matches in selected locations. Report-only: filename extensions alone do not prove safe deletion.",
+                CanClean = false
+            }, options.SearchRoots, options.Patterns.Count > 0 ? options.Patterns : JunkPatterns,
+                recurse: true, recentWindow: options.MinimumAge)
+            {
+                CompatibilityExclusions = options.UseDefaultExclusions
+                    ? DefaultExcludedPatterns.Concat(BuiltInExcludedPatterns).Select(ExpandMask).ToArray()
+                    : []
+            });
+        if (options.IncludeRoots.Count > 0)
+            definitions.Add(new Definition(new JunkCategory
+            {
+                Id = "included-folders", Title = "Explicitly included folder contents",
+                Description = "All inspectable regular files in included folders, regardless of age or main scan filters. Report-only.",
+                CanClean = false
+            }, options.IncludeRoots, [], recurse: true));
+        if (selectedCategories is { Count: > 0 })
+            definitions = definitions.Where(definition => selectedCategories.Contains(definition.Category.Id)).ToList();
+        var browsers = RunningBrowserNames();
+        foreach (var definition in definitions)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var category = definition.Category;
@@ -138,214 +198,411 @@ public sealed class JunkService
                 var (bytes, items) = RecycleBin.Query();
                 category.Bytes = bytes;
                 category.ItemCount = items;
-                result.Categories.Add(category);
-                progress?.Report(category);
-                continue;
             }
-
-            if (category.Id == "browser-cache" && runningBrowsers.Count > 0)
+            else
             {
-                category.Warnings.Add(
-                    $"{string.Join(", ", runningBrowsers)} is running. Close browsers before cleaning; locked files are skipped.");
-            }
-
-            var cutoff = DateTime.UtcNow - (definition.RecentWindow ?? RecentWindow);
-            foreach (var root in definition.Roots)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (!Directory.Exists(root))
-                {
-                    continue;
-                }
-
-                var (entries, enumerationError) = EnumerateEntries(definition, root);
-                if (enumerationError is not null)
-                {
-                    AddWarning(category, enumerationError);
-                    continue;
-                }
-
-                foreach (var entry in entries)
+                if (category.Id == "browser-cache" && browsers.Count > 0)
+                    AddWarning(category, $"{string.Join(", ", browsers)} is running; in-use files are skipped.");
+                var cutoff = _timeProvider.GetUtcNow().UtcDateTime - (definition.RecentWindow ?? RecentWindow);
+                foreach (var root in definition.Roots)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var guard = _guard.ValidateJunkItem(entry, root);
-                    if (!guard.Allowed)
+                    if (!IsValidRoot(root, category)) continue;
+                    if (!Directory.Exists(root))
                     {
+                        if (!category.CanClean)
+                        {
+                            category.IsComplete = false;
+                            AddWarning(category, $"{root}: selected search folder does not exist or is inaccessible.");
+                        }
                         continue;
                     }
-
-                    if (!IsSafeOldTree(entry, root, cutoff, cancellationToken))
+                    foreach (var entry in ReadChildren(root, category, cancellationToken))
                     {
-                        continue;
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (Excluded(entry, options, definition)) { category.SkippedItems++; continue; }
+                        // A known cache tree is admitted atomically: an excluded, recent or unverifiable
+                        // descendant keeps the whole tree intact. Directory timestamps are not file activity.
+                        if (!definition.RecurseSubdirectories && Directory.Exists(entry))
+                        {
+                            if (definition.Patterns.Count > 0) continue;
+                            var tree = new List<JunkFile>();
+                            if (CollectTree(entry, root, definition, options, cutoff, tree, cancellationToken))
+                                foreach (var file in tree) AddFile(category, file, seen);
+                        }
+                        else
+                        {
+                            CollectFiles(entry, root, definition, options, cutoff, category, seen, cancellationToken);
+                        }
                     }
-
-                    category.Bytes += SafeSize(entry);
-                    category.ItemCount++;
                 }
             }
-
             result.Categories.Add(category);
             progress?.Report(category);
         }
-
-        return new JunkScanResult
-        {
-            Categories = result.Categories,
-            Duration = stopwatch.Elapsed
-        };
+        return result with { Duration = stopwatch.Elapsed };
     }
 
     public JunkCleanResult Clean(IEnumerable<string> categoryIds, bool dryRun, CancellationToken cancellationToken = default)
     {
         var requested = categoryIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var stopwatch = Stopwatch.StartNew();
-        var result = new JunkCleanResult { DryRun = dryRun };
-        var definitions = BuildDefinitions()
-            .Where(d => requested.Count == 0 || requested.Contains(d.Category.Id))
-            .ToList();
-
-        if (definitions.Count == 0)
-        {
-            result.Messages.Add("No matching junk categories.");
-            result.Duration = stopwatch.Elapsed;
-            return result;
-        }
-
-        foreach (var definition in definitions)
+        var scan = ScanCore(new JunkScanOptions(), null, requested, cancellationToken);
+        var selected = scan.Categories.Where(category => requested.Count == 0 || requested.Contains(category.Id)).ToList();
+        var result = CleanFiles(selected.Where(category => category.CanClean).SelectMany(category => category.Files), dryRun, cancellationToken);
+        foreach (var category in selected.Where(category => !category.CanClean))
+            result.Messages.Add($"{category.Title}: report-only in this version.");
+        if (selected.Count == 0) result.Messages.Add("No matching junk categories.");
+        if (selected.Any(category => category.Id == "recycle-bin"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var category = definition.Category;
-            if (!category.CanClean)
+            var (bytes, items) = RecycleBin.Query();
+            if (dryRun || RecycleBin.Empty(out _))
             {
-                result.Messages.Add($"{category.Title}: report-only in this version.");
+                result.FreedBytes += bytes;
+                result.DeletedItems += items;
+                result.Messages.Add($"Recycle bin: {(dryRun ? "would empty" : "emptied")} {items} item(s).");
+                if (!dryRun) _log.Write("junk", "recycle-bin", "recycle-bin", "emptied", $"{items} items");
+            }
+            else { result.FailedItems++; result.Messages.Add("Recycle bin could not be emptied."); }
+        }
+        return result;
+    }
+
+    /// <summary>Cleans exactly the reviewed files, after rechecking identity, timestamps and trusted roots.</summary>
+    public JunkCleanResult CleanFiles(IEnumerable<JunkFile> files, bool dryRun, CancellationToken cancellationToken = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = new JunkCleanResult { DryRun = dryRun };
+        var definitions = BuildDefinitions().Where(definition => definition.Category.CanClean && !definition.IsRecycleBin)
+            .ToDictionary(definition => definition.Category.Id, StringComparer.OrdinalIgnoreCase);
+        foreach (var file in files.DistinctBy(file => file.Path, StringComparer.OrdinalIgnoreCase))
+        {
+            var deleting = false;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!file.CanClean || !definitions.TryGetValue(file.CategoryId, out var definition) ||
+                !definition.Roots.Contains(file.Root, StringComparer.OrdinalIgnoreCase) ||
+                !IsValidRoot(file.Root, definition.Category) ||
+                !_guard.ValidateJunkItem(file.Path, file.Root).Allowed || IsExcluded(file.Path) ||
+                !Matches(file.Path, definition.Patterns))
+            {
+                result.SkippedItems++;
+                result.Messages.Add($"{file.Path}: report-only or no longer within a trusted cache rule.");
                 continue;
             }
-
-            var cutoff = DateTime.UtcNow - (definition.RecentWindow ?? RecentWindow);
-
-            if (definition.IsRecycleBin)
+            try
             {
-                var (bytes, items) = RecycleBin.Query();
-                if (dryRun)
+                using var opened = new JunkFileHandle(file.Path, file.Root, file.CategoryId, true, forDeletion: true);
+                var current = opened.File;
+                var cutoff = _timeProvider.GetUtcNow().UtcDateTime - (definition.RecentWindow ?? RecentWindow);
+                if (current.Identity != file.Identity || current.Bytes != file.Bytes ||
+                    current.CreationTimeUtc != file.CreationTimeUtc || current.LastWriteUtc != file.LastWriteUtc ||
+                    current.LastAccessUtc != file.LastAccessUtc || current.LastWriteUtc > cutoff)
                 {
-                    result.FreedBytes += bytes;
-                    result.DeletedItems += items;
-                    result.Messages.Add($"{category.Title}: would empty {items} item(s), {InstalledProgram.FormatBytes(bytes)}.");
+                    result.SkippedItems++;
+                    result.Messages.Add($"{file.Path}: changed or used since the scan; scan again.");
                     continue;
                 }
-
-                if (RecycleBin.Empty(out var recycleError))
-                {
-                    result.FreedBytes += bytes;
-                    result.DeletedItems += items;
-                    result.Messages.Add($"{category.Title}: emptied {items} item(s).");
-                    _log.Write("junk", "recycle-bin", "recycle-bin", "emptied", $"{items} items");
-                }
-                else
-                {
-                    result.FailedItems++;
-                    result.Messages.Add($"{category.Title}: {recycleError}");
-                }
-
-                continue;
-            }
-
-            foreach (var root in definition.Roots)
-            {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!Directory.Exists(root))
-                {
-                    continue;
-                }
-
-                var (entries, enumerationError) = EnumerateEntries(definition, root);
-                if (enumerationError is not null)
-                {
-                    result.Messages.Add($"{category.Title}: {enumerationError}");
-                    continue;
-                }
-
-                foreach (var entry in entries)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var guard = _guard.ValidateJunkItem(entry, root);
-                    if (!guard.Allowed)
-                    {
-                        result.SkippedItems++;
-                        continue;
-                    }
-
-                    if (!IsSafeOldTree(entry, root, cutoff, cancellationToken))
-                    {
-                        result.SkippedItems++;
-                        continue;
-                    }
-
-                    var size = SafeSize(entry);
-                    if (dryRun)
-                    {
-                        result.FreedBytes += size;
-                        result.DeletedItems++;
-                        continue;
-                    }
-
-                    try
-                    {
-                        if (Directory.Exists(entry))
-                        {
-                            Directory.Delete(entry, recursive: true);
-                        }
-                        else if (File.Exists(entry))
-                        {
-                            File.Delete(entry);
-                        }
-
-                        result.FreedBytes += size;
-                        result.DeletedItems++;
-                        _log.Write("junk", "delete", entry, "deleted", $"{size} bytes");
-                    }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                    {
-                        result.FailedItems++;
-                        result.Messages.Add($"{entry}: {ex.Message}");
-                        _log.Write("junk", "delete", entry, "failed", ex.Message);
-                    }
-                }
+                if (!dryRun) { deleting = true; opened.Delete(); }
+                result.FreedBytes += current.Bytes;
+                result.DeletedItems++;
+                if (!dryRun) _log.Write("junk", "delete", file.Path, "deleted", $"{current.Bytes} bytes");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (deleting) result.FailedItems++; else result.SkippedItems++;
+                result.Messages.Add($"{file.Path}: {(deleting ? "failed" : "skipped")}: {ex.Message}");
+                _log.Write("junk", "delete", file.Path, deleting ? "failed" : "skipped", ex.Message);
             }
         }
-
         result.Duration = stopwatch.Elapsed;
         return result;
     }
 
-    private static (IReadOnlyList<string> Entries, string? Error) EnumerateEntries(
-        Definition definition,
-        string root)
+    private void CollectFiles(string entry, string root, Definition definition, JunkScanOptions options,
+        DateTime cutoff, JunkCategory category, HashSet<string> seen, CancellationToken cancellationToken)
     {
+        var pending = new Stack<string>();
+        pending.Push(entry);
+        while (pending.TryPop(out var current))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Excluded(current, options, definition)) { category.SkippedItems++; continue; }
+            try
+            {
+                var attributes = File.GetAttributes(current);
+                if ((attributes & (FileAttributes.ReparsePoint | FileAttributes.Offline)) != 0)
+                { category.SkippedItems++; continue; }
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    if (definition.RecurseSubdirectories)
+                        foreach (var child in ReadChildren(current, category, cancellationToken).AsEnumerable().Reverse())
+                            pending.Push(child);
+                }
+                else if (Matches(current, definition.Patterns) && TryInspect(current, root, definition, options, cutoff, out var file))
+                    AddFile(category, file!, seen);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                category.SkippedItems++;
+                category.IsComplete = false;
+                AddWarning(category, $"{current}: {ex.Message}");
+            }
+        }
+    }
+
+    private bool CollectTree(string entry, string root, Definition definition, JunkScanOptions options,
+        DateTime cutoff, List<JunkFile> files, CancellationToken cancellationToken)
+    {
+        var category = definition.Category;
+        var pending = new Stack<string>();
+        pending.Push(entry);
+        while (pending.TryPop(out var current))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (Excluded(current, options, definition))
+            {
+                category.SkippedItems++;
+                AddWarning(category, $"{entry}: subtree retained because {current} is excluded or protected.");
+                return false;
+            }
+            try
+            {
+                var attributes = File.GetAttributes(current);
+                if ((attributes & (FileAttributes.ReparsePoint | FileAttributes.Offline)) != 0)
+                {
+                    category.SkippedItems++;
+                    AddWarning(category, $"{entry}: subtree retained because a descendant is a reparse point or offline file.");
+                    return false;
+                }
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    if (!_guard.ValidateJunkCandidate(current, root).Allowed)
+                    {
+                        category.SkippedItems++;
+                        AddWarning(category, $"{entry}: subtree retained because {current} is protected.");
+                        return false;
+                    }
+                    // Enumeration must finish successfully before this tree is eligible.
+                    foreach (var child in Directory.EnumerateFileSystemEntries(current))
+                    { cancellationToken.ThrowIfCancellationRequested(); pending.Push(child); }
+                }
+                else
+                {
+                    if (!TryInspect(current, root, definition, options, cutoff, out var file)) return false;
+                    files.Add(file!);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                category.SkippedItems++;
+                category.IsComplete = false;
+                AddWarning(category, $"{current}: {ex.Message}");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private bool TryInspect(string path, string root, Definition definition, JunkScanOptions options,
+        DateTime cutoff, out JunkFile? file)
+    {
+        file = null;
+        if (definition.Category.Id is not ("pattern-search" or "included-folders") &&
+            !_guard.ValidateJunkCandidate(path, root).Allowed)
+        { definition.Category.SkippedItems++; return false; }
         try
         {
-            var options = new EnumerationOptions
-            {
-                RecurseSubdirectories = definition.RecurseSubdirectories,
-                IgnoreInaccessible = true,
-                AttributesToSkip = FileAttributes.ReparsePoint
-            };
-
-            IEnumerable<string> entries = definition.Patterns.Count > 0
-                ? definition.Patterns.SelectMany(pattern => Directory.EnumerateFiles(root, pattern, options))
-                : Directory.EnumerateFileSystemEntries(root, "*", options);
-
-            var filtered = entries
-                .Where(e => !IsExcluded(e))
-                .Take(50_000)
-                .ToList();
-
-            return (filtered, null);
+            using var handle = new JunkFileHandle(path, root, definition.Category.Id, definition.Category.CanClean, false);
+            var candidate = handle.File;
+            var activity = definition.Category.Id == "pattern-search" && options.UseLastAccessTime
+                ? candidate.LastAccessUtc : candidate.LastWriteUtc;
+            // The main traversal admits only access times strictly before the cutoff.
+            // Its separate Include traversal never applies the main masks or timestamp filter.
+            var patternSearch = definition.Category.Id == "pattern-search";
+            if (definition.Category.Id != "included-folders" &&
+                (!patternSearch || options.UseAgeFilter) &&
+                (patternSearch ? activity >= cutoff : activity > cutoff))
+            { definition.Category.SkippedItems++; return false; }
+            file = definition.Category.Id == "included-folders"
+                ? candidate with { Reason = "Report-only: inclusion requests discovery, not permission to delete folder contents." }
+                : candidate;
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return ([], ex.Message);
+            definition.Category.SkippedItems++;
+            definition.Category.IsComplete = false;
+            AddWarning(definition.Category, $"{path}: {ex.Message}");
+            return false;
         }
+    }
+
+    private static void AddFile(JunkCategory category, JunkFile file, HashSet<string> seen)
+    {
+        if (!seen.Add(file.Path)) return;
+        category.Files.Add(file);
+        category.Bytes += file.Bytes;
+        category.ItemCount++;
+    }
+
+    private static List<string> ReadChildren(string root, JunkCategory category, CancellationToken token)
+    {
+        var entries = new List<string>();
+        try
+        {
+            foreach (var child in Directory.EnumerateFileSystemEntries(root))
+            { token.ThrowIfCancellationRequested(); entries.Add(child); }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            category.IsComplete = false;
+            AddWarning(category, $"{root}: {ex.Message}");
+        }
+        return entries.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private bool IsValidRoot(string root, JunkCategory category)
+    {
+        try
+        {
+            if (!Path.IsPathFullyQualified(root) || root.StartsWith(@"\\", StringComparison.Ordinal) ||
+                root.Split(['\\', '/']).Any(part => part == ".."))
+                throw new IOException("Only absolute local paths without parent traversal are supported.");
+            var normalized = Path.GetFullPath(root);
+            if (category.Id is "user-temp" or "pattern-remnants")
+            {
+                string[] broadRoots = [_paths.SystemDrive, _paths.UserProfile, _paths.ProgramFiles,
+                    _paths.ProgramFilesX86, _paths.WindowsDirectory, _paths.LocalAppData, _paths.AppData,
+                    _paths.AppDataLocalLow, _paths.ProgramData, _paths.Public,
+                    _paths.DataDirectory, _paths.LocalDataDirectory, _paths.AppBaseDirectory];
+                if (string.Equals(Path.TrimEndingDirectorySeparator(normalized),
+                        Path.TrimEndingDirectorySeparator(Path.GetPathRoot(normalized)!), StringComparison.OrdinalIgnoreCase) ||
+                    broadRoots.Any(protectedRoot => !string.IsNullOrWhiteSpace(protectedRoot) &&
+                        (string.Equals(Path.TrimEndingDirectorySeparator(normalized), Path.TrimEndingDirectorySeparator(protectedRoot),
+                            StringComparison.OrdinalIgnoreCase) || PathGuard.IsUnder(protectedRoot, normalized))))
+                    throw new IOException("Configured temporary folder is a protected root or an ancestor of protected data.");
+                if (PathGuard.IsUnder(normalized, _paths.ProgramFiles) || PathGuard.IsUnder(normalized, _paths.ProgramFilesX86) ||
+                    PathGuard.IsUnder(normalized, _paths.DataDirectory) || PathGuard.IsUnder(normalized, _paths.LocalDataDirectory) ||
+                    PathGuard.IsUnder(normalized, _paths.AppBaseDirectory))
+                    throw new IOException("Configured temporary folder overlaps installed applications or OpenUninstaller data.");
+                var localTemp = Path.Combine(_paths.LocalAppData, "Temp");
+                if (string.Equals(Path.TrimEndingDirectorySeparator(normalized), Path.TrimEndingDirectorySeparator(_paths.Temp),
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(Path.TrimEndingDirectorySeparator(normalized), localTemp, StringComparison.OrdinalIgnoreCase) &&
+                    !PathGuard.IsUnder(normalized, localTemp) &&
+                    !string.Equals(Path.GetFileName(Path.TrimEndingDirectorySeparator(normalized)), "Temp", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(Path.GetFileName(Path.TrimEndingDirectorySeparator(normalized)), "Tmp", StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("Configured temporary folder is not a recognized Temp/Tmp location; use report-only folder search to inspect it.");
+            }
+            for (string? current = normalized; current is not null; current = Path.GetDirectoryName(current))
+                if (Directory.Exists(current) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    throw new IOException("Search roots and their ancestors may not be reparse points.");
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            category.IsComplete = false;
+            AddWarning(category, $"{root}: {ex.Message}");
+            return false;
+        }
+    }
+
+    private bool Excluded(string path, JunkScanOptions options, Definition definition)
+    {
+        // Included folders are a separate pass after the main/excluded-mask traversal.
+        if (definition.Category.Id == "included-folders") return false;
+        if (definition.Category.CanClean && IsExcluded(path)) return true;
+        if (definition.Category.Id == "pattern-search" &&
+            definition.CompatibilityExclusions.Any(pattern => MatchesExcludedPath(path, pattern))) return true;
+        foreach (var excluded in options.ExcludedPaths)
+        {
+            if (excluded.IndexOfAny(['*', '?']) >= 0)
+            {
+                if (MatchesExcludedPath(path, ExpandMask(excluded))) return true;
+            }
+            else if (Path.IsPathFullyQualified(excluded) &&
+                (string.Equals(Path.TrimEndingDirectorySeparator(path), Path.TrimEndingDirectorySeparator(excluded),
+                    StringComparison.OrdinalIgnoreCase) || PathGuard.IsUnder(path, excluded))) return true;
+        }
+        return false;
+    }
+
+    internal string ExpandMask(string mask)
+    {
+        var expanded = mask
+            .Replace("%localappdata%", _paths.LocalAppData, StringComparison.OrdinalIgnoreCase)
+            .Replace("%appdata%", _paths.AppData, StringComparison.OrdinalIgnoreCase)
+            .Replace("%userprofile%", _paths.UserProfile, StringComparison.OrdinalIgnoreCase)
+            .Replace("%programdata%", _paths.ProgramData, StringComparison.OrdinalIgnoreCase)
+            .Replace("%allusersprofile%", _paths.ProgramData, StringComparison.OrdinalIgnoreCase)
+            .Replace("%public%", _paths.Public, StringComparison.OrdinalIgnoreCase)
+            .Replace("%systemdrive%", _paths.SystemDrive.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)
+            .Replace("%temp%", _paths.Temp, StringComparison.OrdinalIgnoreCase)
+            .Replace("%tmp%", _paths.Temp, StringComparison.OrdinalIgnoreCase)
+            .Replace("%systemroot%", _paths.WindowsDirectory, StringComparison.OrdinalIgnoreCase)
+            .Replace("%windir%", _paths.WindowsDirectory, StringComparison.OrdinalIgnoreCase)
+            .Replace("%ProgramFiles(x86)%", _paths.ProgramFilesX86, StringComparison.OrdinalIgnoreCase)
+            .Replace("%ProgramFiles%", _paths.ProgramFiles, StringComparison.OrdinalIgnoreCase)
+            .Replace("%CommonProgramFiles(x86)%", Path.Combine(_paths.ProgramFilesX86, "Common Files"), StringComparison.OrdinalIgnoreCase)
+            .Replace("%CommonProgramFiles%", Path.Combine(_paths.ProgramFiles, "Common Files"), StringComparison.OrdinalIgnoreCase);
+        // Known injected paths win over process environment values, including during isolated tests.
+        if (expanded.Contains('%')) expanded = Environment.ExpandEnvironmentVariables(expanded);
+        expanded = expanded.Replace('\\', '/');
+        if (mask.StartsWith('%') && expanded.Length >= 2 && expanded[1] == ':' && char.IsAsciiLetter(expanded[0]))
+            expanded = "?" + expanded[1..];
+        return expanded;
+    }
+
+    private static bool MatchesExcludedPath(string path, string pattern)
+    {
+        var normalized = path.Replace('\\', '/');
+        var mask = pattern.Replace('\\', '/').Trim();
+        if (mask.EndsWith('/')) mask += "*";
+        return MatchesMask(mask, normalized) || MatchesMask(mask, normalized + "/");
+    }
+
+    private static bool Matches(string path, IReadOnlyList<string> patterns)
+        => patterns.Count == 0 || patterns.Any(pattern => MatchesMask(pattern, Path.GetFileName(path)));
+
+    // Ordinary * / ? backtracking with C-locale ASCII uppercase comparison.
+    internal static bool MatchesMask(ReadOnlySpan<char> pattern, ReadOnlySpan<char> value)
+    {
+        var maskIndex = 0;
+        var valueIndex = 0;
+        var starIndex = -1;
+        var retryIndex = 0;
+        while (valueIndex < value.Length)
+        {
+            if (maskIndex < pattern.Length && pattern[maskIndex] == '*')
+            {
+                starIndex = ++maskIndex;
+                retryIndex = valueIndex;
+            }
+            else if (maskIndex < pattern.Length &&
+                     (pattern[maskIndex] == '?' || Fold(pattern[maskIndex]) == Fold(value[valueIndex])))
+            {
+                maskIndex++;
+                valueIndex++;
+            }
+            else if (starIndex >= 0)
+            {
+                maskIndex = starIndex;
+                valueIndex = ++retryIndex;
+            }
+            else return false;
+        }
+        while (maskIndex < pattern.Length && pattern[maskIndex] == '*') maskIndex++;
+        return maskIndex == pattern.Length;
+
+        static char Fold(char value) => value is >= 'a' and <= 'z' ? (char)(value - ('a' - 'A')) : value;
+    }
+
+    private static void ValidatePatterns(IReadOnlyList<string> patterns)
+    {
+        if (patterns.Any(pattern => string.IsNullOrWhiteSpace(pattern) || pattern.Length > 255 ||
+            pattern.IndexOfAny(['\\', '/', ':', '\0']) >= 0))
+            throw new ArgumentException("Patterns must be filename masks using * and ?, without paths.", nameof(patterns));
     }
 
     private IEnumerable<Definition> BuildDefinitions()
@@ -380,21 +637,42 @@ public sealed class JunkService
             {
                 Id = "windows-temp",
                 Title = "Windows temporary files",
-                Description = "%WINDIR%\\Temp contents older than 10 minutes.",
+                Description = "Windows, system and service-account temporary folders older than 10 minutes.",
                 RequiresElevation = true
             },
-            [Path.Combine(_paths.WindowsDirectory, "Temp")],
+            [
+                Path.Combine(_paths.WindowsDirectory, "Temp"),
+                Path.Combine(_paths.WindowsDirectory, "SystemTemp"),
+                Path.Combine(_paths.WindowsDirectory, "ServiceProfiles", "LocalService", "AppData", "Local", "Temp"),
+                Path.Combine(_paths.WindowsDirectory, "ServiceProfiles", "NetworkService", "AppData", "Local", "Temp")
+            ],
             []);
 
-        yield return new Definition(
-            new JunkCategory
-            {
-                Id = "browser-cache",
-                Title = "Browser caches",
-                Description = "Chrome, Edge, Brave, Vivaldi, Opera and Firefox caches for every profile. Close browsers before cleaning.",
-            },
-            BrowserCacheRoots(),
-            []);
+        yield return new Definition(new JunkCategory
+        {
+            Id = "shared-temp", Title = "Shared temporary files",
+            Description = "ProgramData\\Temp contents older than 24 hours.", RequiresElevation = true
+        }, [ProgramData("Temp")], [], recentWindow: TimeSpan.FromHours(24));
+
+        var packageCategory = new JunkCategory
+        {
+            Id = "app-temp", Title = "Windows app temporary files",
+            Description = "Packaged application TempState and AC\\Temp folders; application data and LocalState are preserved."
+        };
+        yield return new Definition(packageCategory, PackageTempRoots(packageCategory), []);
+
+        yield return new Definition(new JunkCategory
+        {
+            Id = "application-caches", Title = "Application render caches",
+            Description = "Slack, Discord and Visual Studio Code render caches; settings, workspaces and stored application data are preserved."
+        }, ApplicationCacheRoots(), []);
+
+        var browserCategory = new JunkCategory
+        {
+            Id = "browser-cache", Title = "Browser caches",
+            Description = "Chrome, Edge, Brave, Vivaldi, Opera and Firefox caches for every profile. Close browsers before cleaning."
+        };
+        yield return new Definition(browserCategory, BrowserCacheRoots(browserCategory), []);
 
         yield return new Definition(
             new JunkCategory
@@ -492,7 +770,9 @@ public sealed class JunkService
                 Local("pip", "Cache"),
                 Local("NuGet", "v3-cache"),
                 Local("NuGet", "plugins-cache"),
-                Local("Yarn", "Cache")
+                Local("Yarn", "Cache"),
+                Local("uv", "cache"),
+                Local("go-build")
             ],
             []);
 
@@ -566,7 +846,7 @@ public sealed class JunkService
     /// Enumerates every Chromium/Firefox/Opera profile that exists, not just the default profile.
     /// Missing roots are harmless: the scanner skips them.
     /// </summary>
-    private List<string> BrowserCacheRoots()
+    private List<string> BrowserCacheRoots(JunkCategory category)
     {
         var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -577,10 +857,12 @@ public sealed class JunkService
         {
             Local("Google", "Chrome", "User Data"),
             Local("Google", "Chrome Beta", "User Data"),
+            Local("Google", "Chrome Dev", "User Data"),
             Local("Google", "Chrome SxS", "User Data"),
             Local("Microsoft", "Edge", "User Data"),
             Local("Microsoft", "Edge Beta", "User Data"),
             Local("Microsoft", "Edge Dev", "User Data"),
+            Local("Microsoft", "Edge SxS", "User Data"),
             Local("BraveSoftware", "Brave-Browser", "User Data"),
             Local("Vivaldi", "User Data"),
             Local("Chromium", "User Data")
@@ -588,7 +870,10 @@ public sealed class JunkService
 
         foreach (var baseDirectory in chromiumBases)
         {
-            foreach (var profile in EnumerateChromiumProfiles(baseDirectory))
+            foreach (var subdirectory in new[] { "ShaderCache", "GrShaderCache", "GraphiteDawnCache" })
+                if (Directory.Exists(Path.Combine(baseDirectory, subdirectory)))
+                    roots.Add(Path.Combine(baseDirectory, subdirectory));
+            foreach (var profile in EnumerateChromiumProfiles(baseDirectory, category))
             {
                 foreach (var subdirectory in ChromiumCacheSubdirectories)
                 {
@@ -625,7 +910,7 @@ public sealed class JunkService
                      Local("Mozilla", "Firefox", "Profiles")
                  })
         {
-            foreach (var profile in EnumerateDirectories(firefoxBase, 100))
+            foreach (var profile in EnumerateDirectories(firefoxBase, category))
             {
                 foreach (var subdirectory in new[] { "cache2", "startupCache", "shader-cache" })
                 {
@@ -641,7 +926,23 @@ public sealed class JunkService
         return roots.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    private static IEnumerable<string> EnumerateChromiumProfiles(string userDataDirectory)
+    private List<string> PackageTempRoots(JunkCategory category) => EnumerateDirectories(Path.Combine(_paths.LocalAppData, "Packages"), category)
+        .SelectMany(package => new[] { Path.Combine(package, "TempState"), Path.Combine(package, "AC", "Temp") })
+        .Where(Directory.Exists).ToList();
+
+    private List<string> ApplicationCacheRoots()
+    {
+        var bases = new[]
+        {
+            Path.Combine(_paths.AppData, "Slack"), Path.Combine(_paths.AppData, "discord"),
+            Path.Combine(_paths.AppData, "discordcanary"), Path.Combine(_paths.AppData, "discordptb"),
+            Path.Combine(_paths.AppData, "Code"), Path.Combine(_paths.AppData, "Code - Insiders")
+        };
+        return bases.SelectMany(root => ApplicationCacheSubdirectories
+            .Select(child => Path.Combine(root, child))).Where(Directory.Exists).ToList();
+    }
+
+    private IEnumerable<string> EnumerateChromiumProfiles(string userDataDirectory, JunkCategory category)
     {
         if (!Directory.Exists(userDataDirectory))
         {
@@ -658,29 +959,32 @@ public sealed class JunkService
             }
         }
 
-        profiles.AddRange(EnumerateDirectories(userDataDirectory, 100)
+        profiles.AddRange(EnumerateDirectories(userDataDirectory, category)
             .Where(path => Path.GetFileName(path).StartsWith("Profile ", StringComparison.OrdinalIgnoreCase)));
         return profiles.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static List<string> EnumerateDirectories(string root, int limit)
+    private List<string> EnumerateDirectories(string root, JunkCategory category)
     {
         if (!Directory.Exists(root))
         {
             return [];
         }
 
+        if (!IsValidRoot(root, category)) return [];
         try
         {
             return Directory.EnumerateDirectories(root, "*", new EnumerationOptions
             {
                 RecurseSubdirectories = false,
-                IgnoreInaccessible = true,
+                IgnoreInaccessible = false,
                 AttributesToSkip = FileAttributes.ReparsePoint
-            }).Take(limit).ToList();
+            }).ToList();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            category.IsComplete = false;
+            AddWarning(category, $"{root}: profile discovery failed: {ex.Message}");
             return [];
         }
     }
@@ -692,10 +996,12 @@ public sealed class JunkService
         {
             try
             {
-                if (Process.GetProcessesByName(name).Length > 0)
+                var processes = Process.GetProcessesByName(name);
+                if (processes.Length > 0)
                 {
                     running.Add(name);
                 }
+                foreach (var process in processes) process.Dispose();
             }
             catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
             {
@@ -706,88 +1012,7 @@ public sealed class JunkService
     }
 
     private static void AddWarning(JunkCategory category, string warning)
-    {
-        if (!category.Warnings.Contains(warning, StringComparer.OrdinalIgnoreCase))
-        {
-            category.Warnings.Add(warning);
-        }
-    }
-
-    // Never recursively delete a tree unless every descendant has been examined.
-    private bool IsSafeOldTree(string path, string root, DateTime cutoff, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var pending = new Stack<string>();
-            pending.Push(path);
-            while (pending.Count > 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var current = pending.Pop();
-                if (IsExcluded(current) || !_guard.ValidateJunkItem(current, root).Allowed)
-                    return false;
-                var attributes = File.GetAttributes(current);
-                if ((attributes & FileAttributes.ReparsePoint) != 0 || IsRecent(current, cutoff))
-                    return false;
-                if ((attributes & FileAttributes.Directory) != 0)
-                    foreach (var child in Directory.EnumerateFileSystemEntries(current))
-                        pending.Push(child);
-            }
-            return true;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
-
-    private static bool IsRecent(string path, DateTime cutoff)
-    {
-        try
-        {
-            var lastWrite = Directory.Exists(path)
-                ? Directory.GetLastWriteTimeUtc(path)
-                : File.GetLastWriteTimeUtc(path);
-            return lastWrite > cutoff;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return true;
-        }
-    }
-
-    private static long SafeSize(string path)
-    {
-        try
-        {
-            if (File.Exists(path))
-            {
-                return new FileInfo(path).Length;
-            }
-
-            long total = 0;
-            var count = 0;
-            foreach (var file in Directory.EnumerateFiles(path, "*", new EnumerationOptions
-                     {
-                         RecurseSubdirectories = true,
-                         IgnoreInaccessible = true,
-                         AttributesToSkip = FileAttributes.ReparsePoint
-                     }))
-            {
-                total += new FileInfo(file).Length;
-                if (++count >= 100_000)
-                {
-                    break;
-                }
-            }
-
-            return total;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return 0;
-        }
-    }
+        => category.AddWarning(warning);
 
     private sealed class Definition
     {
@@ -799,7 +1024,8 @@ public sealed class JunkService
             TimeSpan? recentWindow = null)
         {
             Category = category;
-            Roots = roots.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            Roots = roots.Select(Path.TrimEndingDirectorySeparator)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             Patterns = patterns;
             RecurseSubdirectories = recurse;
             RecentWindow = recentWindow;
@@ -810,6 +1036,7 @@ public sealed class JunkService
         public IReadOnlyList<string> Patterns { get; }
         public bool RecurseSubdirectories { get; }
         public TimeSpan? RecentWindow { get; }
+        public IReadOnlyList<string> CompatibilityExclusions { get; init; } = [];
         public bool IsRecycleBin { get; init; }
     }
 }

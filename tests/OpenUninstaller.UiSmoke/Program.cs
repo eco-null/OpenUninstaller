@@ -29,6 +29,8 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        if (args is ["--verify-junk"]) return JunkChecks.Run();
+        if (args is ["--verify-junk", var junkScreenshots]) return JunkChecks.Run(Path.GetFullPath(junkScreenshots));
         if (args is ["--verify-sorting"]) return SortingChecks.Run();
         if (args is ["--verify-layout"]) return LayoutChecks.Run();
         if (LayoutChecks.Run() != 0) return 1;

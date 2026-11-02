@@ -5,6 +5,34 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+## [1.0.8] — 2026-11-02
+
+### Changed
+
+- Expand safe temporary/cache discovery and add a per-file Junk preview with size, modification
+  time, selection, filters, cancellation and explicit incomplete-scan warnings.
+- Add report-only folder/drive pattern scans and a separate Include-folders pass, with access-age
+  filtering, an option to disable it, wildcard masks and environment-aware exclusions.
+- Report metadata for locked and hard-linked files without granting deletion permission.
+- Expand leftover discovery with protected deeper application-data suggestions, native alphabetic
+  name boundaries and Windows Installer identity references.
+
+### Fixed
+
+- Revalidate junk file identity, timestamps and resolved paths through file handles before cleanup;
+  preserve reparse, offline, encrypted, hard-link and in-use protections for deletion.
+- Enforce leftover ownership/protection rules before backup or deletion; tighten shortcut, PATH,
+  firewall and scheduled-task matching, and make scan truncation visible.
+- Deduplicate overlapping roots and warnings, reduce repeated ancestor metadata reads during scans,
+  and preserve browser Service Worker offline storage.
+
+### Tests and releases
+
+- Expand core/CLI coverage from 227 to 300 tests; add a 10,001-row WPF Junk fixture across two themes
+  and three widths. Controlled CLI fixtures verify exact expected sets and sizes.
+- Publish versioned release notes automatically from `docs/releases/<version>.md`, verify tag/build
+  version agreement and require desktop/Junk UI smoke checks before packaging.
+
 ## [1.0.7] — 2026-10-31
 
 ### Changed

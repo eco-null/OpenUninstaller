@@ -139,6 +139,7 @@ public sealed record AutorunRollbackResult
 
 public sealed record JunkCategory
 {
+    private readonly HashSet<string> _warningKeys = new(StringComparer.OrdinalIgnoreCase);
     public required string Id { get; init; }
     public required string Title { get; init; }
     public required string Description { get; init; }
@@ -148,7 +149,15 @@ public sealed record JunkCategory
     public bool RequiresElevation { get; init; }
     public List<string> Warnings { get; } = [];
 
+    internal void AddWarning(string warning)
+    {
+        if (_warningKeys.Add(warning)) Warnings.Add(warning);
+    }
+
     public string SizeDisplay => InstalledProgram.FormatBytes(Bytes);
+    public List<JunkFile> Files { get; } = [];
+    public int SkippedItems { get; set; }
+    public bool IsComplete { get; set; } = true;
 }
 
 public sealed record JunkScanResult
@@ -158,6 +167,8 @@ public sealed record JunkScanResult
     public int TotalItems => Categories.Sum(c => c.ItemCount);
     public TimeSpan Duration { get; init; }
     public bool Cancelled { get; init; }
+    public IReadOnlyList<JunkFile> Files => Categories.SelectMany(category => category.Files).ToList();
+    public bool IsComplete => !Cancelled && Categories.All(category => category.IsComplete);
 }
 
 public sealed record JunkCleanResult

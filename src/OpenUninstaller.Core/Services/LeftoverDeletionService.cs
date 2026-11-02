@@ -72,7 +72,22 @@ public sealed class LeftoverDeletionService
             return result;
         }
 
-        var backup = await _backup.CreateAsync(programName, items, cancellationToken).ConfigureAwait(false);
+        // Review protections include ownership and boot-driver evidence that a path/registry
+        // allow-list cannot reconstruct. Enforce them before capturing or mutating anything.
+        var eligible = items.Where(item => Validate(item).Allowed).ToList();
+        if (eligible.Count == 0)
+        {
+            foreach (var item in items)
+            {
+                result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind,
+                    DeletionStatus.Protected, Validate(item).Reason));
+            }
+
+            result.Duration = stopwatch.Elapsed;
+            return result;
+        }
+
+        var backup = await _backup.CreateAsync(programName, eligible, cancellationToken).ConfigureAwait(false);
         result.BackupId = backup.Succeeded ? backup.BackupId : null;
         result.BackupDirectory = backup.Succeeded ? backup.Directory : null;
         result.Warnings.AddRange(backup.Warnings);
@@ -81,7 +96,10 @@ public sealed class LeftoverDeletionService
         {
             foreach (var item in items)
             {
-                result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.BackupFailed, "Backup was not created; nothing was deleted."));
+                var validation = Validate(item);
+                result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind,
+                    validation.Allowed ? DeletionStatus.BackupFailed : DeletionStatus.Protected,
+                    validation.Allowed ? "Backup was not created; nothing was deleted." : validation.Reason));
             }
 
             result.Warnings.Add("Deletion was aborted because no item could be backed up.");
@@ -191,6 +209,11 @@ public sealed class LeftoverDeletionService
 
     private (bool Allowed, string? Reason) Validate(LeftoverItem item)
     {
+        if (item.IsProtected)
+        {
+            return (false, item.ProtectedReason);
+        }
+
         if (item.Kind == LeftoverKind.PathEntry)
         {
             if (item.RegistryLocation is not { } pathLocation || string.IsNullOrWhiteSpace(item.PathSegment))

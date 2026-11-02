@@ -75,6 +75,11 @@ Only Exact and High are preselected. Sort by confidence in your head, not by siz
 is not necessarily wrong. If a row is protected, read the reason; the app will not remove another
 application's files.
 
+Deeper application-data name matches and Windows Installer identity references are shown as
+protected, unselected suggestions. They help you inspect related locations without treating a
+matching name or Installer bookkeeping as permission to remove it. Depth, entry limits and
+access failures are reported as an incomplete scan.
+
 The review header compares the current scan with the previous one for the same application:
 new, resolved and unchanged candidates. **Ignore selected** hides the chosen items from future
 scans of that application without deleting them; **Reset ignored** clears the list and rescans.
@@ -158,6 +163,19 @@ for confirmation. Report-only rows still show their size so you can decide wheth
 Windows tools instead.
 
 Junk deletion is permanent and is not backed up. Leftover deletion is the operation with backups.
+
+Expand **Scan scope** to choose additional folders or local drives for filename-pattern reports.
+The pattern filter uses `*` and `?`, configurable exclusions and last-access age
+(24 hours by default). You can disable the pattern age filter. **Include folders** is a separate
+report: it lists eligible regular files regardless of the main patterns, exclusions or age.
+These additional matches remain review-only. Merely opening the page starts only the safe
+preset; edited folder/drive/include settings apply when you explicitly scan.
+
+```powershell
+oucli junk scan --no-known --roots "C:\example" --files --json
+oucli junk scan --no-known --include-roots "C:\example;E:\another" --files --json
+oucli junk scan --no-known --roots "C:\example" --no-age-filter --files --json
+```
 
 ## Privacy & shredder
 

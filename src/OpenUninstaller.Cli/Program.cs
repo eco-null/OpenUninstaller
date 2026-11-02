@@ -1138,13 +1138,17 @@ internal static class Program
 
         if (sub == "scan")
         {
-            var scan = services.Junk.Scan(ct);
+            var scan = services.Junk.Scan(ParseJunkScanOptions(args),
+                args.Has("verbose") ? new JunkConsoleProgress() : null, ct);
             if (args.Has("json"))
             {
                 Output.Json(new
                 {
                     totalBytes = scan.TotalBytes,
                     totalItems = scan.TotalItems,
+                    complete = scan.IsComplete,
+                    durationMs = (long)scan.Duration.TotalMilliseconds,
+                    files = args.Has("files") ? scan.Files : null,
                     categories = scan.Categories.Select(c => new
                     {
                         id = c.Id,
@@ -1153,7 +1157,9 @@ internal static class Program
                         items = c.ItemCount,
                         canClean = c.CanClean,
                         requiresElevation = c.RequiresElevation,
-                        warnings = c.Warnings
+                        warnings = c.Warnings,
+                        skipped = c.SkippedItems,
+                        complete = c.IsComplete
                     })
                 });
                 return Task.FromResult(ExitCodes.Success);
@@ -1172,6 +1178,18 @@ internal static class Program
             Output.Table(rows, ["Category", "Title", "Size", "Items", "Cleanable"]);
             Console.WriteLine();
             Console.WriteLine($"Total: {InstalledProgram.FormatBytes(scan.TotalBytes)} in {scan.TotalItems} item(s).");
+            foreach (var category in scan.Categories)
+            {
+                foreach (var warning in category.Warnings)
+                    Console.Error.WriteLine($"{category.Title}: {warning}");
+            }
+            if (!scan.IsComplete) Console.Error.WriteLine("The scan is incomplete; totals cover accessible files only.");
+            if (args.Has("files"))
+                Output.Table(scan.Files.Select(file => new[]
+                {
+                    file.Path, InstalledProgram.FormatBytes(file.Bytes),
+                    file.LastWriteUtc.ToString("O"), file.CanClean ? "yes" : "report only"
+                }).ToList(), ["Path", "Size", "Last modified (UTC)", "Cleanable"]);
             return Task.FromResult(ExitCodes.Success);
         }
 
@@ -1221,6 +1239,39 @@ internal static class Program
         }
 
         throw new UsageException("Unknown junk subcommand. Use scan or clean.");
+    }
+
+    internal static JunkScanOptions ParseJunkScanOptions(ArgumentSet args)
+    {
+        static string[] Split(string? value) => (value ?? string.Empty).Split(';',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var hours = args.IntValue("minimum-age-hours", 24)!.Value;
+        if (hours is < 1 or > 8760)
+            throw new ArgumentException("--minimum-age-hours must be between 1 and 8760.");
+        var roots = Split(args.Value("roots"));
+        var includeRoots = Split(args.Value("include-roots"));
+        if (args.Has("no-known") && roots.Length == 0 && includeRoots.Length == 0)
+            throw new ArgumentException("--no-known requires at least one absolute --roots or --include-roots path.");
+        return new JunkScanOptions
+        {
+            IncludeKnownLocations = !args.Has("no-known"),
+            SearchRoots = roots,
+            IncludeRoots = includeRoots,
+            Patterns = Split(args.Value("patterns")),
+            ExcludedPaths = Split(args.Value("exclude")),
+            MinimumAge = TimeSpan.FromHours(hours),
+            UseLastAccessTime = !args.Has("write-age-only"),
+            UseAgeFilter = !args.Has("no-age-filter"),
+            UseDefaultExclusions = !args.Has("no-default-exclusions")
+        };
+    }
+
+    private sealed class JunkConsoleProgress : IProgress<JunkCategory>
+    {
+        public void Report(JunkCategory category) => Console.Error.WriteLine(
+            $"[{category.Id}] {category.ItemCount:N0} item(s), {category.SizeDisplay}, " +
+            $"{category.SkippedItems:N0} skipped, {category.Warnings.Count:N0} warning(s)" +
+            (category.IsComplete ? string.Empty : " (incomplete)"));
     }
 
     // ------------------------------------------------------------------ privacy
@@ -2000,6 +2051,15 @@ internal static class Program
               autoruns history              Show service/task/autorun modification history (--json)
               autoruns rollback <id|all>    Rollback disabled autoruns to original state (--yes)
               junk scan                     Report temp/cache sizes (--json)
+                                            --files: include file paths, sizes and timestamps
+                                            --verbose: show completed-category progress on stderr
+                                            --roots "C:\;E:\" --patterns "*.tmp;*.temp"
+                                            --exclude "C:\keep" --minimum-age-hours 24
+                                            --include-roots "C:\folder;E:\folder": all regular files (report only)
+                                            --no-known: only explicit roots (report only)
+                                            --write-age-only: omit last-access age filter
+                                            --no-age-filter: disable age filtering for pattern matches
+                                            --no-default-exclusions: omit default exclusion masks
               junk clean <categories...>    Clean allowed categories (--yes, --dry-run, --json)
               privacy scan                  Report Windows history and app scan state (--json)
               privacy clean <categories...> Remove fixed history categories (--yes, --dry-run, --json)

@@ -49,6 +49,14 @@ public static partial class UninstallCommandResolver
             return Error("The uninstall command has no executable.");
         }
 
+        IEnumerable<string> argumentTokens = tokens.Skip(1);
+        if (!expanded.StartsWith('"')
+            && TrySplitUnquotedExecutable(expanded, out var unquoted, out var remainder))
+        {
+            executable = unquoted;
+            argumentTokens = CommandLineSplitter.Split(remainder);
+        }
+
         var fileName = Path.GetFileName(executable);
         if (fileName.Equals("msiexec", StringComparison.OrdinalIgnoreCase)
             || fileName.Equals("msiexec.exe", StringComparison.OrdinalIgnoreCase))
@@ -67,7 +75,7 @@ public static partial class UninstallCommandResolver
             return BuildMsi(productCode, preferSilent, program, msiExecutable);
         }
 
-        var arguments = JoinArguments(tokens.Skip(1));
+        var arguments = JoinArguments(argumentTokens);
         var warning = File.Exists(executable)
             ? null
             : $"The uninstaller executable was not found at '{executable}'. Forced uninstall may be required.";
@@ -118,6 +126,28 @@ public static partial class UninstallCommandResolver
     {
         var match = GuidPattern().Match(commandLine);
         return match.Success ? match.Value : null;
+    }
+
+    // Many vendors register unquoted paths such as C:\Program Files\App\unins000.exe /SILENT.
+    // Take the longest space-separated prefix that is an existing file; unlike CreateProcess's
+    // shortest-first probing, this never picks a planted C:\Program.exe.
+    private static bool TrySplitUnquotedExecutable(string commandLine, out string executable, out string remainder)
+    {
+        var parts = commandLine.Split(' ');
+        for (var count = parts.Length; count >= 2; count--)
+        {
+            var candidate = string.Join(' ', parts[..count]).TrimEnd();
+            if (File.Exists(candidate))
+            {
+                executable = candidate;
+                remainder = string.Join(' ', parts[count..]);
+                return true;
+            }
+        }
+
+        executable = string.Empty;
+        remainder = string.Empty;
+        return false;
     }
 
     private static string JoinArguments(IEnumerable<string> arguments)

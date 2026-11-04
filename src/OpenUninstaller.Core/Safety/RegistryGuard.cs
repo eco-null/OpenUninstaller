@@ -20,6 +20,13 @@ public static class RegistryGuard
         "Microsoft", "ActivatableClasses", "Extensions", "Local Settings"
     };
 
+    /// <summary>Direct <c>SOFTWARE</c> children that are Windows containers, never one product's key.</summary>
+    private static readonly HashSet<string> ProductRootProtected = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Microsoft", "Classes", "Clients", "Policies", "RegisteredApplications", "WOW6432Node",
+        "Windows", "Windows NT", "ODBC", "OpenUninstaller", "Intel", "Khronos", "Wow6432Node"
+    };
+
     private static readonly string[] ExactProtected =
     [
         @"SOFTWARE",
@@ -52,7 +59,8 @@ public static class RegistryGuard
         bool allowAppCompatEntry = false,
         bool allowServiceEntry = false,
         bool allowAssociationEntry = false,
-        bool allowComEntry = false)
+        bool allowComEntry = false,
+        bool allowProductRootEntry = false)
     {
         if (location.Hive is not (RegistryHive.LocalMachine or RegistryHive.CurrentUser))
         {
@@ -66,7 +74,13 @@ public static class RegistryGuard
         }
 
         var parts = path.Split('\\', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 3)
+        // A single SOFTWARE\<Product> key (7-Zip, BleachBit) is allowed only when the scanner
+        // proved it belongs to this product; Windows-owned containers stay protected below.
+        var isProductRoot = allowProductRootEntry
+            && parts.Length == 2
+            && string.Equals(parts[0], "SOFTWARE", StringComparison.OrdinalIgnoreCase)
+            && !ProductRootProtected.Contains(parts[1]);
+        if (parts.Length < 3 && !isProductRoot)
         {
             return GuardResult.Reject("Refusing to delete a top-level registry key.");
         }
@@ -183,8 +197,8 @@ public static class RegistryGuard
 
     /// <summary>
     /// A PATH segment is rewritten, not deleted. The guard pins the exact key/value, rejects shell
-    /// metacharacters and traversal, and refuses any segment that resolves inside Windows, Program
-    /// Files or a system root so a malformed PATH can never break the machine.
+    /// metacharacters and traversal, and refuses any segment that resolves inside Windows or Common
+    /// Files, or to a Program Files root itself, so a malformed PATH can never break the machine.
     /// </summary>
     public static GuardResult ValidatePathEntryForDeletion(
         RegistryLocation location,
@@ -249,11 +263,16 @@ public static class RegistryGuard
             return GuardResult.Reject("The PATH segment is not a valid path.");
         }
 
-        foreach (var protectedRoot in new[]
+        // An application's own Program Files folder (C:\Program Files\Git\cmd) is a normal
+        // leftover; the Program Files roots, shared Common Files and anything in Windows are not.
+        var segmentPath = full.TrimEnd(Path.DirectorySeparatorChar);
+        foreach (var (protectedRoot, subtree) in new[]
                  {
-                     paths.WindowsDirectory,
-                     paths.ProgramFiles,
-                     paths.ProgramFilesX86
+                     (paths.WindowsDirectory, true),
+                     (paths.ProgramFiles, false),
+                     (paths.ProgramFilesX86, false),
+                     (CommonFiles(paths.ProgramFiles), true),
+                     (CommonFiles(paths.ProgramFilesX86), true)
                  })
         {
             if (string.IsNullOrWhiteSpace(protectedRoot))
@@ -262,14 +281,17 @@ public static class RegistryGuard
             }
 
             var root = Path.GetFullPath(protectedRoot).TrimEnd(Path.DirectorySeparatorChar);
-            if (string.Equals(full.TrimEnd(Path.DirectorySeparatorChar), root, StringComparison.OrdinalIgnoreCase)
-                || full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(segmentPath, root, StringComparison.OrdinalIgnoreCase)
+                || (subtree && segmentPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
             {
-                return GuardResult.Reject("System, Windows and Program Files PATH entries are protected.");
+                return GuardResult.Reject("Windows, Program Files roots and Common Files PATH entries are protected.");
             }
         }
 
         return GuardResult.Allow(full);
+
+        static string? CommonFiles(string? programFiles)
+            => string.IsNullOrWhiteSpace(programFiles) ? null : Path.Combine(programFiles, "Common Files");
     }
 
     private static bool IsDirectClassChild(string[] parts)

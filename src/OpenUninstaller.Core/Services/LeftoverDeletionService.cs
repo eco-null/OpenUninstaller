@@ -279,7 +279,8 @@ public sealed class LeftoverDeletionService
                     item.RegistryLocation.Value,
                     allowAppCompatEntry: item.IsAppCompatEntry,
                     allowAssociationEntry: item.IsAssociationEntry,
-                    allowComEntry: item.IsComEntry)
+                    allowComEntry: item.IsComEntry,
+                    allowProductRootEntry: item.IsProductRootEntry)
             };
             if (!registryGuard.Allowed)
             {

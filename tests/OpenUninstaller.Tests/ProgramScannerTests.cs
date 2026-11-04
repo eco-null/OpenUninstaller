@@ -33,6 +33,22 @@ public sealed class ProgramScannerTests
         Assert.Equal(16, program.Id.Length);
     }
 
+    [Fact]
+    public void Quoted_install_location_is_unquoted()
+    {
+        using var env = new TestEnvironment();
+        var install = env.CreateDirectory("Program Files", "Quoted App");
+        env.AddProgramEntry("Quoted App", installLocation: $"\"{install}\"");
+
+        var program = Assert.Single(new ProgramScanner(env.Registry, [env.UninstallRoot]).Scan());
+
+        Assert.Equal(install, program.InstallLocation);
+    }
+
+    [Fact]
+    public void Per_user_uninstall_root_is_read_once()
+        => Assert.Single(ProgramScanner.Sources, source => source.Hive == Microsoft.Win32.RegistryHive.CurrentUser);
+
     [Theory]
     [InlineData("System component", true, null, null)]
     [InlineData("Patch of another product", false, "Parent", null)]

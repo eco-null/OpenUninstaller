@@ -31,6 +31,48 @@ public sealed class UninstallAndCliTests
     }
 
     [Fact]
+    public async Task Self_relaunching_uninstaller_is_awaited_until_its_child_removes_the_registration()
+    {
+        using var env = new TestEnvironment();
+        var location = env.AddRegistryKey("Uninstall\\Relaunching", ("DisplayName", "Relaunching", RegistryValueKind.String));
+        var regExe = Path.Combine(Environment.SystemDirectory, "reg.exe");
+        // NSIS-style: the registered uninstaller starts a copy of itself and exits immediately.
+        var secondPhase = env.CreateFile(
+            "Program Files/Relaunching/second.cmd",
+            $"@echo off\r\nping -n 3 127.0.0.1 >nul\r\n\"{regExe}\" delete \"HKCU\\{location.Path}\" /f\r\n");
+        var launcher = env.CreateFile(
+            "Program Files/Relaunching/uninst.cmd",
+            $"@echo off\r\nstart \"\" /b cmd /c \"{secondPhase}\"\r\n");
+        var program = TestPrograms.Create("Relaunching", location: location, uninstallCommand: $"\"{launcher}\"");
+        var service = new UninstallService(env.Registry, new ProcessRunner(), FileOperationLog.Null);
+
+        var result = await service.RunAsync(program, new UninstallOptions { WaitTimeout = TimeSpan.FromSeconds(30) });
+
+        Assert.True(result.Succeeded, string.Join(Environment.NewLine, result.Messages));
+        Assert.False(result.StillRegistered);
+    }
+
+    [Fact]
+    public async Task Lingering_child_does_not_block_a_completed_uninstall()
+    {
+        using var env = new TestEnvironment();
+        var location = env.AddRegistryKey("Uninstall\\Survey", ("DisplayName", "Survey", RegistryValueKind.String));
+        var regExe = Path.Combine(Environment.SystemDirectory, "reg.exe");
+        // The uninstaller finishes, then leaves a long-lived child such as a feedback page.
+        var launcher = env.CreateFile(
+            "Program Files/Survey/uninst.cmd",
+            $"@echo off\r\n\"{regExe}\" delete \"HKCU\\{location.Path}\" /f\r\nstart \"\" /b ping -n 15 127.0.0.1\r\n");
+        var program = TestPrograms.Create("Survey", location: location, uninstallCommand: $"\"{launcher}\"");
+        var service = new UninstallService(env.Registry, new ProcessRunner(), FileOperationLog.Null);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+        var result = await service.RunAsync(program, new UninstallOptions { WaitTimeout = TimeSpan.FromSeconds(60) });
+
+        Assert.True(result.Succeeded, string.Join(Environment.NewLine, result.Messages));
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"Waited {stopwatch.Elapsed} for a finished uninstall.");
+    }
+
+    [Fact]
     public async Task Forced_uninstall_removes_the_registration_entry()
     {
         using var env = new TestEnvironment();

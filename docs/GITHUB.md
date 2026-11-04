@@ -48,8 +48,8 @@ The project is fully independent, clean and open-source under the MIT license.
 4. Commit, push `main`, then tag the same commit and push the tag:
    ```powershell
    git push origin main
-   git tag v1.0.8
-   git push origin v1.0.8
+   git tag v1.0.9
+   git push origin v1.0.9
    ```
 5. The release workflow runs tests, UI smoke, publishes `OpenUninstaller-<version>-win-x64.zip`,
    compiles `OpenUninstaller-<version>-setup.exe`, writes `.sha256` checksums, and creates the GitHub release.

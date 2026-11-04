@@ -5,6 +5,34 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+## [1.0.9] — 2026-11-04
+
+### Changed
+
+- Offer PATH entries inside an application's own Program Files folder. The Windows folder, the
+  Program Files roots and Common Files remain protected.
+- Offer single-level `SOFTWARE\<Product>` keys (for example `HKCU\Software\7-Zip`) when the name
+  matches the product, is not a vendor root and no other installed application matches it.
+- Leftover scans are about four times faster: ownership evidence for installed applications is
+  derived once per scan instead of once per inspected entry (≈116 s → 27 s on a real machine).
+
+### Fixed
+
+- Wait for self-relaunching vendor uninstallers (NSIS-style) while the application is still
+  registered, instead of reporting a running uninstall as cancelled. A finished uninstall is not
+  held up by a lingering child such as a feedback page; nothing is ever terminated.
+- Resolve unquoted uninstall commands with spaces (`C:\Program Files\App\unins000.exe /S`) to the
+  longest existing path, which also rules out a planted `C:\Program.exe`.
+- List per-user applications once; the shared HKCU 32-bit registry view duplicated every entry.
+- Stop offering file associations, App Paths and `Classes\Applications` keys twice from the shared
+  32-bit HKLM view.
+- Remove surrounding quotes from recorded install locations so ownership and shortcut evidence apply.
+
+### Tests
+
+- Add regression tests for each fix (308 core/CLI tests) and stop the test environment leaking
+  empty registry keys under `HKCU\Software\OpenUninstaller\Tests`.
+
 ## [1.0.8] — 2026-11-02
 
 ### Changed

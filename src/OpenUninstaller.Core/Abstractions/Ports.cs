@@ -52,6 +52,19 @@ public interface IProcessRunner
         bool shellExecute,
         TimeSpan? timeout,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Shell-executes a vendor program and, after it exits, keeps waiting for the processes it
+    /// started while <paramref name="pending"/> holds. Self-relaunching uninstallers (NSIS copies
+    /// itself to %TEMP% and exits) finish their work in such a child.
+    /// </summary>
+    Task<ProcessResult> RunWithDescendantsAsync(
+        string fileName,
+        string arguments,
+        Func<bool> pending,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken)
+        => RunAsync(fileName, arguments, shellExecute: true, timeout, cancellationToken);
 }
 
 public interface IClock

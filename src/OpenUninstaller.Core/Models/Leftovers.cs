@@ -52,6 +52,9 @@ public sealed class LeftoverItem
     /// <summary>True for a direct <c>Classes\CLSID\&lt;guid&gt;</c> COM registration.</summary>
     public bool IsComEntry { get; init; }
 
+    /// <summary>True for a single-level <c>SOFTWARE\&lt;Product&gt;</c> key proven to be this product's.</summary>
+    public bool IsProductRootEntry { get; init; }
+
     /// <summary>True when a <see cref="LeftoverKind.Service"/> entry is a driver service.</summary>
     public bool IsDriverEntry { get; init; }
 

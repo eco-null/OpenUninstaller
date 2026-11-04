@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Xml;
 using System.Xml.Linq;
@@ -28,6 +29,15 @@ namespace OpenUninstaller.Core.Services;
 /// </summary>
 public sealed class LeftoverScanner
 {
+    // WOW64 redirects HKLM\SOFTWARE but shares HKCU\Software: its 32-bit view returns the same
+    // keys again, so scanning it would list every per-user key twice.
+    private static readonly (RegistryHive Hive, RegistryView View)[] SoftwareViews =
+    [
+        (RegistryHive.LocalMachine, RegistryView.Registry64),
+        (RegistryHive.LocalMachine, RegistryView.Registry32),
+        (RegistryHive.CurrentUser, RegistryView.Registry64)
+    ];
+
     private static readonly HashSet<string> RegistryVendorExclusions = new(StringComparer.OrdinalIgnoreCase)
     {
         "Microsoft", "Classes", "Clients", "Policies", "RegisteredApplications", "OpenUninstaller",
@@ -417,7 +427,7 @@ public sealed class LeftoverScanner
         int Score(string candidate, bool allowPublisherOnly = true)
             => ScoreName(candidate, nameCompact, combinedTokens, publisherTokens, allowPublisherOnly);
 
-        void AddRegistry(RegistryLocation location, int score, string reason)
+        void AddRegistry(RegistryLocation location, int score, string reason, bool productRoot = false)
         {
             if (knownPaths.Contains(location.DisplayPath))
             {
@@ -429,7 +439,7 @@ public sealed class LeftoverScanner
                 return;
             }
 
-            var guard = RegistryGuard.ValidateForDeletion(location);
+            var guard = RegistryGuard.ValidateForDeletion(location, allowProductRootEntry: productRoot);
             if (!guard.Allowed)
             {
                 return;
@@ -443,6 +453,7 @@ public sealed class LeftoverScanner
                 DisplayPath = location.DisplayPath,
                 Confidence = (LeftoverConfidence)score,
                 RegistryLocation = location,
+                IsProductRootEntry = productRoot,
                 Reason = reason
             });
         }
@@ -515,62 +526,72 @@ public sealed class LeftoverScanner
         }
 
         // ------------------------------------------------------------------ Vendor Registry
-        foreach (var hive in new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser })
+        foreach (var (hive, view) in SoftwareViews)
         {
-            foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+            cancellationToken.ThrowIfCancellationRequested();
+            var software = new RegistryLocation(hive, view, "SOFTWARE");
+            IReadOnlyList<string> vendors;
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                var software = new RegistryLocation(hive, view, "SOFTWARE");
-                IReadOnlyList<string> vendors;
+                vendors = _registry.GetSubKeyNames(software);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                continue;
+            }
+
+            foreach (var vendor in vendors)
+            {
+                if (RegistryVendorExclusions.Contains(vendor))
+                {
+                    continue;
+                }
+
+                var vendorMatchesName = NameNormalizer.CountTokenMatches(vendor, combinedTokens) > 0;
+                var vendorMatchesPublisher = NameNormalizer.CountTokenMatches(vendor, publisherTokens) > 0;
+                if (!vendorMatchesName && !vendorMatchesPublisher)
+                {
+                    continue;
+                }
+
+                var vendorLocation = new RegistryLocation(hive, view, $"SOFTWARE\\{vendor}");
+
+                // Many applications keep a single SOFTWARE\<Product> key (7-Zip, BleachBit). Offer it
+                // with the same rules as a top-level folder: never a vendor root, and never a key
+                // whose name also identifies another installed application (SOFTWARE\Python).
+                if (vendorMatchesName && !IsVendorFolder(vendor, publisherTokens, combinedTokens)
+                    && Score(vendor, allowPublisherOnly: false) is var productKeyScore
+                    && productKeyScore >= (int)LeftoverConfidence.Medium
+                    && !MatchesOtherProgram(vendor, program, otherPrograms))
+                {
+                    AddRegistry(vendorLocation, productKeyScore, $"Registry key '{vendor}' matches the application.", productRoot: true);
+                    continue;
+                }
+
+                IReadOnlyList<string> products;
                 try
                 {
-                    vendors = _registry.GetSubKeyNames(software);
+                    products = _registry.GetSubKeyNames(vendorLocation);
                 }
                 catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
                 {
                     continue;
                 }
 
-                foreach (var vendor in vendors)
+                foreach (var product in BoundedEntries(products, 250, vendorLocation.DisplayPath, result, cancellationToken))
                 {
-                    if (RegistryVendorExclusions.Contains(vendor))
+                    var combined = $"{vendor} {product}";
+                    var score = Score(combined);
+                    if (score == 0)
                     {
                         continue;
                     }
 
-                    var vendorMatchesName = NameNormalizer.CountTokenMatches(vendor, combinedTokens) > 0;
-                    var vendorMatchesPublisher = NameNormalizer.CountTokenMatches(vendor, publisherTokens) > 0;
-                    if (!vendorMatchesName && !vendorMatchesPublisher)
-                    {
-                        continue;
-                    }
-
-                    var vendorLocation = new RegistryLocation(hive, view, $"SOFTWARE\\{vendor}");
-                    IReadOnlyList<string> products;
-                    try
-                    {
-                        products = _registry.GetSubKeyNames(vendorLocation);
-                    }
-                    catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
-                    {
-                        continue;
-                    }
-
-                    foreach (var product in BoundedEntries(products, 250, vendorLocation.DisplayPath, result, cancellationToken))
-                    {
-                        var combined = $"{vendor} {product}";
-                        var score = Score(combined);
-                        if (score == 0)
-                        {
-                            continue;
-                        }
-
-                        var location = new RegistryLocation(hive, view, $"SOFTWARE\\{vendor}\\{product}");
-                        AddRegistry(
-                            location,
-                            score,
-                            $"Registry key '{vendor}\\{product}' matches the application.");
-                    }
+                    var location = new RegistryLocation(hive, view, $"SOFTWARE\\{vendor}\\{product}");
+                    AddRegistry(
+                        location,
+                        score,
+                        $"Registry key '{vendor}\\{product}' matches the application.");
                 }
             }
         }
@@ -1048,95 +1069,94 @@ public sealed class LeftoverScanner
             (Path: _paths.ClassesApplicationsRegistryPath, IsAppPaths: false)
         };
 
+        // App Paths and Classes\Applications are shared by both WOW64 views: one pass per hive.
+        const RegistryView view = RegistryView.Registry64;
         foreach (var hive in new[] { RegistryHive.LocalMachine, RegistryHive.CurrentUser })
         {
-            foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var (rootPath, isAppPaths) in roots)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                foreach (var (rootPath, isAppPaths) in roots)
+                var root = new RegistryLocation(hive, view, rootPath);
+                IReadOnlyList<string> children;
+                try
                 {
-                    var root = new RegistryLocation(hive, view, rootPath);
-                    IReadOnlyList<string> children;
-                    try
-                    {
-                        children = _registry.GetSubKeyNames(root);
-                    }
-                    catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+                    children = _registry.GetSubKeyNames(root);
+                }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+                {
+                    continue;
+                }
+
+                foreach (var child in BoundedEntries(children, 500, root.DisplayPath, result, cancellationToken))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var stem = Path.GetFileNameWithoutExtension(child);
+                    var score = ScoreName(stem, nameCompact, tokens, publisherTokens, allowPublisherOnly: false);
+                    if (score == 0)
                     {
                         continue;
                     }
 
-                    foreach (var child in BoundedEntries(children, 500, root.DisplayPath, result, cancellationToken))
+                    var location = new RegistryLocation(hive, view, $"{rootPath}\\{child}");
+                    if (!_registry.KeyExists(location))
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        var stem = Path.GetFileNameWithoutExtension(child);
-                        var score = ScoreName(stem, nameCompact, tokens, publisherTokens, allowPublisherOnly: false);
-                        if (score == 0)
-                        {
-                            continue;
-                        }
-
-                        var location = new RegistryLocation(hive, view, $"{rootPath}\\{child}");
-                        if (!_registry.KeyExists(location))
-                        {
-                            continue;
-                        }
-
-                        string? target;
-                        if (isAppPaths)
-                        {
-                            target = _registry.GetValue(location, string.Empty)?.AsString();
-                        }
-                        else
-                        {
-                            var command = new RegistryLocation(
-                                hive, view, $"{rootPath}\\{child}\\shell\\open\\command");
-                            target = _registry.GetValue(command, string.Empty)?.AsString()
-                                     ?? _registry.GetValue(location, string.Empty)?.AsString();
-                        }
-
-                        var executable = ExecutablePath(target, _paths.WindowsDirectory);
-                        if (executable is null)
-                        {
-                            continue;
-                        }
-
-                        var stillExists = File.Exists(executable);
-                        var underInstall = IsSameOrUnder(executable, program.InstallLocation);
-                        if (stillExists && !underInstall)
-                        {
-                            continue;
-                        }
-
-                        if (FindOwningProgram(executable, program, otherPrograms) is not null)
-                        {
-                            continue;
-                        }
-
-                        var guard = RegistryGuard.ValidateForDeletion(location, allowAppCompatEntry: true);
-                        if (!guard.Allowed)
-                        {
-                            continue;
-                        }
-
-                        if (!knownPaths.Add(location.DisplayPath))
-                        {
-                            continue;
-                        }
-
-                        result.Items.Add(new LeftoverItem
-                        {
-                            Id = $"registry|{location.Hive}|{location.View}|{location.Path}",
-                            Kind = LeftoverKind.RegistryKey,
-                            DisplayPath = location.DisplayPath,
-                            Confidence = underInstall ? LeftoverConfidence.High : LeftoverConfidence.Strong,
-                            RegistryLocation = location,
-                            IsAppCompatEntry = true,
-                            Reason = stillExists
-                                ? $"Registration points into the recorded install location ({executable})."
-                                : $"Registration points to a missing executable ({executable})."
-                        });
+                        continue;
                     }
+
+                    string? target;
+                    if (isAppPaths)
+                    {
+                        target = _registry.GetValue(location, string.Empty)?.AsString();
+                    }
+                    else
+                    {
+                        var command = new RegistryLocation(
+                            hive, view, $"{rootPath}\\{child}\\shell\\open\\command");
+                        target = _registry.GetValue(command, string.Empty)?.AsString()
+                                 ?? _registry.GetValue(location, string.Empty)?.AsString();
+                    }
+
+                    var executable = ExecutablePath(target, _paths.WindowsDirectory);
+                    if (executable is null)
+                    {
+                        continue;
+                    }
+
+                    var stillExists = File.Exists(executable);
+                    var underInstall = IsSameOrUnder(executable, program.InstallLocation);
+                    if (stillExists && !underInstall)
+                    {
+                        continue;
+                    }
+
+                    if (FindOwningProgram(executable, program, otherPrograms) is not null)
+                    {
+                        continue;
+                    }
+
+                    var guard = RegistryGuard.ValidateForDeletion(location, allowAppCompatEntry: true);
+                    if (!guard.Allowed)
+                    {
+                        continue;
+                    }
+
+                    if (!knownPaths.Add(location.DisplayPath))
+                    {
+                        continue;
+                    }
+
+                    result.Items.Add(new LeftoverItem
+                    {
+                        Id = $"registry|{location.Hive}|{location.View}|{location.Path}",
+                        Kind = LeftoverKind.RegistryKey,
+                        DisplayPath = location.DisplayPath,
+                        Confidence = underInstall ? LeftoverConfidence.High : LeftoverConfidence.Strong,
+                        RegistryLocation = location,
+                        IsAppCompatEntry = true,
+                        Reason = stillExists
+                            ? $"Registration points into the recorded install location ({executable})."
+                            : $"Registration points to a missing executable ({executable})."
+                    });
                 }
             }
         }
@@ -1164,10 +1184,11 @@ public sealed class LeftoverScanner
         var publisherTokens = NameNormalizer.Tokens(program.Publisher);
         var knownPaths = result.Items.Select(i => i.DisplayPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        // ProgIDs under SOFTWARE\Classes are shared by both WOW64 views (only CLSID-like subkeys
+        // are redirected), so a 32-bit pass would offer every association twice.
         foreach (var (hive, view) in new[]
                  {
                      (RegistryHive.LocalMachine, RegistryView.Registry64),
-                     (RegistryHive.LocalMachine, RegistryView.Registry32),
                      (RegistryHive.CurrentUser, RegistryView.Registry64)
                  })
         {
@@ -1379,7 +1400,8 @@ public sealed class LeftoverScanner
                 }
 
                 var expanded = Environment.ExpandEnvironmentVariables(segment).Trim();
-                if (!Path.IsPathRooted(expanded) || IsUnderSystemPath(expanded))
+                // Program Files roots and Common Files are rejected by the PATH guard below.
+                if (!Path.IsPathRooted(expanded) || IsUnderWindowsDirectory(expanded))
                 {
                     continue;
                 }
@@ -1575,30 +1597,17 @@ public sealed class LeftoverScanner
         }
     }
 
-    private bool IsUnderSystemPath(string path)
+    private bool IsUnderWindowsDirectory(string path)
     {
-        var full = path.TrimEnd(Path.DirectorySeparatorChar);
-        foreach (var root in new[]
-                 {
-                     _paths.WindowsDirectory,
-                     _paths.ProgramFiles,
-                     _paths.ProgramFilesX86
-                 })
+        if (string.IsNullOrWhiteSpace(_paths.WindowsDirectory))
         {
-            if (string.IsNullOrWhiteSpace(root))
-            {
-                continue;
-            }
-
-            var normalized = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
-            if (string.Equals(full, normalized, StringComparison.OrdinalIgnoreCase)
-                || full.StartsWith(normalized + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            return false;
         }
 
-        return false;
+        var full = path.TrimEnd(Path.DirectorySeparatorChar);
+        var windows = Path.GetFullPath(_paths.WindowsDirectory).TrimEnd(Path.DirectorySeparatorChar);
+        return string.Equals(full, windows, StringComparison.OrdinalIgnoreCase)
+               || full.StartsWith(windows + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -2113,12 +2122,25 @@ public sealed class LeftoverScanner
     /// is inside its install location or because the path contains that location. Deleting such a
     /// path could break another application, so it is never offered (traces mark it protected).
     /// </summary>
+    /// <summary>Whether a key name also identifies another installed application.</summary>
+    private static bool MatchesOtherProgram(
+        string name,
+        InstalledProgram program,
+        IReadOnlyList<InstalledProgram>? others)
+        => others?.Any(other => !string.Equals(other.Id, program.Id, StringComparison.Ordinal)
+            && ScoreName(
+                name,
+                NameNormalizer.Compact(other.Name),
+                NameNormalizer.MatchTokens(other.Name, other.Publisher),
+                NameNormalizer.Tokens(other.Publisher),
+                allowPublisherOnly: false) >= (int)LeftoverConfidence.Medium) == true;
+
     private static InstalledProgram? FindOwningProgram(
         string path,
         InstalledProgram program,
         IReadOnlyList<InstalledProgram>? others)
     {
-        if (others is null)
+        if (others is null || NormalizedPath(path) is not { } candidate)
         {
             return null;
         }
@@ -2130,35 +2152,72 @@ public sealed class LeftoverScanner
                 continue;
             }
 
-            if (!string.IsNullOrWhiteSpace(other.InstallLocation))
-            {
-                var location = other.InstallLocation.TrimEnd('\\');
-                if (IsSameOrUnder(path, location) || IsSameOrUnder(location, path))
-                {
-                    return other;
-                }
-            }
-
-            var icon = IconPath(other.DisplayIcon);
-            if (icon is not null && IsSameOrUnder(icon, path))
+            var evidence = OwnershipCache.GetValue(other, BuildOwnershipEvidence);
+            if (evidence.InstallRoot is { } root
+                && (IsSameOrUnderNormalized(candidate, root) || IsSameOrUnderNormalized(root, candidate)))
             {
                 return other;
             }
 
-            // Some uninstall records omit InstallLocation and DisplayIcon. An explicit uninstaller
-            // still establishes that a candidate containing that executable is shared.
-            foreach (var command in new[] { other.UninstallCommand, other.QuietUninstallCommand })
+            if (evidence.ContainedFiles.Any(file => IsSameOrUnderNormalized(file, candidate)))
             {
-                var executable = ExecutablePath(command, string.Empty);
-                if (executable is not null && IsSameOrUnder(executable, path))
-                {
-                    return other;
-                }
+                return other;
             }
         }
 
         return null;
     }
+
+    // Deeper discovery asks for the owner of every entry it visits (tens of thousands per scan).
+    // Deriving each program's ownership paths once instead of per entry cut a real scan from
+    // about two minutes to under half a minute.
+    private static readonly ConditionalWeakTable<InstalledProgram, OwnershipEvidence> OwnershipCache = new();
+
+    private sealed record OwnershipEvidence(string? InstallRoot, IReadOnlyList<string> ContainedFiles);
+
+    private static OwnershipEvidence BuildOwnershipEvidence(InstalledProgram program)
+    {
+        var files = new List<string>();
+        if (NormalizedPath(IconPath(program.DisplayIcon)) is { } icon)
+        {
+            files.Add(icon);
+        }
+
+        // Some uninstall records omit InstallLocation and DisplayIcon. An explicit uninstaller
+        // still establishes that a candidate containing that executable is shared.
+        foreach (var command in new[] { program.UninstallCommand, program.QuietUninstallCommand })
+        {
+            if (NormalizedPath(ExecutablePath(command, string.Empty)) is { } executable)
+            {
+                files.Add(executable);
+            }
+        }
+
+        return new OwnershipEvidence(NormalizedPath(program.InstallLocation), files);
+    }
+
+    private static string? NormalizedPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            var full = Path.GetFullPath(path);
+            return full.Length > 3 ? full.TrimEnd('\\', '/') : full;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
+    }
+
+    // Same semantics as PathGuard.IsUnder, for paths already passed through NormalizedPath.
+    private static bool IsSameOrUnderNormalized(string path, string root)
+        => string.Equals(path, root, StringComparison.OrdinalIgnoreCase)
+           || (path.Length > root.Length && path.StartsWith(root + '\\', StringComparison.OrdinalIgnoreCase));
 
     private static string? IconPath(string? displayIcon)
     {

@@ -227,7 +227,7 @@ public sealed class TestEnvironment : IDisposable
                 new RegistryLocation(
                     RegistryHive.CurrentUser,
                     RegistryView.Registry64,
-                    Paths.DisabledAutorunsRegistryPath),
+                    Path.GetDirectoryName(Paths.DisabledAutorunsRegistryPath)!),
                 recursive: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

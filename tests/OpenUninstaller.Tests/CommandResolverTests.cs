@@ -88,6 +88,34 @@ public sealed class CommandResolverTests
     }
 
     [Fact]
+    public void Unquoted_path_with_spaces_resolves_the_existing_executable()
+    {
+        using var env = new TestEnvironment();
+        var executable = env.CreateFile("Program Files/Spaced Vendor/Spaced App/unins000.exe");
+        var program = TestPrograms.Create("Spaced App", uninstallCommand: $"{executable} /SILENT /NORESTART");
+
+        var command = UninstallCommandResolver.Resolve(program, preferSilent: false);
+
+        Assert.True(command.IsUsable, command.Error);
+        Assert.Equal(executable, command.Executable);
+        Assert.Equal("/SILENT /NORESTART", command.Arguments);
+    }
+
+    [Fact]
+    public void Unquoted_path_never_resolves_to_a_planted_shorter_prefix()
+    {
+        using var env = new TestEnvironment();
+        env.CreateFile("Program");
+        var executable = env.CreateFile("Program Files/App/uninst.exe");
+        var program = TestPrograms.Create("App", uninstallCommand: $"{executable} /S");
+
+        var command = UninstallCommandResolver.Resolve(program, preferSilent: false);
+
+        Assert.Equal(executable, command.Executable);
+        Assert.Equal("/S", command.Arguments);
+    }
+
+    [Fact]
     public void Empty_command_is_reported()
     {
         var program = TestPrograms.Create("No uninstaller");

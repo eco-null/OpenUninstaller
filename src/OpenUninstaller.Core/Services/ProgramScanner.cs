@@ -10,12 +10,13 @@ namespace OpenUninstaller.Core.Services;
 /// <summary>Reads installed applications from the Windows uninstall registry.</summary>
 public sealed class ProgramScanner
 {
+    // HKCU\Software is shared between the 64- and 32-bit views; reading both listed every
+    // per-user application twice.
     public static readonly RegistryLocation[] Sources =
     [
         new(RegistryHive.LocalMachine, RegistryView.Registry64, RegistryGuard.UninstallRoot),
         new(RegistryHive.LocalMachine, RegistryView.Registry32, RegistryGuard.UninstallRoot),
-        new(RegistryHive.CurrentUser, RegistryView.Registry64, RegistryGuard.UninstallRoot),
-        new(RegistryHive.CurrentUser, RegistryView.Registry32, RegistryGuard.UninstallRoot)
+        new(RegistryHive.CurrentUser, RegistryView.Registry64, RegistryGuard.UninstallRoot)
     ];
 
     private readonly IRegistryStore _registry;
@@ -125,7 +126,7 @@ public sealed class ProgramScanner
             Name = name.Trim(),
             Version = Clean(Get("DisplayVersion")),
             Publisher = Clean(Get("Publisher")),
-            InstallLocation = Clean(Environment.ExpandEnvironmentVariables(Get("InstallLocation") ?? string.Empty)),
+            InstallLocation = Clean(Environment.ExpandEnvironmentVariables(Get("InstallLocation") ?? string.Empty).Trim().Trim('"')),
             UninstallCommand = Clean(Environment.ExpandEnvironmentVariables(Get("UninstallString") ?? string.Empty)),
             QuietUninstallCommand = Clean(Environment.ExpandEnvironmentVariables(Get("QuietUninstallString") ?? string.Empty)),
             DisplayIcon = Clean(Get("DisplayIcon")),

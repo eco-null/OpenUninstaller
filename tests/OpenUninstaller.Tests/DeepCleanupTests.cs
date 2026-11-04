@@ -46,6 +46,47 @@ public sealed class DeepCleanupTests
     }
 
     [Fact]
+    public void RegistryGuard_allows_a_product_root_key_only_when_flagged()
+    {
+        var product = new RegistryLocation(RegistryHive.CurrentUser, RegistryView.Registry64, @"SOFTWARE\7-Zip");
+        Assert.False(RegistryGuard.ValidateForDeletion(product).Allowed);
+        Assert.True(RegistryGuard.ValidateForDeletion(product, allowProductRootEntry: true).Allowed);
+
+        foreach (var container in new[] { "Microsoft", "Classes", "Policies", "WOW6432Node", "OpenUninstaller", "Clients" })
+        {
+            var location = new RegistryLocation(RegistryHive.LocalMachine, RegistryView.Registry64, $"SOFTWARE\\{container}");
+            Assert.False(RegistryGuard.ValidateForDeletion(location, allowProductRootEntry: true).Allowed, container);
+        }
+
+        Assert.False(RegistryGuard.ValidateForDeletion(
+            new RegistryLocation(RegistryHive.LocalMachine, RegistryView.Registry64, @"SYSTEM\Widget"),
+            allowProductRootEntry: true).Allowed);
+        Assert.False(RegistryGuard.ValidateForDeletion(
+            new RegistryLocation(RegistryHive.LocalMachine, RegistryView.Registry64, "SOFTWARE"),
+            allowProductRootEntry: true).Allowed);
+    }
+
+    [Fact]
+    public async Task Path_entry_inside_a_program_files_install_is_offered()
+    {
+        using var env = new TestEnvironment();
+        var install = env.CreateDirectory("Program Files", "Widget");
+        var bin = Path.Combine(install, "bin");
+        var common = Path.Combine(env.Paths.ProgramFiles, "Common Files", "Widget");
+        env.AddRegistryKey(
+            "MachineEnvironment",
+            ("Path", $"{bin};{env.Paths.ProgramFiles};{common}", RegistryValueKind.ExpandString));
+
+        var scan = await CreateScanner(env).ScanAsync(
+            TestPrograms.Create("Widget", "Widget Corp", install), otherPrograms: []);
+
+        var entries = scan.Items.Where(i => i.Kind == LeftoverKind.PathEntry).ToList();
+        var entry = Assert.Single(entries);
+        Assert.Equal(bin, entry.PathSegment);
+        Assert.Equal(LeftoverConfidence.High, entry.Confidence);
+    }
+
+    [Fact]
     public void Path_guard_pins_the_key_and_rejects_system_segments()
     {
         using var env = new TestEnvironment();
@@ -61,10 +102,20 @@ public sealed class DeepCleanupTests
         Assert.False(RegistryGuard.ValidatePathEntryForDeletion(
             wrongKey, "Path", fixture, env.Paths, machineWide: false).Allowed);
 
+        // An application's own Program Files folder is a normal PATH leftover.
+        var appFolder = Path.Combine(env.Paths.ProgramFiles, "Widget", "bin");
+        var appFolderGuard = RegistryGuard.ValidatePathEntryForDeletion(
+            userRoot, "Path", appFolder, env.Paths, machineWide: false);
+        Assert.True(appFolderGuard.Allowed, appFolderGuard.Reason);
+
         foreach (var segment in new[]
                  {
                      env.Paths.WindowsDirectory,
-                     Path.Combine(env.Paths.ProgramFiles, "Widget"),
+                     Path.Combine(env.Paths.WindowsDirectory, "System32"),
+                     env.Paths.ProgramFiles,
+                     env.Paths.ProgramFilesX86 + "\\",
+                     Path.Combine(env.Paths.ProgramFiles, "Common Files", "Shared"),
+                     Path.Combine(env.Paths.ProgramFilesX86, "Common Files"),
                      @"" + env.Root + "\\Widget;evil",
                      @"..\Widget"
                  })

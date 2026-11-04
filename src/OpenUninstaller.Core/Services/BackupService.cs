@@ -97,6 +97,7 @@ public sealed class BackupService
                 var isAppCompat = group.Any(i => i.IsAppCompatEntry);
                 var isAssociation = group.Any(i => i.IsAssociationEntry);
                 var isCom = group.Any(i => i.IsComEntry);
+                var isProductRoot = group.Any(i => i.IsProductRootEntry);
                 var guard = isService
                     ? RegistryGuard.ValidateForDeletion(location, allowServiceEntry: true)
                     : isPath
@@ -115,7 +116,8 @@ public sealed class BackupService
                                     location,
                                     allowAppCompatEntry: isAppCompat,
                                     allowAssociationEntry: isAssociation,
-                                    allowComEntry: isCom);
+                                    allowComEntry: isCom,
+                                    allowProductRootEntry: isProductRoot);
                 if (!guard.Allowed)
                 {
                     warnings.Add($"{representative.DisplayPath}: {guard.Reason}");

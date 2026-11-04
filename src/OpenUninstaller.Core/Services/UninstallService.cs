@@ -59,10 +59,10 @@ public sealed class UninstallService
         progress?.Report(new OperationProgress(OperationStages.RunningUninstaller, command.DisplayCommand));
         _log.Write("uninstall", "run", program.RegistryPath, "started", command.DisplayCommand);
 
-        var result = await _runner.RunAsync(
+        var result = await _runner.RunWithDescendantsAsync(
             command.Executable,
             command.Arguments,
-            shellExecute: true,
+            pending: () => _registry.KeyExists(program.Location),
             options.WaitTimeout,
             cancellationToken).ConfigureAwait(false);
 

@@ -114,11 +114,9 @@ public sealed class AdvancedLeftoverTests
             installLocation: env.CreateDirectory("Program Files", "Widget"));
         var result = await scanner.ScanAsync(program, otherPrograms: []);
 
-        var matching = result.Items.Where(i =>
-            i.RegistryLocation?.Path.EndsWith("App Paths\\widget.exe", StringComparison.OrdinalIgnoreCase) == true)
-            .ToList();
-        Assert.NotEmpty(matching);
-        var item = matching[0];
+        // HKCU's 32-bit view is the same key; it must not be offered a second time.
+        var item = Assert.Single(result.Items, i =>
+            i.RegistryLocation?.Path.EndsWith("App Paths\\widget.exe", StringComparison.OrdinalIgnoreCase) == true);
         Assert.Equal(LeftoverKind.RegistryKey, item.Kind);
         Assert.Equal(LeftoverConfidence.Strong, item.Confidence);
         Assert.Contains("missing executable", item.Reason, StringComparison.OrdinalIgnoreCase);
@@ -137,10 +135,10 @@ public sealed class AdvancedLeftoverTests
         var program = TestPrograms.Create("Widget", installLocation: env.CreateDirectory("Program Files", "Widget"));
         var result = await scanner.ScanAsync(program, otherPrograms: []);
 
-        Assert.Contains(result.Items, i =>
+        var item = Assert.Single(result.Items, i =>
             i.RegistryLocation?.Path.EndsWith(
-                "Classes\\Applications\\widget.exe", StringComparison.OrdinalIgnoreCase) == true
-            && i.Confidence == LeftoverConfidence.Strong);
+                "Classes\\Applications\\widget.exe", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.Equal(LeftoverConfidence.Strong, item.Confidence);
     }
 
     [Fact]

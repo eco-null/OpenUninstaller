@@ -57,7 +57,8 @@ jobs:
         shell: pwsh
         run: |
           $app = "src\OpenUninstaller.App\bin\Release\net8.0-windows\OpenUninstaller.exe"
-          dotnet run --project tests\OpenUninstaller.UiSmoke\OpenUninstaller.UiSmoke.csproj -c Release --no-build -- $app
+          # Hosted runners have no user to protect, and UI Automation actions are ~2 s slower on a hidden desktop.
+          dotnet run --project tests\OpenUninstaller.UiSmoke\OpenUninstaller.UiSmoke.csproj -c Release --no-build -- $app --visible
 
       - name: Publish self-contained artifact
         if: github.event_name != 'pull_request'

@@ -78,7 +78,8 @@ jobs:
           $smoke = "tests\OpenUninstaller.UiSmoke\bin\Release\net8.0-windows\OpenUninstaller.UiSmoke.exe"
           & $smoke --verify-junk artifacts/release-junk-checks
           if ($LASTEXITCODE -ne 0) { throw "Junk UI checks failed" }
-          & $smoke $app
+          # Hosted runners have no user to protect, and UI Automation actions are ~2 s slower on a hidden desktop.
+          & $smoke $app --visible
           if ($LASTEXITCODE -ne 0) { throw "UI smoke failed" }
 
       - name: Check built version

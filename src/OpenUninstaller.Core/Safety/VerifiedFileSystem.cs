@@ -18,6 +18,8 @@ public static class VerifiedFileSystem
     private const uint ReadAttributes = 0x0080;
     private const uint WriteAttributes = 0x0100;
     private const uint DeleteAccess = 0x0001_0000;
+    // DELETE takes part in share checks, so a held handle also blocks renames of the item.
+    private const uint ModifyAccess = DeleteAccess | ReadAttributes | WriteAttributes;
     private const uint ShareReadWrite = 0x1 | 0x2;
     private const uint OpenExisting = 3;
     private const uint OpenFlags = 0x0200_0000 /* backup semantics */ | 0x0020_0000 /* open reparse point */;
@@ -61,7 +63,7 @@ public static class VerifiedFileSystem
     public static void DeleteFile(string path)
     {
         var full = Normalize(path);
-        using var handle = Open(full, ListDirectory | DeleteAccess | ReadAttributes | WriteAttributes);
+        using var handle = Open(full, ModifyAccess);
         var info = Inspect(handle, full);
         if ((info.Attributes & (AttributeDirectory | AttributeReparsePoint)) == AttributeDirectory)
         {
@@ -78,7 +80,7 @@ public static class VerifiedFileSystem
     public static void DeleteTree(string path)
     {
         var full = Normalize(path);
-        using var handle = Open(full, ListDirectory | DeleteAccess | ReadAttributes | WriteAttributes);
+        using var handle = Open(full, ModifyAccess);
         DeleteOpened(handle, full, Inspect(handle, full));
     }
 
@@ -92,7 +94,7 @@ public static class VerifiedFileSystem
             foreach (var name in names)
             {
                 var child = Path.Combine(full, name!);
-                using var childHandle = Open(child, ListDirectory | DeleteAccess | ReadAttributes | WriteAttributes);
+                using var childHandle = Open(child, ModifyAccess);
                 DeleteOpened(childHandle, child, Inspect(childHandle, child));
             }
         }
@@ -102,14 +104,15 @@ public static class VerifiedFileSystem
 
     private static void MarkForDeletion(SafeFileHandle handle, string full, Information info)
     {
-        // Attributes belong to the file, not the link: never change a file that other names share.
-        if ((info.Attributes & (AttributeDirectory | AttributeReparsePoint)) == 0 && info.NumberOfLinks != 1)
-        {
-            throw new IOException($"{full} has multiple hard links.");
-        }
-
         if ((info.Attributes & AttributeReadOnly) != 0)
         {
+            // Attributes belong to the file, not the link: never change a file other names share.
+            // Deleting one name of a hard-linked file is fine; it leaves the other names intact.
+            if ((info.Attributes & (AttributeDirectory | AttributeReparsePoint)) == 0 && info.NumberOfLinks != 1)
+            {
+                throw new IOException($"{full} is read-only and has multiple hard links.");
+            }
+
             var attributes = info.Attributes & SettableAttributes & ~AttributeReadOnly;
             var basic = new BasicInformation { FileAttributes = attributes == 0 ? AttributeNormal : attributes };
             if (!SetFileInformationByHandle(handle, FileBasicInfo, ref basic, (uint)Marshal.SizeOf<BasicInformation>()))

@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
-## [Unreleased]
+## [1.0.10] — 2026-11-08
 
 ### Security
 
@@ -15,6 +15,8 @@ the project uses semantic versioning.
   handles whose resolved path is verified, backup lock files are created inside pinned folders, the
   service no longer creates folders in that tree, and it writes its own logs to
   `%ProgramFiles%\OpenUninstaller\Maintenance\Logs`.
+- Approved leftover files and folders are deleted through the same verified handles, so a junction
+  swapped in after review cannot redirect an elevated deletion.
 - `service status` and the Settings page warn when an existing service still runs from a folder
   outside Program Files (installed by an earlier version); remove and reinstall it.
 - The path guard rejects drive-relative (`C:folder`) and root-relative (`\folder`) paths, and
@@ -32,6 +34,8 @@ the project uses semantic versioning.
 - Restore results report their real duration.
 - The maintenance service no longer races its stop handler against disposal and reports failures
   with a service-specific exit code.
+- The installer guide names the real CLI command, `service remove --yes`.
+- Test-only dependencies pin patched `System.Net.Http` and `System.Text.RegularExpressions`.
 
 ## [1.0.9] — 2026-11-04
 

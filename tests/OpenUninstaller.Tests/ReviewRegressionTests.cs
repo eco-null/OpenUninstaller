@@ -183,6 +183,20 @@ public sealed class ReviewRegressionTests
     }
 
     [Fact]
+    public void Verified_delete_removes_one_name_of_a_hard_linked_file_and_keeps_the_other()
+    {
+        using var env = new TestEnvironment();
+        var original = env.CreateFile("Shared/original.txt", "data");
+        var link = Path.Combine(env.CreateDirectory("Leftover"), "link.txt");
+        RunCmd("mklink", "/H", link, original);
+
+        VerifiedFileSystem.DeleteTree(Path.GetDirectoryName(link)!);
+
+        Assert.False(File.Exists(link));
+        Assert.Equal("data", File.ReadAllText(original));
+    }
+
+    [Fact]
     public void Pinned_directory_cannot_be_renamed_or_have_its_parent_renamed()
     {
         using var env = new TestEnvironment();
@@ -214,6 +228,11 @@ public sealed class ReviewRegressionTests
     {
         Directory.CreateDirectory(target);
         Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+        RunCmd("mklink", "/J", link, target);
+    }
+
+    private static void RunCmd(params string[] arguments)
+    {
         var info = new ProcessStartInfo("cmd.exe")
         {
             UseShellExecute = false,
@@ -221,7 +240,7 @@ public sealed class ReviewRegressionTests
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
-        foreach (var argument in new[] { "/d", "/c", "mklink", "/J", link, target })
+        foreach (var argument in new[] { "/d", "/c" }.Concat(arguments))
         {
             info.ArgumentList.Add(argument);
         }

@@ -170,15 +170,16 @@ public sealed class LeftoverDeletionService
                 }
                 else if (item.FilePath is { } path)
                 {
+                    // Verified handles: when the app runs elevated, a junction swapped in after
+                    // validation cannot redirect the deletion, and read-only files are cleared on
+                    // the handle (the item is already backed up).
                     if (Directory.Exists(path))
                     {
-                        ClearReadOnly(path);
-                        Directory.Delete(path, recursive: true);
+                        VerifiedFileSystem.DeleteTree(path);
                     }
                     else if (File.Exists(path))
                     {
-                        ClearReadOnly(path);
-                        File.Delete(path);
+                        VerifiedFileSystem.DeleteFile(path);
                     }
 
                     if (Directory.Exists(path) || File.Exists(path))
@@ -318,40 +319,6 @@ public sealed class LeftoverDeletionService
 
         var pathGuard = _pathGuard.ValidateForDeletion(item.FilePath, recursive: item.Kind == LeftoverKind.Directory);
         return (pathGuard.Allowed, pathGuard.Reason);
-    }
-
-    /// <summary>
-    /// Windows refuses to delete read-only files, which would leave an approved folder half removed.
-    /// The item is already backed up, so clear the flag on the item and on everything inside it,
-    /// without following junctions or symbolic links out of the tree.
-    /// </summary>
-    private static void ClearReadOnly(string path)
-    {
-        static void Clear(string target)
-        {
-            var attributes = File.GetAttributes(target);
-            if ((attributes & FileAttributes.ReadOnly) != 0)
-            {
-                File.SetAttributes(target, attributes & ~FileAttributes.ReadOnly);
-            }
-        }
-
-        Clear(path);
-        if ((File.GetAttributes(path) & (FileAttributes.Directory | FileAttributes.ReparsePoint)) != FileAttributes.Directory)
-        {
-            return;
-        }
-
-        var options = new EnumerationOptions
-        {
-            RecurseSubdirectories = true,
-            AttributesToSkip = FileAttributes.ReparsePoint,
-            IgnoreInaccessible = true
-        };
-        foreach (var entry in Directory.EnumerateFileSystemEntries(path, "*", options))
-        {
-            Clear(entry);
-        }
     }
 
     /// <summary>

@@ -196,6 +196,8 @@ dotnet run --project tests/OpenUninstaller.UiSmoke -c Release --no-build -- `
 
 Core tests use isolated temporary directories and registry subtrees. The UI smoke runner visits all eight screens in both themes at standard and compact window sizes, checks search and selection behavior, and verifies that removed decorative labels stay absent. It reads local inventories without invoking uninstall or cleanup actions.
 
+The runner uses a private Windows desktop that is never shown, so the app under test does not take focus or cover your windows while you keep working. It runs at below-normal priority, and stopping the runner also closes the app. Add `--visible` to watch a run. Runs that request window screenshots (a second path argument) use the visible desktop, because WPF draws nothing on a hidden one.
+
 ### Packaging
 
 ```powershell

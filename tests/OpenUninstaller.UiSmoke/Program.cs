@@ -29,6 +29,13 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        var visible = args.Contains("--visible");
+        args = args.Where(arg => arg != "--visible").ToArray();
+        // WPF draws nothing on a desktop that is never displayed, so window screenshots need the real one.
+        var windowScreenshots = args.Length > 1 && !args[0].StartsWith("--", StringComparison.Ordinal);
+        if (windowScreenshots && !visible && !HiddenDesktop.IsCurrent)
+            Console.WriteLine("Window screenshots requested: running on the visible desktop.");
+        else if (!visible && !HiddenDesktop.IsCurrent) return HiddenDesktop.Run(args);
         if (args is ["--verify-junk"]) return JunkChecks.Run();
         if (args is ["--verify-junk", var junkScreenshots]) return JunkChecks.Run(Path.GetFullPath(junkScreenshots));
         if (args is ["--verify-sorting"]) return SortingChecks.Run();

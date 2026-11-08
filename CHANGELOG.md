@@ -29,6 +29,9 @@ the project uses semantic versioning.
   `%LOCALAPPDATA%\Programs` folder.
 - The setup and Apps & features entry link to the project repository, and the setup executable
   carries the product version.
+- The desktop UI smoke runner no longer takes over the screen: it runs the app on a private desktop
+  that is never shown, at below-normal priority, and closes it if the runner stops. `--visible`
+  shows the run; window screenshot runs still use the visible desktop.
 
 ## [1.0.10] — 2026-11-08
 

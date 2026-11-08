@@ -20,6 +20,7 @@ public sealed class SettingsViewModel : PageViewModel
     private string _serviceStatus = "Not checked";
     private string _serviceDetail = string.Empty;
     private bool? _serviceExecutableExists;
+    private string? _serviceWarning;
     private bool _maintenanceEnabled;
     private int _maintenanceInterval;
     private int _maintenanceKeepBackups;
@@ -254,6 +255,7 @@ public sealed class SettingsViewModel : PageViewModel
         var status = await Task.Run(_services.Background.Query);
         ServiceStatus = status.Label;
         _serviceExecutableExists = status.ExecutableExists;
+        _serviceWarning = status.Installed ? status.Detail : null;
         UpdateServiceDetails();
     }
 
@@ -261,7 +263,8 @@ public sealed class SettingsViewModel : PageViewModel
     {
         var executableExists = _serviceExecutableExists
                                ?? File.Exists(_services.Background.ExecutablePath);
-        ServiceDetail = executableExists
+        ServiceDetail = !string.IsNullOrWhiteSpace(_serviceWarning) ? _serviceWarning
+            : executableExists
             ? $"{_services.Background.ServiceName} · {_services.Background.ExecutablePath}"
             : "The service executable is not in this build. Publish with scripts/publish.ps1 to include it.";
     }

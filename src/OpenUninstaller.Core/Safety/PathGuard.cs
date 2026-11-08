@@ -14,14 +14,18 @@ public sealed record GuardResult(bool Allowed, string? Reason, string? Normalize
 /// </summary>
 public sealed class PathGuard
 {
-    private readonly AppPaths _paths;
+    private readonly string _userProfile;
+    private readonly string _windowsDirectory;
     private readonly string[] _protectedRoots;
     private readonly string[] _ownRoots;
 
     public PathGuard(AppPaths paths)
     {
-        _paths = paths;
-        _protectedRoots =
+        // Roots and candidates are compared in one canonical long-path form; %TEMP% and profile
+        // paths are often reported as 8.3 names (C:\Users\RUNNER~1) on the same machine.
+        _userProfile = Canonical(paths.UserProfile);
+        _windowsDirectory = Canonical(paths.WindowsDirectory);
+        string[] protectedRoots =
         [
             paths.SystemDrive,
             paths.WindowsDirectory,
@@ -70,7 +74,11 @@ public sealed class PathGuard
             Path.Combine(paths.UserProfile, ".oci"),
             Path.Combine(paths.UserProfile, ".terraform.d")
         ];
-        _ownRoots = [paths.DataDirectory, paths.LocalDataDirectory, paths.AppBaseDirectory];
+        _protectedRoots = protectedRoots.Select(Canonical).ToArray();
+        _ownRoots = new[] { paths.DataDirectory, paths.LocalDataDirectory, paths.AppBaseDirectory }
+            .Select(Canonical)
+            .Where(root => root.Length > 0)
+            .ToArray();
     }
 
     public GuardResult ValidateForDeletion(string path, bool recursive = true)
@@ -91,7 +99,9 @@ public sealed class PathGuard
             return GuardResult.Reject("UNC and device paths are not supported.");
         }
 
-        if (!Path.IsPathRooted(raw))
+        // IsPathRooted accepts drive-relative "C:foo" and root-relative "\foo", which
+        // GetFullPath would resolve against the process's current directory.
+        if (!Path.IsPathFullyQualified(raw))
         {
             return GuardResult.Reject("Path must be absolute.");
         }
@@ -99,14 +109,12 @@ public sealed class PathGuard
         string full;
         try
         {
-            full = Path.GetFullPath(raw);
+            full = TrimTrailingSeparator(Path.GetFullPath(raw));
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
             return GuardResult.Reject("Path is not valid.");
         }
-
-        full = TrimTrailingSeparator(full);
         if (full.Length > 30000)
         {
             return GuardResult.Reject("Path is too long.");
@@ -136,20 +144,20 @@ public sealed class PathGuard
             }
         }
 
-        if (IsUnder(full, _paths.WindowsDirectory))
+        if (IsUnder(full, _windowsDirectory))
         {
             return GuardResult.Reject("Windows system files are protected.");
         }
 
-        if (IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".ssh"))
-            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".aws"))
-            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".azure"))
-            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".kube"))
-            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".gnupg"))
-            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".docker"))
-            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".gcloud"))
-            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".oci"))
-            || IsSameOrUnder(full, Path.Combine(_paths.UserProfile, ".terraform.d")))
+        if (IsSameOrUnder(full, Path.Combine(_userProfile, ".ssh"))
+            || IsSameOrUnder(full, Path.Combine(_userProfile, ".aws"))
+            || IsSameOrUnder(full, Path.Combine(_userProfile, ".azure"))
+            || IsSameOrUnder(full, Path.Combine(_userProfile, ".kube"))
+            || IsSameOrUnder(full, Path.Combine(_userProfile, ".gnupg"))
+            || IsSameOrUnder(full, Path.Combine(_userProfile, ".docker"))
+            || IsSameOrUnder(full, Path.Combine(_userProfile, ".gcloud"))
+            || IsSameOrUnder(full, Path.Combine(_userProfile, ".oci"))
+            || IsSameOrUnder(full, Path.Combine(_userProfile, ".terraform.d")))
         {
             return GuardResult.Reject("Protected user credential directory.");
         }
@@ -158,13 +166,13 @@ public sealed class PathGuard
         {
             string[] sensitivePersonalRoots =
             [
-                Path.Combine(_paths.UserProfile, "Documents"),
-                Path.Combine(_paths.UserProfile, "Desktop"),
-                Path.Combine(_paths.UserProfile, "Downloads"),
-                Path.Combine(_paths.UserProfile, "Pictures"),
-                Path.Combine(_paths.UserProfile, "Music"),
-                Path.Combine(_paths.UserProfile, "Videos"),
-                Path.Combine(_paths.UserProfile, "Saved Games")
+                Path.Combine(_userProfile, "Documents"),
+                Path.Combine(_userProfile, "Desktop"),
+                Path.Combine(_userProfile, "Downloads"),
+                Path.Combine(_userProfile, "Pictures"),
+                Path.Combine(_userProfile, "Music"),
+                Path.Combine(_userProfile, "Videos"),
+                Path.Combine(_userProfile, "Saved Games")
             ];
 
             foreach (var sensitive in sensitivePersonalRoots)
@@ -245,26 +253,26 @@ public sealed class PathGuard
 
         string[] sensitiveRoots =
         [
-            Path.Combine(_paths.UserProfile, "Documents"),
-            Path.Combine(_paths.UserProfile, "Downloads"),
-            Path.Combine(_paths.UserProfile, "Desktop"),
-            Path.Combine(_paths.UserProfile, "Pictures"),
-            Path.Combine(_paths.UserProfile, "Music"),
-            Path.Combine(_paths.UserProfile, "Videos"),
-            Path.Combine(_paths.UserProfile, "Saved Games"),
-            Path.Combine(_paths.UserProfile, "Favorites"),
-            Path.Combine(_paths.UserProfile, "Contacts"),
-            Path.Combine(_paths.UserProfile, "Links"),
-            Path.Combine(_paths.UserProfile, "Searches"),
-            Path.Combine(_paths.UserProfile, ".ssh"),
-            Path.Combine(_paths.UserProfile, ".aws"),
-            Path.Combine(_paths.UserProfile, ".azure"),
-            Path.Combine(_paths.UserProfile, ".kube"),
-            Path.Combine(_paths.UserProfile, ".gnupg"),
-            Path.Combine(_paths.UserProfile, ".docker"),
-            Path.Combine(_paths.UserProfile, ".gcloud"),
-            Path.Combine(_paths.UserProfile, ".oci"),
-            Path.Combine(_paths.UserProfile, ".terraform.d")
+            Path.Combine(_userProfile, "Documents"),
+            Path.Combine(_userProfile, "Downloads"),
+            Path.Combine(_userProfile, "Desktop"),
+            Path.Combine(_userProfile, "Pictures"),
+            Path.Combine(_userProfile, "Music"),
+            Path.Combine(_userProfile, "Videos"),
+            Path.Combine(_userProfile, "Saved Games"),
+            Path.Combine(_userProfile, "Favorites"),
+            Path.Combine(_userProfile, "Contacts"),
+            Path.Combine(_userProfile, "Links"),
+            Path.Combine(_userProfile, "Searches"),
+            Path.Combine(_userProfile, ".ssh"),
+            Path.Combine(_userProfile, ".aws"),
+            Path.Combine(_userProfile, ".azure"),
+            Path.Combine(_userProfile, ".kube"),
+            Path.Combine(_userProfile, ".gnupg"),
+            Path.Combine(_userProfile, ".docker"),
+            Path.Combine(_userProfile, ".gcloud"),
+            Path.Combine(_userProfile, ".oci"),
+            Path.Combine(_userProfile, ".terraform.d")
         ];
 
         foreach (var sensitive in sensitiveRoots)
@@ -342,4 +350,23 @@ public sealed class PathGuard
 
     private static string TrimTrailingSeparator(string path)
         => path.Length > 3 ? path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) : path;
+
+    // Path.GetFullPath expands existing 8.3 names (C:\Users\RUNNER~1), so candidates arrive in long
+    // form; roots taken from the environment (%TEMP% is often short) must be compared the same way.
+    private static string Canonical(string root)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return TrimTrailingSeparator(Path.GetFullPath(root));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return root;
+        }
+    }
 }

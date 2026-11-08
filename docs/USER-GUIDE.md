@@ -262,11 +262,13 @@ It runs one pass at startup and then every interval from `%ProgramData%\OpenUnin
 - prune backups to the configured count;
 - delete operation logs and scan snapshots older than the configured retention;
 - optionally clean allow-listed junk categories (default: off);
-- append a summary to `Logs\service.log` and the operation JSONL log.
+- append a summary to `service.log` and an operation JSONL log in
+  `%ProgramFiles%\OpenUninstaller\Maintenance\Logs`, next to the service binaries.
 
 It runs as LocalSystem, which is why machine-wide junk locations work without a second prompt. Junk
 cleaning still uses the fixed allow-list and guards. **Remove service** stops and deletes the service
-definition; backups, logs and settings are kept. The CLI equivalents are `service install --yes`,
+definition and its Program Files copy (including the service's own logs); the app's backups, logs
+and settings are kept. The CLI equivalents are `service install --yes`,
 `service remove --yes`, `service start`, `service stop` and `service status`, from an elevated shell.
 
 ## Command line

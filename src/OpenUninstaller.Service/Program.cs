@@ -13,8 +13,10 @@ internal static class Program
         var once = args.Any(a => string.Equals(a, "--once", StringComparison.OrdinalIgnoreCase));
         var forceService = args.Any(a => string.Equals(a, "--service", StringComparison.OrdinalIgnoreCase));
 
+        // No EnsureDirectories here: as LocalSystem, creating folders inside the user-writable
+        // %ProgramData%\OpenUninstaller tree could be redirected by a junction. The service only
+        // maintains what the app already created.
         var paths = AppPaths.CreateDefault();
-        paths.EnsureDirectories();
 
         if (!console && ServiceHost.TryRun(
                 BackgroundServiceManager.DefaultServiceName,

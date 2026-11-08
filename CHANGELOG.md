@@ -5,6 +5,34 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+### Security
+
+- The LocalSystem maintenance service no longer runs from the per-user (writable) install folder.
+  `service install` copies it to `%ProgramFiles%\OpenUninstaller\Maintenance` first; `service
+  remove` deletes that copy after the service stops.
+- The maintenance service no longer follows junctions or renames inside the user-writable
+  `%ProgramData%\OpenUninstaller` tree. Backup pruning and log/snapshot expiry delete through
+  handles whose resolved path is verified, backup lock files are created inside pinned folders, the
+  service no longer creates folders in that tree, and it writes its own logs to
+  `%ProgramFiles%\OpenUninstaller\Maintenance\Logs`.
+- `service status` and the Settings page warn when an existing service still runs from a folder
+  outside Program Files (installed by an earlier version); remove and reinstall it.
+- The path guard rejects drive-relative (`C:folder`) and root-relative (`\folder`) paths, and
+  compares protected roots such as `%TEMP%` in their long form when Windows reports 8.3 names.
+
+### Fixed
+
+- Registry access denials (for example deleting an HKLM leftover without elevation) are reported
+  as failed items instead of aborting the whole deletion or forced uninstall.
+- Vendor uninstall arguments are passed verbatim; re-quoting split tokens broke commands such as
+  `rundll32 "C:\Program Files\…\x.dll",Uninstall`.
+- Uninstall commands with bare system executables (`rundll32.exe dfshim.dll,ShArpMaintain …` for
+  ClickOnce, `RunDll32 …`) resolve in the Windows system folders instead of being reported missing.
+- Approved folders that contain read-only files are deleted completely.
+- Restore results report their real duration.
+- The maintenance service no longer races its stop handler against disposal and reports failures
+  with a service-specific exit code.
+
 ## [1.0.9] — 2026-11-04
 
 ### Changed

@@ -23,6 +23,7 @@ internal static class ServiceHost
     private const uint ControlShutdown = 0x00000005;
 
     private const int ErrorFailedServiceControllerConnect = 1063;
+    private const uint ErrorServiceSpecificError = 1066;
 
     private static IntPtr _statusHandle;
     private static CancellationTokenSource? _cts;
@@ -77,7 +78,10 @@ internal static class ServiceHost
             return;
         }
 
-        _cts = new CancellationTokenSource();
+        // The control handler runs on the SCM thread and may still call Cancel after the work
+        // finishes, so the source is never disposed (it owns no timer or wait handle).
+        var cts = new CancellationTokenSource();
+        _cts = cts;
         SetStatus(StateStartPending, waitHint: 5_000);
 
         _ = Task.Run(async () =>
@@ -86,21 +90,19 @@ internal static class ServiceHost
             try
             {
                 SetStatus(StateRunning);
-                await work(_cts.Token).ConfigureAwait(false);
+                await work(cts.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
             }
             catch (Exception ex)
             {
-                exitCode = 1;
+                exitCode = ErrorServiceSpecificError;
                 LogCrash(ex);
             }
             finally
             {
-                _cts.Dispose();
-                _cts = null;
-                SetStatus(StateStopped, exitCode);
+                SetStatus(StateStopped, exitCode, serviceSpecificExitCode: exitCode == 0 ? 0u : 1u);
             }
         });
     }
@@ -121,7 +123,7 @@ internal static class ServiceHost
         }
     }
 
-    private static void SetStatus(uint state, uint exitCode = 0, uint waitHint = 0)
+    private static void SetStatus(uint state, uint exitCode = 0, uint waitHint = 0, uint serviceSpecificExitCode = 0)
     {
         if (_statusHandle == IntPtr.Zero)
         {
@@ -136,7 +138,7 @@ internal static class ServiceHost
                 ? ServiceAcceptStop | ServiceAcceptShutdown
                 : 0,
             Win32ExitCode = exitCode,
-            ServiceSpecificExitCode = 0,
+            ServiceSpecificExitCode = serviceSpecificExitCode,
             CheckPoint = 0,
             WaitHint = waitHint
         };
@@ -147,10 +149,7 @@ internal static class ServiceHost
     {
         try
         {
-            var root = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "OpenUninstaller",
-                "Logs");
+            var root = Path.Combine(AppContext.BaseDirectory, "Logs");
             Directory.CreateDirectory(root);
             File.AppendAllText(
                 Path.Combine(root, "service-crash.log"),

@@ -14,7 +14,9 @@ internal static class Worker
         var clock = new SystemClock();
         var registry = new WindowsRegistryStore();
         var guard = new PathGuard(paths);
-        var log = new FileOperationLog(paths.LogsDirectory, "service");
+        // Logs are written next to the service binaries (Program Files, admin-only), never into the
+        // user-writable data tree, where a link could redirect a LocalSystem write.
+        var log = new FileOperationLog(ServiceLog.Directory(paths), "service");
         var backups = new BackupService(paths, registry, new ProcessRunner(), clock, log, guard);
         var junk = new JunkService(paths, guard, log);
         var maintenance = new MaintenanceService(paths, backups, junk, clock, log);
@@ -57,12 +59,14 @@ internal static class Worker
 
 internal static class ServiceLog
 {
+    public static string Directory(AppPaths paths) => Path.Combine(paths.AppBaseDirectory, "Logs");
+
     public static void Write(AppPaths paths, MaintenanceRunResult result)
     {
         try
         {
-            Directory.CreateDirectory(paths.LogsDirectory);
-            var file = Path.Combine(paths.LogsDirectory, "service.log");
+            System.IO.Directory.CreateDirectory(Directory(paths));
+            var file = Path.Combine(Directory(paths), "service.log");
             var builder = new System.Text.StringBuilder();
             builder.Append(result.RanAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
             builder.Append(result.Cancelled ? " CANCELLED" : result.Succeeded ? " OK" : " WARN");

@@ -37,24 +37,9 @@ public static partial class UninstallCommandResolver
         }
 
         var expanded = Environment.ExpandEnvironmentVariables(raw.Trim());
-        var tokens = CommandLineSplitter.Split(expanded);
-        if (tokens.Count == 0)
-        {
-            return Error("The uninstall command is empty.");
-        }
-
-        var executable = tokens[0].Trim();
-        if (executable.Length == 0)
+        if (!TrySplitExecutable(expanded, out var executable, out var arguments))
         {
             return Error("The uninstall command has no executable.");
-        }
-
-        IEnumerable<string> argumentTokens = tokens.Skip(1);
-        if (!expanded.StartsWith('"')
-            && TrySplitUnquotedExecutable(expanded, out var unquoted, out var remainder))
-        {
-            executable = unquoted;
-            argumentTokens = CommandLineSplitter.Split(remainder);
         }
 
         var fileName = Path.GetFileName(executable);
@@ -75,7 +60,7 @@ public static partial class UninstallCommandResolver
             return BuildMsi(productCode, preferSilent, program, msiExecutable);
         }
 
-        var arguments = JoinArguments(argumentTokens);
+        executable = ResolveSystemExecutable(executable);
         var warning = File.Exists(executable)
             ? null
             : $"The uninstaller executable was not found at '{executable}'. Forced uninstall may be required.";
@@ -150,22 +135,75 @@ public static partial class UninstallCommandResolver
         return false;
     }
 
-    private static string JoinArguments(IEnumerable<string> arguments)
-        => string.Join(' ', arguments.Select(QuoteIfNeeded));
-
-    private static string QuoteIfNeeded(string argument)
+    /// <summary>
+    /// ClickOnce and InstallShield register bare names such as <c>rundll32.exe</c> or <c>RunDll32</c>.
+    /// Resolve those only in the Windows system directories, never the working directory or PATH.
+    /// </summary>
+    private static string ResolveSystemExecutable(string executable)
     {
-        if (argument.Length == 0)
+        if (executable.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, ':']) >= 0)
         {
-            return "\"\"";
+            return executable;
         }
 
-        if (argument.Any(char.IsWhiteSpace) && !(argument.StartsWith('"') && argument.EndsWith('"')))
+        var name = Path.HasExtension(executable) ? executable : executable + ".exe";
+        foreach (var directory in new[] { Environment.SystemDirectory, Environment.GetFolderPath(Environment.SpecialFolder.Windows) })
         {
-            return $"\"{argument}\"";
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                continue;
+            }
+
+            var candidate = Path.Combine(directory, name);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
         }
 
-        return argument;
+        return executable;
+    }
+
+    /// <summary>
+    /// Separates the executable from the vendor's argument string. The arguments are kept verbatim:
+    /// uninstallers parse their own command line (rundll32 "dll",Entry, NSIS _?=, InstallShield
+    /// -f"path"), and re-quoting split tokens would change what they receive.
+    /// </summary>
+    private static bool TrySplitExecutable(string commandLine, out string executable, out string arguments)
+    {
+        executable = string.Empty;
+        arguments = string.Empty;
+        if (commandLine.Length == 0)
+        {
+            return false;
+        }
+
+        if (commandLine[0] == '"')
+        {
+            var closing = commandLine.IndexOf('"', 1);
+            if (closing < 0)
+            {
+                executable = commandLine[1..].Trim();
+            }
+            else
+            {
+                executable = commandLine[1..closing].Trim();
+                arguments = commandLine[(closing + 1)..].Trim();
+            }
+
+            return executable.Length > 0;
+        }
+
+        if (TrySplitUnquotedExecutable(commandLine, out executable, out var remainder))
+        {
+            arguments = remainder.Trim();
+            return true;
+        }
+
+        var separator = commandLine.IndexOfAny([' ', '\t']);
+        executable = separator < 0 ? commandLine : commandLine[..separator];
+        arguments = separator < 0 ? string.Empty : commandLine[(separator + 1)..].Trim();
+        return executable.Length > 0;
     }
 
     private static string Format(string executable, string arguments)

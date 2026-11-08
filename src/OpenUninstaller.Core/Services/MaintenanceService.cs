@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
+using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
 
 namespace OpenUninstaller.Core.Services;
@@ -67,6 +68,15 @@ public sealed class MaintenanceService
                     "*.jsonl",
                     settings.LogRetentionDays,
                     _log.FilePath);
+                // The service keeps its own logs next to its binaries, outside the user-writable tree.
+                var ownLogs = Path.GetDirectoryName(_log.FilePath);
+                if (ownLogs is not null && !string.Equals(
+                        Path.TrimEndingDirectorySeparator(Path.GetFullPath(ownLogs)),
+                        Path.TrimEndingDirectorySeparator(Path.GetFullPath(_paths.LogsDirectory)),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    expiredLogs += ExpireFiles(ownLogs, "*.jsonl", settings.LogRetentionDays, _log.FilePath);
+                }
                 result.Steps.Add($"Logs: removed {expiredLogs} older than {settings.LogRetentionDays} day(s).");
 
                 var expiredSnapshots = ExpireFiles(
@@ -127,7 +137,7 @@ public sealed class MaintenanceService
                     continue;
                 }
 
-                File.Delete(file);
+                VerifiedFileSystem.DeleteFile(file);
                 removed++;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
 
 namespace OpenUninstaller.Core.Services;
@@ -104,16 +105,33 @@ public sealed class BackgroundServiceManager
         }
 
         var state = ParseState(run.Output);
+        var binary = ParseBinaryPath(RunSc($"qc \"{_serviceName}\"").Output);
+        var detail = state is null ? "The service state could not be parsed." : string.Empty;
+        if (binary is not null && !IsAdminOnlyLocation(binary))
+        {
+            // Installs made before the binaries were staged under Program Files run LocalSystem
+            // code from the per-user application folder.
+            detail = $"The service runs {binary}, which non-administrators may be able to replace. " +
+                     "Remove and reinstall the service to move it under Program Files.";
+        }
+
         return new BackgroundServiceStatus
         {
             Installed = true,
             Running = state is "RUNNING" or "START_PENDING",
             State = state ?? "Unknown",
-            Detail = state is null ? "The service state could not be parsed." : string.Empty,
+            Detail = detail,
             ExecutablePath = executable,
             ExecutableExists = exists
         };
     }
+
+    /// <summary>
+    /// Where <see cref="Install"/> places the service binaries. The service runs as LocalSystem, so
+    /// it must never execute from the (per-user, writable) application folder: any unelevated
+    /// process could replace the executable and run code as SYSTEM. Program Files is admin-only.
+    /// </summary>
+    public string InstalledDirectory => Path.Combine(_paths.ProgramFiles, "OpenUninstaller", "Maintenance");
 
     public bool Install(out string? error)
     {
@@ -124,13 +142,30 @@ public sealed class BackgroundServiceManager
             return false;
         }
 
-        var binary = ExecutablePath.Replace("\"", string.Empty, StringComparison.Ordinal);
+        if (Query().Installed)
+        {
+            error = "The maintenance service is already installed. Remove it first to reinstall it.";
+            return false;
+        }
+
+        string binary;
+        try
+        {
+            binary = StageBinaries();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            error = $"Could not copy the service files to {InstalledDirectory}: {ex.Message}";
+            return false;
+        }
+
         var create = RunSc(
             $"create \"{_serviceName}\" binPath= \"\\\"{binary}\\\"\" start= auto " +
             $"DisplayName= \"OpenUninstaller maintenance\"");
         if (create.ExitCode != 0)
         {
             error = DescribeFailure("create", create);
+            TryRemoveStagedBinaries();
             return false;
         }
 
@@ -156,7 +191,75 @@ public sealed class BackgroundServiceManager
             return false;
         }
 
+        // sc stop only requests the stop; wait for the process to release its files.
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        while (Query().Installed && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(250);
+        }
+
+        if (!TryRemoveStagedBinaries())
+        {
+            error = $"The service was removed, but {InstalledDirectory} could not be deleted yet. Delete it after the service process exits.";
+            return false;
+        }
+
         return true;
+    }
+
+    private string StageBinaries()
+    {
+        var source = Path.GetFullPath(Path.GetDirectoryName(ExecutablePath)!);
+        var destination = Path.GetFullPath(InstalledDirectory);
+        if (!string.Equals(source.TrimEnd('\\'), destination.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+        {
+            if (Directory.Exists(destination))
+            {
+                Directory.Delete(destination, recursive: true);
+            }
+
+            CopyDirectory(source, destination);
+        }
+
+        return Path.Combine(destination, Path.GetFileName(ExecutablePath));
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            AttributesToSkip = FileAttributes.ReparsePoint
+        };
+        foreach (var file in Directory.EnumerateFiles(source, "*", options))
+        {
+            var target = Path.Combine(destination, Path.GetRelativePath(source, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target, overwrite: true);
+        }
+    }
+
+    private bool TryRemoveStagedBinaries()
+    {
+        var directory = InstalledDirectory;
+        try
+        {
+            if (Directory.Exists(directory)
+                && !string.Equals(
+                    Path.GetFullPath(Path.GetDirectoryName(ExecutablePath)!).TrimEnd('\\'),
+                    Path.GetFullPath(directory).TrimEnd('\\'),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     public bool Start(out string? error)
@@ -198,6 +301,34 @@ public sealed class BackgroundServiceManager
 
         return null;
     }
+
+    /// <summary>Reads BINARY_PATH_NAME from <c>sc qc</c> output and returns the executable path.</summary>
+    internal static string? ParseBinaryPath(string output)
+    {
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!line.StartsWith("BINARY_PATH_NAME", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var colon = line.IndexOf(':');
+            var value = colon < 0 ? string.Empty : line[(colon + 1)..].Trim();
+            if (value.StartsWith('"'))
+            {
+                var end = value.IndexOf('"', 1);
+                value = end < 0 ? value[1..] : value[1..end];
+            }
+
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        return null;
+    }
+
+    private bool IsAdminOnlyLocation(string binary)
+        => PathGuard.IsUnder(binary, _paths.ProgramFiles)
+           || (!string.IsNullOrWhiteSpace(_paths.ProgramFilesX86) && PathGuard.IsUnder(binary, _paths.ProgramFilesX86));
 
     private static string DescribeFailure(string action, (int ExitCode, string Output) run)
     {

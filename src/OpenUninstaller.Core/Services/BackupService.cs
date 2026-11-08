@@ -626,6 +626,7 @@ public sealed class BackupService
             }
         }
 
+        result.Duration = stopwatch.Elapsed;
         result.Succeeded = result.Entries.Count > 0
                            && result.FailedCount == 0
                            && result.Warnings.Count == 0
@@ -650,7 +651,8 @@ public sealed class BackupService
 
         try
         {
-            Directory.Delete(directory, recursive: true);
+            // The maintenance service prunes as LocalSystem inside a user-writable tree.
+            VerifiedFileSystem.DeleteTree(directory);
             _log.Write("backup", "delete", directory, "deleted");
             return true;
         }
@@ -824,8 +826,12 @@ public sealed class BackupService
         if (!IsSafeId(id)) return null;
         try
         {
+            // Pin the real Backups and .locks folders first so a junction cannot redirect the
+            // lock file to another location when the maintenance service runs as LocalSystem.
             var locks = Path.Combine(RootDirectory, ".locks");
+            using var root = VerifiedFileSystem.PinDirectory(RootDirectory);
             Directory.CreateDirectory(locks);
+            using var pinned = VerifiedFileSystem.PinDirectory(locks);
             return new FileStream(Path.Combine(locks, id + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }

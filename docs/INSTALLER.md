@@ -66,11 +66,20 @@ oucli service install --yes
 oucli service start
 ```
 
-To verify, stop, or uninstall the service at any time:
+The service runs as LocalSystem, so it never runs from the per-user application folder
+(`%LOCALAPPDATA%\Programs\OpenUninstaller` is writable without elevation). `service install`
+copies the service files to `%ProgramFiles%\OpenUninstaller\Maintenance`, which only
+administrators can modify, and registers that copy. `service remove` deletes the copy again.
+The service writes its own logs to `Maintenance\Logs` in that folder, and only deletes inside
+`%ProgramData%\OpenUninstaller` through verified handles, so a junction placed there cannot
+redirect its work. If `service status` reports that the service runs from another folder, it was
+installed by an earlier version: run `service remove --yes` and `service install --yes` again.
+
+To verify, stop, or remove the service at any time:
 ```cmd
 oucli service status
 oucli service stop
-oucli service uninstall --yes
+oucli service remove --yes
 ```
 
 ---
@@ -88,7 +97,7 @@ Uninstalling OpenUninstaller removes all registered application binaries, start 
   ```cmd
   "%LOCALAPPDATA%\Programs\OpenUninstaller\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
   ```
-- **Service note**: If the optional Windows Service was installed, stop and uninstall it with `oucli service uninstall --yes` prior to removing the application binaries.
+- **Service note**: If the optional Windows Service was installed, stop and remove it with `oucli service remove --yes` prior to removing the application binaries.
 - Backups and traces in `%LOCALAPPDATA%\OpenUninstaller` are preserved so accidental uninstallation does not destroy recoverable registry/file backups.
 
 ---

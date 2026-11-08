@@ -121,7 +121,7 @@ public sealed class RestoreResult
 {
     public required string BackupId { get; init; }
     public required bool Succeeded { get; set; }
-    public TimeSpan Duration { get; init; }
+    public TimeSpan Duration { get; set; }
     public List<RestoreEntryResult> Entries { get; } = [];
     public List<string> Warnings { get; } = [];
 

@@ -84,8 +84,10 @@ dotnet run --project src/OpenUninstaller.Cli -- service status --json
    ```
 4. `package-release.ps1` produces `artifacts/release/OpenUninstaller-<version>-win-x64.zip` and
    `.sha256`; it does not include traces, backups or logs.
-5. Commit, tag `vX.Y.Z`, and push the tag. `.github/workflows/release.yml` repeats the build and
-   tests, packages the zip, writes the checksum and creates the GitHub release.
+5. Start **Actions › Release › Run workflow** with `patch`, `minor` or `major`.
+   `.github/workflows/release.yml` bumps the version, repeats the build and tests, packages the zip
+   and installer, writes the checksums, then commits, tags and creates the GitHub release
+   (see `docs/GITHUB.md`).
 6. Inspect the published assemblies (identity, architecture, P/Invoke boundaries and resources)
    with a managed PE inspector before announcing the release.
 

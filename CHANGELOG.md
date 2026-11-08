@@ -3,6 +3,33 @@
 All notable changes to this project are documented here. The format follows Keep a Changelog and
 the project uses semantic versioning.
 
+## [Unreleased]
+
+### Added
+
+- The setup updates an existing installation in place: it detects the installed version, keeps
+  its folder, install mode and shortcut choices, skips the licence page, shows
+  "update X to Y" before installing, closes a running OpenUninstaller and refuses to replace a
+  newer version. Files dropped from a release no longer linger in `docs\` and `cli\`.
+- The setup can add `cli\oucli.exe` to PATH (optional task; removed again on uninstall), offers an
+  English and a Turkish wizard, blocks a second copy of setup, requires Windows 10 1809 or later
+  and warns before uninstalling while the maintenance service is still installed.
+- The maintenance service can be updated in place: `service update --yes` and **Update service**
+  in Settings stop it, swap in the current build's files under Program Files (keeping its logs and
+  leaving the old copy if copying fails), and start it again. `service status` and Settings show
+  when the installed service runs another version. Setup runs this after an update with one
+  administrator prompt, and first stops a service installed before 1.0.10 that runs from the
+  install folder.
+- Releases are cut from GitHub: **Actions › Release › Run workflow** bumps the patch, minor or
+  major version, builds, tests and packages it, then commits, tags and publishes the release.
+
+### Fixed
+
+- All-users installs (`/ALLUSERS`) go to `Program Files` instead of the administrator's
+  `%LOCALAPPDATA%\Programs` folder.
+- The setup and Apps & features entry link to the project repository, and the setup executable
+  carries the product version.
+
 ## [1.0.10] — 2026-11-08
 
 ### Security

@@ -34,7 +34,7 @@ live in [TODO.md](../TODO.md); plans live in [docs/PLAN](PLAN/).
 - Added native COM shell link target resolution (`ShortcutResolver`, `IShellLinkW`) with zero external
   libraries. Integrated into `LeftoverScanner` to detect leftover shortcuts on Start Menu and Desktop.
 - Added Inno Setup 6 installer (`installer/OpenUninstaller.iss`), build script (`scripts/build-installer.ps1`),
-  code-signing helper script (`scripts/sign-release.ps1`), and comprehensive guide (`docs/INSTALLER.md`).
+  code-signing helper script (`scripts/sign-artifacts.ps1`), and comprehensive guide (`docs/INSTALLER.md`).
 - Added zero-dependency UI Automation smoke test project (`tests/OpenUninstaller.UiSmoke`) covering all 8
   main UI pages, integrated into the solution and CI.
 - Updated test suite to 110 tests; verified 100% green without destructive actions on host machine.
@@ -173,7 +173,7 @@ x86_64 and lists the expected P/Invoke boundaries.
 - [x] Optional maintenance service for retention/expiry and optional junk cleanup (v0.5)
 - [x] MSIX / Microsoft Store application inventory (read-only listing, v0.6)
 - [x] Resolve .lnk targets for shortcut evidence (ShortcutResolver via IShellLinkW, v0.6)
-- [x] Inno Setup installer and signed release artifacts (scripts/build-installer.ps1, scripts/sign-release.ps1, v0.6)
+- [x] Inno Setup installer and signed release artifacts (scripts/build-installer.ps1, scripts/sign-artifacts.ps1, v0.6)
 - [x] UI automation smoke tests in CI (tests/OpenUninstaller.UiSmoke, v0.6)
 - [x] Service/task history and a rollback view (AutorunHistoryStore, UI history tab, oucli autoruns history/rollback, v0.6)
 

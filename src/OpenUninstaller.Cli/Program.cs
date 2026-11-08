@@ -1724,7 +1724,10 @@ internal static class Program
                     state = status.State,
                     detail = status.Detail,
                     executable = status.ExecutablePath,
-                    executableExists = status.ExecutableExists
+                    executableExists = status.ExecutableExists,
+                    installedVersion = status.InstalledVersion,
+                    bundledVersion = status.BundledVersion,
+                    needsUpdate = status.NeedsUpdate
                 });
                 return Task.FromResult(status.Installed ? ExitCodes.Success : ExitCodes.NotFound);
             }
@@ -1734,6 +1737,11 @@ internal static class Program
             Console.WriteLine($"State:      {status.Label}");
             Console.WriteLine($"Executable: {status.ExecutablePath}" +
                               (status.ExecutableExists ? string.Empty : " (missing)"));
+            if (status.Installed)
+            {
+                Console.WriteLine($"Version:    {status.InstalledVersion ?? "unknown"}" +
+                                  (status.NeedsUpdate ? $" (this build: {status.BundledVersion}; run `service update --yes`)" : string.Empty));
+            }
             if (!string.IsNullOrWhiteSpace(status.Detail))
             {
                 Console.WriteLine(status.Detail);
@@ -1742,7 +1750,7 @@ internal static class Program
             return Task.FromResult(status.Installed ? ExitCodes.Success : ExitCodes.NotFound);
         }
 
-        if (sub is "install" or "remove" or "start" or "stop")
+        if (sub is "install" or "remove" or "update" or "start" or "stop")
         {
             if (!services.Elevation.IsElevated)
             {
@@ -1750,7 +1758,7 @@ internal static class Program
                 return Task.FromResult(ExitCodes.ElevationRequired);
             }
 
-            if (sub is "install" or "remove" && !args.Has("yes"))
+            if (sub is "install" or "remove" or "update" && !args.Has("yes"))
             {
                 Console.Error.WriteLine($"Service {sub} requires --yes.");
                 return Task.FromResult(ExitCodes.ConfirmationRequired);
@@ -1761,6 +1769,7 @@ internal static class Program
             {
                 "install" => services.Background.Install(out error),
                 "remove" => services.Background.Remove(out error),
+                "update" => services.Background.Update(out error),
                 "start" => services.Background.Start(out error),
                 _ => services.Background.Stop(out error)
             };
@@ -1774,7 +1783,7 @@ internal static class Program
             return Task.FromResult(ExitCodes.Success);
         }
 
-        throw new UsageException("Unknown service subcommand. Use status, install, remove, start or stop.");
+        throw new UsageException("Unknown service subcommand. Use status, install, update, remove, start or stop.");
     }
 
     // ------------------------------------------------------------------- hunter
@@ -2076,6 +2085,7 @@ internal static class Program
               maintenance run               Run backup retention, log expiry and optional junk cleanup (--json)
               service status                Show the maintenance service (--json)
               service install|remove        Install or remove the maintenance service (--yes, elevated)
+              service update                Move the installed service to this build (--yes, elevated)
               service start|stop            Control the maintenance service (elevated)
               hunter                        Identify the installed app behind the window under the cursor
               windows-tools list|launch     Built-in and custom Windows maintenance tools

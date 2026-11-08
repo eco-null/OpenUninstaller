@@ -1,6 +1,17 @@
 name: Release
 
+# Actions > Release > Run workflow bumps the version in Directory.Build.props (which the app, CLI,
+# zip and installer all read), builds and tests it, then commits, tags and publishes the release.
+# Pushing a v* tag by hand still publishes that tag when it matches Directory.Build.props.
+
 on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version part to increase (patch: 1.0.10 -> 1.0.11, minor: 1.1.0, major: 2.0.0)"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
   push:
     tags:
       - "v*"
@@ -8,12 +19,43 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: windows-latest
     steps:
       - name: Check out
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq "workflow_dispatch") {
+            if ($env:GITHUB_REF -ne "refs/heads/main") {
+              throw "Start the release from the main branch (got $env:GITHUB_REF)."
+            }
+            $version = ./scripts/set-version.ps1 -Bump $env:BUMP
+            if (git tag --list "v$version") {
+              throw "Tag v$version already exists. Set the version in Directory.Build.props past it first."
+            }
+          } else {
+            $version = $env:GITHUB_REF_NAME.TrimStart("v")
+            [xml]$props = Get-Content Directory.Build.props
+            if ([string]$props.Project.PropertyGroup.Version -ne $version) {
+              throw "Tag version $version does not match Directory.Build.props"
+            }
+          }
+          Write-Host "Releasing OpenUninstaller $version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
 
       - name: Set up .NET 8
         uses: actions/setup-dotnet@v4
@@ -39,43 +81,84 @@ jobs:
           & $smoke $app
           if ($LASTEXITCODE -ne 0) { throw "UI smoke failed" }
 
+      - name: Check built version
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $built = (Get-Item "src\OpenUninstaller.App\bin\Release\net8.0-windows\OpenUninstaller.dll").VersionInfo.FileVersion
+          if ($built -ne "$env:VERSION.0") { throw "The app was built as $built, expected $env:VERSION.0" }
+          $banner = & "src\OpenUninstaller.Cli\bin\Release\net8.0-windows\oucli.exe" version
+          if ($banner -ne "OpenUninstaller CLI $env:VERSION") { throw "oucli reports '$banner', expected $env:VERSION" }
+
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress --no-color
 
       - name: Package self-contained release and installer
         shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
-          [xml]$props = Get-Content Directory.Build.props
-          if ([string]$props.Project.PropertyGroup.Version -ne $version) {
-            throw "Tag version $version does not match Directory.Build.props"
-          }
-          ./scripts/package-release.ps1 -Version $version -Configuration Release -Runtime win-x64
-          ./scripts/build-installer.ps1 -Version $version -Configuration Release -Runtime win-x64
+          ./scripts/package-release.ps1 -Version $env:VERSION -Configuration Release -Runtime win-x64
+          ./scripts/build-installer.ps1 -Version $env:VERSION -Configuration Release -Runtime win-x64
+
+      - name: Commit and tag the version
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          # The release commit is authored by whoever started the workflow.
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          git add Directory.Build.props CHANGELOG.md
+          git commit -m "chore(release): v$env:VERSION"
+          if ($LASTEXITCODE -ne 0) { throw "Release commit failed" }
+          git tag -a $env:TAG -m "OpenUninstaller $env:VERSION"
+          if ($LASTEXITCODE -ne 0) { throw "Tagging failed" }
+          # Atomic: if main moved while this ran, neither the commit nor the tag is pushed.
+          git push --atomic origin HEAD:refs/heads/main "refs/tags/$env:TAG"
+          if ($LASTEXITCODE -ne 0) { throw "Push failed; main may have changed during the release. Run the workflow again." }
 
       - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
+          $version = $env:VERSION
+          $tag = $env:TAG
           $zip = Get-ChildItem "artifacts/release/OpenUninstaller-$version-win-x64.zip" -ErrorAction Stop
           $zipChecksum = Get-ChildItem "$($zip.FullName).sha256" -ErrorAction Stop
           $setup = Get-ChildItem "artifacts/release/OpenUninstaller-$version-setup.exe" -ErrorAction Stop
           $setupChecksum = Get-ChildItem "$($setup.FullName).sha256" -ErrorAction Stop
+          $assets = @($zip.FullName, $zipChecksum.FullName, $setup.FullName, $setupChecksum.FullName)
+
+          # Notes: docs/releases/<version>.md, else the CHANGELOG section, else GitHub-generated notes.
           $notesPath = "docs/releases/$version.md"
-          $existing = gh release view $env:GITHUB_REF_NAME 2>$null
+          if (-not (Test-Path -LiteralPath $notesPath)) {
+            $notesPath = $null
+            $changelog = Get-Content CHANGELOG.md -Raw
+            $section = [regex]::Match($changelog, "(?ms)^## \[$([regex]::Escape($version))\][^\n]*\n(.*?)(?=^## \[|\z)")
+            if ($section.Success -and $section.Groups[1].Value.Trim()) {
+              $notesPath = Join-Path $env:RUNNER_TEMP "release-notes.md"
+              $section.Groups[1].Value.Trim() | Set-Content -LiteralPath $notesPath -Encoding utf8
+            }
+          }
+          $notesArguments = if ($notesPath) { @("--notes-file", $notesPath) } else { @("--generate-notes") }
+
+          gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:GITHUB_REF_NAME $zip.FullName $zipChecksum.FullName $setup.FullName $setupChecksum.FullName --clobber
+            gh release upload $tag @assets --clobber
             if ($LASTEXITCODE -ne 0) { throw "Release asset upload failed" }
-            if (Test-Path -LiteralPath $notesPath) {
-              gh release edit $env:GITHUB_REF_NAME --title "OpenUninstaller $version" --notes-file $notesPath
+            if ($notesPath) {
+              gh release edit $tag --title "OpenUninstaller $version" --notes-file $notesPath
               if ($LASTEXITCODE -ne 0) { throw "Release notes update failed" }
             }
           } else {
-            $notesArguments = if (Test-Path -LiteralPath $notesPath) { @("--notes-file", $notesPath) } else { @("--generate-notes") }
-            gh release create $env:GITHUB_REF_NAME $zip.FullName $zipChecksum.FullName $setup.FullName $setupChecksum.FullName `
-              --title "OpenUninstaller $version" --verify-tag @notesArguments
+            gh release create $tag @assets --title "OpenUninstaller $version" --verify-tag @notesArguments
             if ($LASTEXITCODE -ne 0) { throw "Release creation failed" }
           }

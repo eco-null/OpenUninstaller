@@ -130,11 +130,13 @@
               </Grid>
               <TextBlock Text="{Binding ServiceDetail}" Style="{StaticResource Mono}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
               <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <Button Content="Update service" Style="{StaticResource BaseButton}" Command="{Binding UpdateServiceCommand}" IsEnabled="{Binding IsElevated}" Margin="0,0,8,0"
+                        Visibility="{Binding ServiceNeedsUpdate, Converter={StaticResource BoolVisibility}}"/>
                 <Button Content="Install service" Style="{StaticResource BaseButton}" Command="{Binding InstallServiceCommand}" IsEnabled="{Binding IsElevated}" Margin="0,0,8,0"/>
                 <Button Content="Remove service" Style="{StaticResource BaseButton}" Command="{Binding RemoveServiceCommand}" IsEnabled="{Binding IsElevated}" Margin="0,0,8,0"/>
                 <Button Content="Run maintenance now" Style="{StaticResource GhostButton}" Command="{Binding RunMaintenanceCommand}"/>
               </StackPanel>
-              <TextBlock Style="{StaticResource Muted}" Margin="0,10,0,0" Text="Administrator required to install or remove."/>
+              <TextBlock Style="{StaticResource Muted}" Margin="0,10,0,0" Text="Administrator required to install, update or remove."/>
               <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Margin="0,16,0,0" Padding="0,14,0,0">
                 <StackPanel>
                   <TextBlock Text="Maintenance schedule" Style="{StaticResource SectionTitle}"/>

@@ -122,6 +122,56 @@ public sealed class ReviewRegressionTests
     }
 
     [Fact]
+    public void Service_update_replaces_staged_binaries_and_keeps_service_logs()
+    {
+        using var env = new TestEnvironment();
+        var executable = env.CreateFile("App/service/OpenUninstaller.Service.exe", "new exe");
+        env.CreateFile("App/service/runtimes/new.dll", "new dll");
+        env.CreateFile("App/service/Logs/legacy.log", "written while running from the app folder");
+        var manager = new BackgroundServiceManager(env.Paths, executable);
+        var installed = manager.InstalledDirectory;
+        Directory.CreateDirectory(Path.Combine(installed, "Logs"));
+        File.WriteAllText(Path.Combine(installed, "OpenUninstaller.Service.exe"), "old exe");
+        File.WriteAllText(Path.Combine(installed, "dropped.dll"), "only in the old release");
+        File.WriteAllText(Path.Combine(installed, "Logs", "service.log"), "history");
+
+        var binary = manager.StageBinaries();
+
+        Assert.Equal(Path.Combine(installed, "OpenUninstaller.Service.exe"), binary);
+        Assert.Equal("new exe", File.ReadAllText(binary));
+        Assert.True(File.Exists(Path.Combine(installed, "runtimes", "new.dll")));
+        Assert.False(File.Exists(Path.Combine(installed, "dropped.dll")));
+        Assert.Equal("history", File.ReadAllText(Path.Combine(installed, "Logs", "service.log")));
+        Assert.False(File.Exists(Path.Combine(installed, "Logs", "legacy.log")));
+        Assert.False(Directory.Exists(installed + ".new"));
+        Assert.False(Directory.Exists(installed + ".old"));
+    }
+
+    [Fact]
+    public void Service_first_install_stages_into_an_empty_program_files_folder()
+    {
+        using var env = new TestEnvironment();
+        var executable = env.CreateFile("App/service/OpenUninstaller.Service.exe", "exe");
+        var manager = new BackgroundServiceManager(env.Paths, executable);
+
+        var binary = manager.StageBinaries();
+
+        Assert.True(File.Exists(binary));
+        Assert.True(PathGuard.IsUnder(binary, env.Paths.ProgramFiles));
+    }
+
+    [Theory]
+    [InlineData("1.0.10.0", "1.0.11.0", true)]
+    [InlineData(null, "1.0.11.0", true)]
+    [InlineData("1.0.11.0", "1.0.11.0", false)]
+    [InlineData("1.0.11.0", null, false)]
+    public void Service_is_outdated_when_its_version_differs_from_this_build(
+        string? installed, string? bundled, bool expected)
+    {
+        Assert.Equal(expected, BackgroundServiceManager.IsOutdated(installed, bundled));
+    }
+
+    [Fact]
     public void Backup_delete_does_not_follow_a_backups_folder_replaced_by_a_junction()
     {
         // The LocalSystem service prunes a tree the user owns; swapping Backups for a junction

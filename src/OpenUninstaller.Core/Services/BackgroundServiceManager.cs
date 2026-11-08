@@ -13,8 +13,21 @@ public sealed record BackgroundServiceStatus
     public string ExecutablePath { get; init; } = string.Empty;
     public bool ExecutableExists { get; init; }
 
+    /// <summary>File version of the binary the registered service runs, when it can be read.</summary>
+    public string? InstalledVersion { get; init; }
+
+    /// <summary>File version of the service binary shipped with this build.</summary>
+    public string? BundledVersion { get; init; }
+
+    /// <summary>
+    /// The registered service runs another version than this build ships, or runs from a folder
+    /// outside Program Files. <see cref="BackgroundServiceManager.Update"/> fixes both.
+    /// </summary>
+    public bool NeedsUpdate { get; init; }
+
     public string Label => !Installed
         ? "Not installed"
+        : NeedsUpdate ? (Running ? "Running · update available" : $"{State} · update available")
         : Running ? "Running" : State;
 }
 
@@ -106,13 +119,23 @@ public sealed class BackgroundServiceManager
 
         var state = ParseState(run.Output);
         var binary = ParseBinaryPath(RunSc($"qc \"{_serviceName}\"").Output);
+        var installedVersion = binary is null ? null : FileVersion(binary);
+        var bundledVersion = exists ? FileVersion(executable) : null;
+        var outsideProgramFiles = binary is not null && !IsAdminOnlyLocation(binary);
+        var needsUpdate = exists && (outsideProgramFiles || IsOutdated(installedVersion, bundledVersion));
+
         var detail = state is null ? "The service state could not be parsed." : string.Empty;
-        if (binary is not null && !IsAdminOnlyLocation(binary))
+        if (outsideProgramFiles)
         {
             // Installs made before the binaries were staged under Program Files run LocalSystem
             // code from the per-user application folder.
             detail = $"The service runs {binary}, which non-administrators may be able to replace. " +
-                     "Remove and reinstall the service to move it under Program Files.";
+                     "Update the service to move it under Program Files.";
+        }
+        else if (needsUpdate)
+        {
+            detail = $"The service runs version {installedVersion ?? "unknown"}; this build includes " +
+                     $"{bundledVersion}. Update the service to run the new version.";
         }
 
         return new BackgroundServiceStatus
@@ -122,8 +145,110 @@ public sealed class BackgroundServiceManager
             State = state ?? "Unknown",
             Detail = detail,
             ExecutablePath = executable,
-            ExecutableExists = exists
+            ExecutableExists = exists,
+            InstalledVersion = installedVersion,
+            BundledVersion = bundledVersion,
+            NeedsUpdate = needsUpdate
         };
+    }
+
+    /// <summary>
+    /// Moves an installed service to the binaries of this build: stops it, re-stages the files
+    /// under Program Files (keeping the service's own logs), points the registration at them and
+    /// starts it again. Also moves services registered before 1.0.10 out of the per-user folder.
+    /// If the new files cannot be staged, the previous copy is left in place and restarted.
+    /// </summary>
+    public bool Update(out string? error)
+    {
+        error = null;
+        if (!File.Exists(ExecutablePath))
+        {
+            error = $"The service executable was not found at {ExecutablePath}. Publish the app with scripts/publish.ps1 first.";
+            return false;
+        }
+
+        if (!Query().Installed)
+        {
+            error = "The maintenance service is not installed.";
+            return false;
+        }
+
+        var stop = RunSc($"stop \"{_serviceName}\"");
+        if (stop.ExitCode is not (0 or 1062))
+        {
+            error = DescribeFailure("stop", stop);
+            return false;
+        }
+
+        if (!WaitForState("STOPPED", TimeSpan.FromSeconds(30)))
+        {
+            error = "The maintenance service did not stop within 30 seconds; nothing was changed.";
+            return false;
+        }
+
+        string binary;
+        try
+        {
+            binary = StageBinaries();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            RunSc($"start \"{_serviceName}\"");
+            error = $"Could not copy the service files to {InstalledDirectory}: {ex.Message} The previous version was restarted.";
+            return false;
+        }
+
+        var config = RunSc($"config \"{_serviceName}\" binPath= \"\\\"{binary}\\\"\"");
+        if (config.ExitCode != 0)
+        {
+            error = DescribeFailure("config", config);
+            return false;
+        }
+
+        var start = RunSc($"start \"{_serviceName}\"");
+        if (start.ExitCode != 0 && start.ExitCode != 1056)
+        {
+            error = DescribeFailure("start", start);
+            return false;
+        }
+
+        return true;
+    }
+
+    internal static bool IsOutdated(string? installedVersion, string? bundledVersion)
+        => !string.IsNullOrWhiteSpace(bundledVersion)
+           && !string.Equals(installedVersion, bundledVersion, StringComparison.OrdinalIgnoreCase);
+
+    private static string? FileVersion(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? FileVersionInfo.GetVersionInfo(path).FileVersion : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private bool WaitForState(string state, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (true)
+        {
+            var run = RunSc($"query \"{_serviceName}\"");
+            if (run.ExitCode == 0 && ParseState(run.Output) == state)
+            {
+                return true;
+            }
+
+            if (DateTime.UtcNow >= deadline)
+            {
+                return false;
+            }
+
+            Thread.Sleep(250);
+        }
     }
 
     /// <summary>
@@ -207,22 +332,78 @@ public sealed class BackgroundServiceManager
         return true;
     }
 
-    private string StageBinaries()
+    /// <summary>
+    /// Copies this build's service folder to <see cref="InstalledDirectory"/>. The copy is built
+    /// next to it first and swapped in, so a failed copy leaves the previous version intact. The
+    /// service's own <c>Logs</c> folder moves over to the new copy.
+    /// </summary>
+    internal string StageBinaries()
     {
-        var source = Path.GetFullPath(Path.GetDirectoryName(ExecutablePath)!);
-        var destination = Path.GetFullPath(InstalledDirectory);
-        if (!string.Equals(source.TrimEnd('\\'), destination.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+        var source = Path.GetFullPath(Path.GetDirectoryName(ExecutablePath)!).TrimEnd('\\');
+        var destination = Path.GetFullPath(InstalledDirectory).TrimEnd('\\');
+        var binary = Path.Combine(destination, Path.GetFileName(ExecutablePath));
+        if (string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
         {
-            if (Directory.Exists(destination))
-            {
-                Directory.Delete(destination, recursive: true);
-            }
-
-            CopyDirectory(source, destination);
+            return binary;
         }
 
-        return Path.Combine(destination, Path.GetFileName(ExecutablePath));
+        var staging = destination + ".new";
+        var previous = destination + ".old";
+        DeleteDirectoryIfExists(staging);
+        DeleteDirectoryIfExists(previous);
+        try
+        {
+            CopyDirectory(source, staging);
+        }
+        catch
+        {
+            TryDeleteDirectory(staging);
+            throw;
+        }
+
+        if (Directory.Exists(destination))
+        {
+            // The service process may need a moment to release its files after it stops.
+            MoveDirectoryWithRetry(destination, previous);
+            try
+            {
+                var logs = Path.Combine(previous, LogsFolder);
+                if (Directory.Exists(logs))
+                {
+                    Directory.Move(logs, Path.Combine(staging, LogsFolder));
+                }
+
+                Directory.Move(staging, destination);
+            }
+            catch
+            {
+                var stagedLogs = Path.Combine(staging, LogsFolder);
+                if (Directory.Exists(stagedLogs) && !Directory.Exists(Path.Combine(previous, LogsFolder)))
+                {
+                    Directory.Move(stagedLogs, Path.Combine(previous, LogsFolder));
+                }
+
+                if (!Directory.Exists(destination))
+                {
+                    Directory.Move(previous, destination);
+                }
+
+                TryDeleteDirectory(staging);
+                throw;
+            }
+
+            TryDeleteDirectory(previous);
+        }
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            Directory.Move(staging, destination);
+        }
+
+        return binary;
     }
+
+    private const string LogsFolder = "Logs";
 
     private static void CopyDirectory(string source, string destination)
     {
@@ -232,11 +413,54 @@ public sealed class BackgroundServiceManager
             RecurseSubdirectories = true,
             AttributesToSkip = FileAttributes.ReparsePoint
         };
+        var logs = Path.Combine(source, LogsFolder) + Path.DirectorySeparatorChar;
         foreach (var file in Directory.EnumerateFiles(source, "*", options))
         {
+            // A service that ran from this folder (before 1.0.10) wrote its logs here; they are
+            // not part of the binaries.
+            if (file.StartsWith(logs, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var target = Path.Combine(destination, Path.GetRelativePath(source, file));
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target, overwrite: true);
+        }
+    }
+
+    private static void MoveDirectoryWithRetry(string source, string destination)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Directory.Move(source, destination);
+                return;
+            }
+            catch (Exception ex) when (attempt < 20 && ex is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(500);
+            }
+        }
+    }
+
+    private static void DeleteDirectoryIfExists(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            Directory.Delete(path, recursive: true);
+        }
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            DeleteDirectoryIfExists(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
         }
     }
 

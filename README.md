@@ -25,10 +25,10 @@ Light and dark themes share a restrained layout, searchable inventories and cons
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/programs-dark.png">
-  <img src="docs/assets/programs-light.png" alt="OpenUninstaller 1.0.6 Programs screen with searchable sample inventory and the application inspector" width="1440">
+  <img src="docs/assets/programs-light.png" alt="OpenUninstaller Programs screen with searchable sample inventory and the application inspector" width="1440">
 </picture>
 
-<p align="center"><sub>OpenUninstaller 1.0.6 · Screenshots use sample data. Images follow your GitHub light or dark theme.</sub></p>
+<p align="center"><sub>Screenshots use sample data. Images follow your GitHub light or dark theme.</sub></p>
 
 ## Features
 
@@ -99,10 +99,16 @@ See the [capability matrix](docs/CAPABILITIES.md) for implementation details and
 
 Choose an installer or portable archive from [GitHub Releases](https://github.com/eco-null/OpenUninstaller/releases/latest).
 
-- **Installer:** Run `OpenUninstaller-<version>-setup.exe`. Per-user installation is the default; `/ALLUSERS` selects machine-wide installation.
+- **Installer:** Run `OpenUninstaller-<version>-setup.exe`. It installs for the current user in `%LOCALAPPDATA%\Programs\OpenUninstaller` without an administrator prompt; choose *Install for all users* (or pass `/ALLUSERS`) to install in `Program Files`. The wizard is available in English and Turkish, and an optional task adds `oucli` to PATH.
 - **Portable:** Extract the archive and run `OpenUninstaller.exe`. The command-line executable is in `cli\oucli.exe`; the optional service is in `service\`.
 
-Self-contained release packages include the .NET runtime. See the [installation guide](docs/INSTALLER.md) for deployment options and silent installer flags.
+Both packages are self-contained and include the .NET runtime. Each download has a `.sha256` checksum next to it. Release builds are not code-signed, so Windows SmartScreen may ask for confirmation. See the [installation guide](docs/INSTALLER.md) for silent installer flags.
+
+### Updating
+
+Download the newer `setup.exe` and run it. Setup recognises the installed version and updates it in place: it keeps the install folder, per-user or all-users mode, language and shortcut choices, closes a running OpenUninstaller, and shows the version change before installing. Settings, backups and traces are not touched. Setup refuses to install an older version over a newer one; uninstall first to downgrade. The installed version is shown at the bottom of the navigation bar (`oucli version` prints it too).
+
+If the optional maintenance service is installed, setup updates it as well after one administrator prompt. For the portable archive, extract the new version over the old folder or into a new one; if you use the service, then choose **Update service** in Settings (as administrator) or run `oucli service update --yes` from an elevated prompt. See [Maintenance service isolation](docs/INSTALLER.md#maintenance-service-isolation).
 
 ### Requirements
 
@@ -131,13 +137,13 @@ Read the [safety model](docs/SAFETY.md) and [user guide](docs/USER-GUIDE.md) bef
 
 ## Command-line usage
 
-Use `cli\oucli.exe` from a portable release, or run the CLI project from source:
+The CLI is `cli\oucli.exe` in the install folder or portable archive. Select **Add the oucli command-line tool to PATH** in setup to call it as `oucli` from any new terminal, or run the CLI project from source:
 
 ```powershell
 dotnet run --project src/OpenUninstaller.Cli -- help
 ```
 
-The following examples assume `oucli` is on your PATH. Otherwise, replace `oucli` with `.\cli\oucli.exe` from the extracted release folder.
+The following examples assume `oucli` is on your PATH. Otherwise, replace `oucli` with the full path to `cli\oucli.exe`.
 
 Common inspection commands:
 
@@ -196,7 +202,11 @@ Core tests use isolated temporary directories and registry subtrees. The UI smok
 ./scripts/package-release.ps1 -Runtime win-x64
 ```
 
-This publishes the desktop app, CLI and maintenance service, then creates a portable archive and SHA-256 checksum. The [release guide](docs/GITHUB.md) covers installer builds and signing.
+This publishes the desktop app, CLI and maintenance service, then creates a portable archive and SHA-256 checksum. `./scripts/build-installer.ps1` builds the setup with [Inno Setup 6.3+](https://jrsoftware.org/isinfo.php).
+
+### Releases
+
+The version lives only in [Directory.Build.props](Directory.Build.props); the app, CLI, archive and installer all read it. To publish a release, open **Actions › Release › Run workflow** on GitHub and choose `patch`, `minor` or `major`. The workflow bumps the version, builds and tests it, packages the archive and installer, then commits the bump, tags `vX.Y.Z` and publishes the GitHub release. See the [release guide](docs/GITHUB.md) for release notes and signing.
 
 ## Project structure
 

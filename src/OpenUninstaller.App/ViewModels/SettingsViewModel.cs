@@ -21,6 +21,7 @@ public sealed class SettingsViewModel : PageViewModel
     private string _serviceDetail = string.Empty;
     private bool? _serviceExecutableExists;
     private string? _serviceWarning;
+    private bool _serviceNeedsUpdate;
     private bool _maintenanceEnabled;
     private int _maintenanceInterval;
     private int _maintenanceKeepBackups;
@@ -61,6 +62,7 @@ public sealed class SettingsViewModel : PageViewModel
         RefreshServiceCommand = new AsyncRelayCommand(_ => RefreshServiceAsync(), _ => !IsBusy);
         InstallServiceCommand = new AsyncRelayCommand(_ => InstallServiceAsync(), _ => !IsBusy);
         RemoveServiceCommand = new AsyncRelayCommand(_ => RemoveServiceAsync(), _ => !IsBusy);
+        UpdateServiceCommand = new AsyncRelayCommand(_ => UpdateServiceAsync(), _ => !IsBusy && ServiceNeedsUpdate);
         RunMaintenanceCommand = new AsyncRelayCommand(_ => RunMaintenanceAsync(), _ => !IsBusy);
 
         UpdateServiceDetails();
@@ -79,7 +81,21 @@ public sealed class SettingsViewModel : PageViewModel
     public AsyncRelayCommand RefreshServiceCommand { get; }
     public AsyncRelayCommand InstallServiceCommand { get; }
     public AsyncRelayCommand RemoveServiceCommand { get; }
+    public AsyncRelayCommand UpdateServiceCommand { get; }
     public AsyncRelayCommand RunMaintenanceCommand { get; }
+
+    /// <summary>The installed service runs another version or an older location than this build.</summary>
+    public bool ServiceNeedsUpdate
+    {
+        get => _serviceNeedsUpdate;
+        private set
+        {
+            if (SetProperty(ref _serviceNeedsUpdate, value))
+            {
+                UpdateServiceCommand.RaiseCanExecuteChanged();
+            }
+        }
+    }
 
     public IReadOnlyList<LanguageInfo> LanguageOptions => _services.Localization.AvailableLanguages;
 
@@ -256,7 +272,44 @@ public sealed class SettingsViewModel : PageViewModel
         ServiceStatus = status.Label;
         _serviceExecutableExists = status.ExecutableExists;
         _serviceWarning = status.Installed ? status.Detail : null;
+        ServiceNeedsUpdate = status.Installed && status.NeedsUpdate;
         UpdateServiceDetails();
+    }
+
+    private async Task UpdateServiceAsync()
+    {
+        if (!_services.IsElevated)
+        {
+            _windows.Error(
+                "Updating the maintenance service needs administrator rights. Restart OpenUninstaller as administrator and try again.",
+                "Background service");
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var (ok, error) = await Task.Run(() =>
+            {
+                var updated = _services.Background.Update(out var updateError);
+                return (updated, updateError);
+            });
+            if (ok)
+            {
+                _windows.Info(
+                    "The maintenance service now runs this version. Its settings and logs were kept.",
+                    "Background service");
+            }
+            else
+            {
+                _windows.Error(error ?? "The service could not be updated.", "Background service");
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+            await RefreshServiceAsync();
+        }
     }
 
     private void UpdateServiceDetails()

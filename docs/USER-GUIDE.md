@@ -268,8 +268,12 @@ It runs one pass at startup and then every interval from `%ProgramData%\OpenUnin
 It runs as LocalSystem, which is why machine-wide junk locations work without a second prompt. Junk
 cleaning still uses the fixed allow-list and guards. **Remove service** stops and deletes the service
 definition and its Program Files copy (including the service's own logs); the app's backups, logs
-and settings are kept. The CLI equivalents are `service install --yes`,
-`service remove --yes`, `service start`, `service stop` and `service status`, from an elevated shell.
+and settings are kept. When the installed service runs an older version than the app (or runs from
+the install folder, as installs made before 1.0.10 do), the status reads *update available* and
+**Update service** stops it, replaces its Program Files copy with this version, keeps its logs and
+starts it again. Setup does this on its own after an update, with one administrator prompt. The CLI
+equivalents are `service install --yes`, `service update --yes`, `service remove --yes`,
+`service start`, `service stop` and `service status`, from an elevated shell.
 
 ## Command line
 

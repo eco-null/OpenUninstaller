@@ -135,7 +135,7 @@ Last updated: 2026-10-31 (v1.0.6 Hunter ownership and screenshot refresh).
       verified, six pages recaptured, self-contained zip and SHA-256 regenerated
 - [x] v0.4.0 package and release workflow dry-run after the new workflow features
 - [x] v0.5.0 verification: 99 tests, release build, CLI privacy/telemetry/service smoke, package
-- [x] Code-signing helper script (`scripts/sign-release.ps1`, documented in `docs/GITHUB.md`)
+- [x] Code-signing helper script (`scripts/sign-artifacts.ps1`, documented in `docs/GITHUB.md`)
 - [x] UI smoke tests via built-in UI Automation (`tests/OpenUninstaller.UiSmoke`)
 - [x] Microsoft Store (MSIX) inventory source (`MsixInventoryService`, `StoreAppsView`, `oucli msix list`)
 - [x] Optional: scheduled task and service autorun sources (v0.3)
@@ -166,7 +166,7 @@ Last updated: 2026-10-31 (v1.0.6 Hunter ownership and screenshot refresh).
 - [x] Read-only MSIX / Microsoft Store package inventory (`MsixInventoryService`, `StoreAppsView`, `oucli msix list`)
 - [x] Native COM `IShellLinkW` shortcut target resolution (`ShortcutResolver`, integrated into `LeftoverScanner`)
 - [x] Inno Setup 6 installer (`installer/OpenUninstaller.iss`, `scripts/build-installer.ps1`, `docs/INSTALLER.md`)
-- [x] Authenticode code-signing helper script (`scripts/sign-release.ps1`)
+- [x] Authenticode code-signing helper script (`scripts/sign-artifacts.ps1`)
 - [x] Zero-dependency UI Automation smoke test project (`tests/OpenUninstaller.UiSmoke`) covering all 8 views
 - [x] CI & release workflow integration for UI smoke and installer packaging
 - [x] Service/task modification history and rollback view (`AutorunHistoryStore`, `oucli autoruns history|rollback`, WPF History tab)

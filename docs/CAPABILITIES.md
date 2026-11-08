@@ -36,7 +36,7 @@ The table below describes the full scope of capabilities implemented in OpenUnin
 | Microsoft Store / MSIX management | Yes | Full inventory, uninstallation, package data reset, process termination, and location navigation |
 | Browser extension cleanup | No (Future post-v1) | Deferred to post-v1.0 future planning; browser-specific profile databases |
 | Installer / MSI | Yes | Inno Setup 6 installer (`OpenUninstaller-<version>-setup.exe`) with silent flags, per-user default, `/ALLUSERS` mode and service isolation (`docs/INSTALLER.md`) |
-| Signed binaries | Scripted | `scripts/sign-release.ps1` for Authenticode signing; SHA-256 checksums on all release assets |
+| Signed binaries | Scripted | `scripts/sign-artifacts.ps1` for Authenticode signing; SHA-256 checksums on all release assets |
 
 ## Scope and Philosophy
 

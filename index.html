@@ -26,10 +26,6 @@
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
     <symbol id="i-external" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
-    <symbol id="i-startup" viewBox="0 0 24 24"><path d="m13 2-8 12h6l-1 8 9-12h-7l1-8Z"/></symbol>
-    <symbol id="i-junk" viewBox="0 0 24 24"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></symbol>
-    <symbol id="i-backup" viewBox="0 0 24 24"><path d="M3 10a9 9 0 1 1 2 8M3 5v5h5m4-3v5l3 2"/></symbol>
-    <symbol id="i-package" viewBox="0 0 24 24"><path d="M4 8h16v12H4zM8 8V6a4 4 0 0 1 8 0v2"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s7-3.5 7-10V6l-7-3-7 3v6c0 6.5 7 10 7 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
     <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/></symbol>
     <symbol id="i-windows" viewBox="0 0 24 24"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z" fill="currentColor" stroke="none"/></symbol>
@@ -126,19 +122,19 @@
       <div class="showcase" data-reveal="panel">
         <div class="tabs" aria-label="Maintenance tools" hidden>
           <button type="button" id="tab-startup" aria-controls="panel-startup">
-            <svg class="icon" aria-hidden="true"><use href="#i-startup"/></svg><span>Autoruns</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+            <img src="./assets/autoruns-dark.png" width="1440" height="860" alt="" loading="lazy" decoding="async"><span>Autoruns</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
           </button>
           <button type="button" id="tab-junk" aria-controls="panel-junk">
-            <svg class="icon" aria-hidden="true"><use href="#i-junk"/></svg><span>Junk files</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+            <img src="./assets/junk-dark.png" width="1440" height="860" alt="" loading="lazy" decoding="async"><span>Junk files</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
           </button>
           <button type="button" id="tab-backup" aria-controls="panel-backup">
-            <svg class="icon" aria-hidden="true"><use href="#i-backup"/></svg><span>Backups</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+            <img src="./assets/backups-dark.png" width="1440" height="860" alt="" loading="lazy" decoding="async"><span>Backups</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
           </button>
           <button type="button" id="tab-store" aria-controls="panel-store">
-            <svg class="icon" aria-hidden="true"><use href="#i-package"/></svg><span>Store apps</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+            <img src="./assets/store-dark.png" width="1440" height="860" alt="" loading="lazy" decoding="async"><span>Store apps</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
           </button>
           <button type="button" id="tab-privacy" aria-controls="panel-privacy">
-            <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><span>Privacy tools</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+            <img src="./assets/privacy-dark.png" width="1440" height="860" alt="" loading="lazy" decoding="async"><span>Privacy tools</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
           </button>
         </div>
         <div class="panels">
@@ -198,16 +194,45 @@
           <a class="text-link" href="https://github.com/eco-null/OpenUninstaller/blob/HEAD/docs/USER-GUIDE.md#command-line">Browse CLI commands <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
         </article>
       </div>
-      <div class="capabilities" data-reveal>
-        <div>
+      <div class="capabilities">
+        <div data-reveal>
           <h3>More Windows tools</h3>
           <a class="text-link" href="https://github.com/eco-null/OpenUninstaller/blob/HEAD/docs/CAPABILITIES.md">Full feature list <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+          <dl class="capability-list">
+            <div><dt>App inventory</dt><dd>Export your installed desktop app inventory or queue several uninstalls to review individually.</dd></div>
+            <div><dt>Windows utilities</dt><dd>Launch built-in Windows administration and diagnostic tools, and add shortcuts for the tools you use most.</dd></div>
+            <div><dt>Optional maintenance</dt><dd>Configure the optional Windows service to manage backup retention, expire logs, and run supported cleanup tasks.</dd></div>
+          </dl>
         </div>
-        <dl class="capability-list">
-          <div><dt>App inventory</dt><dd>Export your installed desktop app inventory or queue several uninstalls to review individually.</dd></div>
-          <div><dt>Windows utilities</dt><dd>Launch built-in Windows administration and diagnostic tools, and add shortcuts for the tools you use most.</dd></div>
-          <div><dt>Optional maintenance</dt><dd>Configure the optional Windows service to manage backup retention, expire logs, and run supported cleanup tasks.</dd></div>
-        </dl>
+        <figure class="product-shot" data-reveal="panel">
+          <a class="screenshot-frame" href="./assets/tools-dark.png" aria-label="View the Windows tools screenshot at full size">
+            <img src="./assets/tools-dark.png" width="1440" height="860" alt="Windows tools view listing System Restore, Network Diagnostics, and other built-in utilities" loading="lazy" decoding="async">
+          </a>
+          <figcaption><span>Windows tools</span><span>Searchable shortcuts to system utilities</span></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="themes" aria-labelledby="themes-title">
+      <div class="wrap section">
+        <div class="section-heading" data-reveal>
+          <h2 id="themes-title">Light or dark. Your call.</h2>
+          <p>Switch themes from the app’s title area or Settings. The same Settings screen keeps appearance, Explorer shortcuts, and cleanup preferences in one place.</p>
+        </div>
+        <div class="theme-pair" data-reveal="panel">
+          <figure class="product-shot">
+            <a class="screenshot-frame" href="./assets/settings-dark.png" aria-label="View the dark theme screenshot at full size">
+              <img src="./assets/settings-dark.png" width="1440" height="860" alt="OpenUninstaller Settings in dark theme with appearance, Explorer integration, and cleanup options" loading="lazy" decoding="async">
+            </a>
+            <figcaption><span>Dark theme</span><span>Settings</span></figcaption>
+          </figure>
+          <figure class="product-shot">
+            <a class="screenshot-frame" href="./assets/settings-light.png" aria-label="View the light theme screenshot at full size">
+              <img src="./assets/settings-light.png" width="1440" height="860" alt="OpenUninstaller Settings in light theme with the same appearance, Explorer integration, and cleanup options" loading="lazy" decoding="async">
+            </a>
+            <figcaption><span>Light theme</span><span>Settings</span></figcaption>
+          </figure>
+        </div>
       </div>
     </section>
 

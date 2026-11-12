@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09090b">
+  <meta name="description" content="Uninstall Windows apps, review leftover files and registry entries, and back up selected items before cleanup. Free, open source, and runs locally.">
+  <title>OpenUninstaller · Open-source uninstaller for Windows</title>
+  <link rel="icon" href="./assets/app.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./site.css">
+  <script defer src="./site.js"></script>
+  <link rel="canonical" href="https://eco-null.github.io/OpenUninstaller/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="OpenUninstaller">
+  <meta property="og:title" content="OpenUninstaller · Open-source uninstaller for Windows">
+  <meta property="og:description" content="Uninstall Windows apps, review what they leave behind, and choose what to clean up.">
+  <meta property="og:url" content="https://eco-null.github.io/OpenUninstaller/">
+  <meta property="og:image" content="https://eco-null.github.io/OpenUninstaller/assets/programs-dark.png">
+  <meta property="og:image:width" content="1440">
+  <meta property="og:image:height" content="860">
+  <meta property="og:image:alt" content="OpenUninstaller's Programs view showing an installed app list and uninstall options.">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body id="top">
+  <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
+    <symbol id="i-startup" viewBox="0 0 24 24"><path d="m13 2-8 12h6l-1 8 9-12h-7l1-8Z"/></symbol>
+    <symbol id="i-junk" viewBox="0 0 24 24"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></symbol>
+    <symbol id="i-backup" viewBox="0 0 24 24"><path d="M3 10a9 9 0 1 1 2 8M3 5v5h5m4-3v5l3 2"/></symbol>
+    <symbol id="i-package" viewBox="0 0 24 24"><path d="M4 8h16v12H4zM8 8V6a4 4 0 0 1 8 0v2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s7-3.5 7-10V6l-7-3-7 3v6c0 6.5 7 10 7 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18"/></symbol>
+    <symbol id="i-windows" viewBox="0 0 24 24"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14m-7-7v14"/></symbol>
+  </svg>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="wordmark" href="#top"><img src="./assets/app.svg" width="32" height="32" alt="">OpenUninstaller</a>
+      <nav aria-label="Main navigation">
+        <a class="nav-section" href="#how-it-works">How it works</a>
+        <a class="nav-section" href="#features">Features</a>
+        <a class="nav-section" href="#faq">FAQ</a>
+        <a class="nav-github" href="https://github.com/eco-null/OpenUninstaller">GitHub <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+        <a class="nav-download" href="#download">Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <h1 id="hero-title">Uninstall apps.<br><span>Review what’s left.</span></h1>
+        <p>OpenUninstaller removes Windows apps and lets you review leftover files and registry entries before you choose what to delete.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/eco-null/OpenUninstaller/releases/latest"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Download for Windows</a>
+          <a class="button secondary" href="#how-it-works">See how it works <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+        </div>
+        <p class="requirements"><svg class="icon" aria-hidden="true"><use href="#i-windows"/></svg>Windows 10 (1809+) and 11 · x64</p>
+      </div>
+      <figure class="hero-figure">
+        <div class="hero-frame"><img src="./assets/programs-dark.png" width="1440" height="860" alt="OpenUninstaller Programs view showing the installed app list and uninstall options for the selected app" fetchpriority="high"></div>
+        <figcaption><span>Programs</span><span>Desktop app with sample data</span></figcaption>
+      </figure>
+    </section>
+
+    <div class="facts">
+      <ul class="wrap">
+        <li><svg class="icon" aria-hidden="true"><use href="#i-windows"/></svg>Native Windows app</li>
+        <li><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>Local, with no telemetry</li>
+        <li><svg class="icon" aria-hidden="true"><use href="#i-code"/></svg>Free and open source</li>
+      </ul>
+    </div>
+
+    <section id="how-it-works" class="workflow" aria-labelledby="workflow-title">
+      <div class="wrap section">
+        <div class="section-heading" id="nasil-calisir" data-reveal>
+          <h2 id="workflow-title">From uninstall<br class="desktop-break"> to cleanup.</h2>
+          <p>Run the app’s own uninstaller, then review the evidence behind each leftover the scan finds. You choose which items to remove.</p>
+        </div>
+        <ol class="steps" data-reveal>
+          <li><h3>Uninstall the app</h3><p>Find an app by name, publisher, or location. Check its details, then launch its registered uninstaller.</p></li>
+          <li><h3>Inspect the leftovers</h3><p>Review remaining files, shortcuts, and registry entries. See what matched and how confident the scan is about each item.</p></li>
+          <li><h3>Back up and clean</h3><p>OpenUninstaller backs up approved items before removing them. If an item’s backup fails, the app leaves it in place.</p></li>
+        </ol>
+        <a class="text-link" href="https://github.com/eco-null/OpenUninstaller/blob/HEAD/docs/SAFETY.md">Read about cleanup safeguards <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+      </div>
+    </section>
+
+    <section class="wrap section inspection" aria-labelledby="inspection-title">
+      <div class="chapter-copy" data-reveal>
+        <h2 id="inspection-title">See why an item matched.</h2>
+        <p>An installation trace can tie a file or registry key to an app. Without a trace, the scan looks for clues such as names and locations. You can inspect the evidence before selecting an item.</p>
+      </div>
+      <fieldset class="review-demo" aria-describedby="demo-note" data-reveal="panel">
+        <legend>Sample leftover review</legend>
+        <p id="demo-note">Try changing the selection for this example app.</p>
+        <div class="review-items">
+          <label class="review-item">
+            <input type="checkbox" name="leftover" checked>
+            <span><strong>Application folder</strong><code>AppData\Local\ExampleStudio</code></span>
+            <span class="review-evidence">Recorded in the install trace</span>
+          </label>
+          <label class="review-item">
+            <input type="checkbox" name="leftover">
+            <span><strong>Registry settings</strong><code>HKCU\Software\ExampleStudio</code></span>
+            <span class="review-evidence">Matched the application name</span>
+          </label>
+          <label class="review-item">
+            <input type="checkbox" name="leftover">
+            <span><strong>Publisher folder</strong><code>AppData\Roaming\ExampleTools</code></span>
+            <span class="review-evidence">Publisher name only</span>
+          </label>
+        </div>
+        <output class="review-count" aria-live="polite" hidden></output>
+      </fieldset>
+    </section>
+
+    <section id="features" class="wrap section" aria-labelledby="features-title">
+      <div class="section-heading" id="ozellikler" data-reveal>
+        <h2 id="features-title">Windows maintenance tools.</h2>
+        <p>Explore startup entries, temporary files, backups, Store apps, and privacy tools. The screenshots use sample data.</p>
+      </div>
+      <div class="showcase" data-reveal="panel">
+        <div class="tabs" aria-label="Maintenance tools" hidden>
+          <button type="button" id="tab-startup" aria-controls="panel-startup">
+            <svg class="icon" aria-hidden="true"><use href="#i-startup"/></svg><span>Autoruns</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </button>
+          <button type="button" id="tab-junk" aria-controls="panel-junk">
+            <svg class="icon" aria-hidden="true"><use href="#i-junk"/></svg><span>Junk files</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </button>
+          <button type="button" id="tab-backup" aria-controls="panel-backup">
+            <svg class="icon" aria-hidden="true"><use href="#i-backup"/></svg><span>Backups</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </button>
+          <button type="button" id="tab-store" aria-controls="panel-store">
+            <svg class="icon" aria-hidden="true"><use href="#i-package"/></svg><span>Store apps</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </button>
+          <button type="button" id="tab-privacy" aria-controls="panel-privacy">
+            <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><span>Privacy tools</span><svg class="icon tab-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </button>
+        </div>
+        <div class="panels">
+          <article id="panel-startup">
+            <img src="./assets/autoruns-dark.png" width="1440" height="860" alt="Autoruns view with sample startup entries and their enabled or disabled states" loading="lazy" decoding="async">
+            <div class="panel-copy"><h3>See what runs at startup</h3><p>Inspect startup entries, services, and scheduled tasks. Disable supported entries and restore their previous state when needed.</p></div>
+          </article>
+          <article id="panel-junk">
+            <img src="./assets/junk-dark.png" width="1440" height="860" alt="Junk files view with sample cache categories and a dry-run option" loading="lazy" decoding="async">
+            <div class="panel-copy"><h3>Preview temporary file cleanup</h3><p>Scan supported cache and temporary-file locations. Review the results by category and use a dry run to check what would be removed.</p></div>
+          </article>
+          <article id="panel-backup">
+            <img src="./assets/backups-dark.png" width="1440" height="860" alt="Backups view with sample records and a restore preview action" loading="lazy" decoding="async">
+            <div class="panel-copy"><h3>Restore uninstall leftovers</h3><p>Open the backups taken during cleanup. Check what each backup contains and preview where its files and registry entries will be restored.</p></div>
+          </article>
+          <article id="panel-store">
+            <img src="./assets/store-dark.png" width="1440" height="860" alt="Store apps view with sample packages and the selected app’s available actions" loading="lazy" decoding="async">
+            <div class="panel-copy"><h3>Manage Microsoft Store apps</h3><p>Inspect installed Store packages, open their locations, and reset or uninstall supported apps.</p></div>
+          </article>
+          <article id="panel-privacy">
+            <img src="./assets/privacy-dark.png" width="1440" height="860" alt="Privacy and shredder view showing history cleanup and file shredding options" loading="lazy" decoding="async">
+            <div class="panel-copy"><h3>Review local history</h3><p>See Windows history and supported browser data before clearing it. The same screen also provides separate tools for file shredding and wiping free space.</p></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="hunter" aria-labelledby="hunter-title">
+      <div class="wrap section hunter-grid">
+        <div class="chapter-copy" data-reveal>
+          <h2 id="hunter-title">Find the app behind a window.</h2>
+          <p>Point Hunter Mode at an open window to see its process and executable. When it finds an installed app that matches, you can open that app’s uninstall flow.</p>
+          <a class="text-link" href="https://github.com/eco-null/OpenUninstaller/blob/HEAD/docs/USER-GUIDE.md#hunter-mode">Read the Hunter Mode guide <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+        </div>
+        <figure class="hunter-screen" data-reveal="panel">
+          <img src="./assets/hunter-dark.png" width="580" height="482" alt="Hunter Mode dialog showing an identified executable, its process ID, and available actions" loading="lazy" decoding="async">
+          <figcaption><span>Hunter Mode</span><span>Sample target</span></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="wrap section" aria-labelledby="toolkit-title">
+      <div class="section-heading" data-reveal>
+        <h2 id="toolkit-title">Trace installs.<br class="desktop-break"> Use the terminal.</h2>
+        <p>Record what an installer changes, or use the included command-line tool to inspect apps and backups.</p>
+      </div>
+      <div class="toolkit" data-reveal>
+        <article>
+          <h3>Installation tracing</h3>
+          <p>Capture file and registry changes around an installation so you can refer to them during a later cleanup. Export a trace as an <code>.outrace.zip</code> bundle or import one to review.</p>
+          <a class="text-link" href="https://github.com/eco-null/OpenUninstaller/blob/HEAD/docs/USER-GUIDE.md">Explore the user guide <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+        </article>
+        <article>
+          <h3>Command-line interface</h3>
+          <p>Use <code>oucli</code> to filter the program inventory, scan for leftovers, and preview backups from a terminal.</p>
+          <pre aria-label="Example read-only command"><code>oucli list --filter "Example Studio"</code></pre>
+          <a class="text-link" href="https://github.com/eco-null/OpenUninstaller/blob/HEAD/docs/USER-GUIDE.md#command-line">Browse CLI commands <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+        </article>
+      </div>
+      <div class="capabilities" data-reveal>
+        <div>
+          <h3>More Windows tools</h3>
+          <a class="text-link" href="https://github.com/eco-null/OpenUninstaller/blob/HEAD/docs/CAPABILITIES.md">Full feature list <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+        </div>
+        <dl class="capability-list">
+          <div><dt>App inventory</dt><dd>Export your installed desktop app inventory or queue several uninstalls to review individually.</dd></div>
+          <div><dt>Windows utilities</dt><dd>Launch built-in Windows administration and diagnostic tools, and add shortcuts for the tools you use most.</dd></div>
+          <div><dt>Optional maintenance</dt><dd>Configure the optional Windows service to manage backup retention, expire logs, and run supported cleanup tasks.</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section id="faq" class="faq" aria-labelledby="faq-title">
+      <div class="wrap section faq-grid">
+        <div class="chapter-copy" data-reveal>
+          <h2 id="faq-title">Good to know.</h2>
+          <p>Common questions about scanning, backups, and Windows permissions.</p>
+        </div>
+        <div class="faq-list" data-reveal>
+          <details>
+            <summary>Can I scan without uninstalling? <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <p>Yes. Select an application in Programs and choose Scan leftovers. You can review the results before deciding whether to remove anything.</p>
+          </details>
+          <details>
+            <summary>Which cleanup actions can I undo? <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <p>Open Backups to preview and restore captured uninstall leftovers. Privacy history cleanup and file shredding are irreversible.</p>
+          </details>
+          <details>
+            <summary>Does OpenUninstaller need an internet connection? <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <p>The app runs locally. It has no telemetry and makes no automatic network requests. External uninstallers and Windows utilities can have their own network behavior.</p>
+          </details>
+          <details>
+            <summary>Do I need administrator rights? <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <p>A standard Windows account is enough for user-scoped operations. Machine-wide changes and management of the optional maintenance service require administrator rights.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section id="download" class="wrap section" aria-labelledby="download-title">
+      <div class="download-panel" data-reveal="panel">
+        <img src="./assets/app.svg" width="68" height="68" alt="">
+        <div><h2 id="download-title">Get OpenUninstaller.</h2><p>Windows 10 (1809+) and 11 · x64. Both packages include the .NET runtime.</p></div>
+        <a class="button primary" href="https://github.com/eco-null/OpenUninstaller/releases/latest"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Download on GitHub</a>
+        <dl class="download-options">
+          <div><dt>Installer</dt><dd>Run setup to install for your Windows account.</dd></div>
+          <div><dt>Portable ZIP</dt><dd>Extract the archive and launch <code>OpenUninstaller.exe</code>.</dd></div>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <a class="wordmark" href="#top"><img src="./assets/app.svg" width="28" height="28" alt="">OpenUninstaller</a>
+      <nav aria-label="Project links">
+        <a href="https://github.com/eco-null/OpenUninstaller">Source code <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+        <a href="https://github.com/eco-null/OpenUninstaller/blob/HEAD/docs/USER-GUIDE.md">User guide <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+        <a href="https://github.com/eco-null/OpenUninstaller/blob/HEAD/LICENSE">MIT license <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

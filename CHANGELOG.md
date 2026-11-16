@@ -5,6 +5,8 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+## [1.0.11] — 2026-11-16
+
 ### Added
 
 - The setup updates an existing installation in place: it detects the installed version, keeps
@@ -21,7 +23,8 @@ the project uses semantic versioning.
   administrator prompt, and first stops a service installed before 1.0.10 that runs from the
   install folder.
 - Releases are cut from GitHub: **Actions › Release › Run workflow** bumps the patch, minor or
-  major version, builds, tests and packages it, then commits, tags and publishes the release.
+  major version, or uses the current prepared version. It builds, tests and packages the release,
+  commits any version bump, then tags and publishes it.
 
 ### Fixed
 

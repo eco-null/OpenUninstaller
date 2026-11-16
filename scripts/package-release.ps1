@@ -7,10 +7,12 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 
-if ([string]::IsNullOrWhiteSpace($Version)) {
-    [xml]$props = Get-Content (Join-Path $root "Directory.Build.props")
-    $Version = [string]$props.Project.PropertyGroup.Version
+[xml]$props = Get-Content -LiteralPath (Join-Path $root "Directory.Build.props") -Raw
+$productVersion = [string]$props.Project.PropertyGroup.Version
+if ($Version -and $Version -ne $productVersion) {
+    throw "Requested version '$Version' does not match Directory.Build.props ($productVersion)."
 }
+$Version = $productVersion
 
 $publishScript = Join-Path $PSScriptRoot "publish.ps1"
 & $publishScript -Configuration $Configuration -Runtime $Runtime

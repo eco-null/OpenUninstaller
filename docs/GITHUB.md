@@ -33,18 +33,21 @@ and turns the `## [Unreleased]` section of `CHANGELOG.md` into the new version's
    `TODO.md` when their tracked status changes.
 2. On GitHub open **Actions › Release › Run workflow**, keep the branch on `main`, choose `patch`,
    `minor` or `major`, and run it. From a terminal: `gh workflow run release.yml -f bump=patch`.
+   For a candidate whose version and changelog are already committed to `main`, choose `current`
+   to publish that version without bumping it again.
 3. The workflow:
-   - bumps the version with `scripts/set-version.ps1` and refuses a version whose tag exists;
+   - bumps a version with entries under Unreleased, or checks the current version's changelog
+     section, and refuses a version whose tag exists;
    - builds with warnings as errors, runs the tests and UI smoke, and checks that the built app and
      `oucli version` report the new version;
    - publishes `OpenUninstaller-<version>-win-x64.zip` and compiles
      `OpenUninstaller-<version>-setup.exe`, each with a `.sha256` file;
-   - commits `Directory.Build.props` and `CHANGELOG.md` as `chore(release): vX.Y.Z` (authored by
-     the person who started the run), tags `vX.Y.Z` and pushes both atomically; if `main` moved
-     during the run nothing is pushed and the run fails;
+   - commits `Directory.Build.props` and `CHANGELOG.md` as `chore(release): vX.Y.Z` if bumped
+     (authored by the person who started the run), tags `vX.Y.Z` and pushes atomically; if `main`
+     moved during the run nothing is pushed and the run fails;
    - creates the GitHub release with notes from `docs/releases/<version>.md`, else the version's
      `CHANGELOG.md` section, else GitHub-generated notes.
-4. Pull `main` locally afterwards to get the version commit.
+4. If the workflow bumped the version, pull `main` locally afterwards to get the version commit.
 5. Download the uploaded zip or installer on a clean Windows machine, run the UI and
    `cli\oucli.exe doctor`, and verify the SHA-256. Run the new setup over the previous release and
    confirm it offers an update and keeps the install folder. Confirm the optional service binary
@@ -53,7 +56,9 @@ and turns the `## [Unreleased]` section of `CHANGELOG.md` into the new version's
 A hand-pushed `v*` tag still runs the same workflow without the bump, provided the tag matches
 `Directory.Build.props`. Rerunning a release refreshes its assets and checked-in notes.
 
-To check a release locally before starting it:
+To prepare and check a candidate locally without publishing, first run
+`./scripts/set-version.ps1 -Bump patch` (or select a different bump) and review the version and
+changelog changes. Then run:
 
 ```powershell
 dotnet build OpenUninstaller.sln -c Release -warnaserror

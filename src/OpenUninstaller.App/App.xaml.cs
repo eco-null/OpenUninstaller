@@ -5,9 +5,11 @@ using System.Windows.Diagnostics;
 using System.Windows.Threading;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.App.ViewModels;
+using OpenUninstaller.App.Views;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App;
 
@@ -84,9 +86,9 @@ public partial class App : Application
 
     private void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        MessageBox.Show(
+        NoticeWindow.Show(
             MainWindow,
-            $"An unexpected error occurred:\n\n{e.Exception.Message}\n\nThe operation was stopped. No files were deleted.",
+            F("UnexpectedErrorStopped", e.Exception.Message),
             "OpenUninstaller",
             MessageBoxButton.OK,
             MessageBoxImage.Error);

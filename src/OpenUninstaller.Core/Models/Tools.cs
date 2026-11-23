@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Models;
 
@@ -37,25 +38,25 @@ public sealed record AutorunEntry
     public RegistryLocation? StartupApprovalLocation { get; init; }
     public string? StartupApprovalValueName { get; init; }
 
-    public string StateLabel => IsEnabled ? "Enabled" : "Disabled";
+    public string StateLabel => IsEnabled ? L("Enabled") : L("Disabled");
     public string ToggleLabel => Source == AutorunSourceKind.PackagedStartupTask
-        ? "Manage" : IsEnabled ? "Disable" : "Enable";
+        ? L("Manage") : IsEnabled ? L("Disable") : L("Enable");
 
     public string SourceLabel => Source switch
     {
-        AutorunSourceKind.UserRun => "User Run",
-        AutorunSourceKind.UserRunOnce => "User RunOnce",
-        AutorunSourceKind.MachineRun => "Machine Run",
-        AutorunSourceKind.MachineRunOnce => "Machine RunOnce",
-        AutorunSourceKind.UserStartupFolder => "User Startup",
-        AutorunSourceKind.CommonStartupFolder => "All users Startup",
-        AutorunSourceKind.MachineService => "Windows service",
-        AutorunSourceKind.ScheduledTask => "Scheduled task",
-        AutorunSourceKind.DisabledRegistry => "Disabled (registry)",
-        AutorunSourceKind.DisabledService => "Disabled (service)",
-        AutorunSourceKind.DisabledScheduledTask => "Disabled (task)",
-        AutorunSourceKind.PackagedStartupTask => "Windows app",
-        _ => "Disabled (Startup folder)"
+        AutorunSourceKind.UserRun => L("UserRun"),
+        AutorunSourceKind.UserRunOnce => L("UserRunOnce"),
+        AutorunSourceKind.MachineRun => L("MachineRun"),
+        AutorunSourceKind.MachineRunOnce => L("MachineRunOnce"),
+        AutorunSourceKind.UserStartupFolder => L("UserStartup"),
+        AutorunSourceKind.CommonStartupFolder => L("AllUsersStartup"),
+        AutorunSourceKind.MachineService => L("WindowsService"),
+        AutorunSourceKind.ScheduledTask => L("ScheduledTask"),
+        AutorunSourceKind.DisabledRegistry => L("DisabledRegistry"),
+        AutorunSourceKind.DisabledService => L("DisabledService"),
+        AutorunSourceKind.DisabledScheduledTask => L("DisabledTask"),
+        AutorunSourceKind.PackagedStartupTask => L("WindowsApp"),
+        _ => L("DisabledStartupFolder")
     };
 }
 
@@ -104,26 +105,26 @@ public sealed record AutorunHistoryEntry
 
     public string ActionLabel => Action switch
     {
-        AutorunHistoryAction.Disabled => "Disabled",
-        AutorunHistoryAction.Enabled => "Enabled",
-        AutorunHistoryAction.RolledBack => "Rolled back",
+        AutorunHistoryAction.Disabled => L("Disabled"),
+        AutorunHistoryAction.Enabled => L("Enabled"),
+        AutorunHistoryAction.RolledBack => L("RolledBack"),
         _ => Action.ToString()
     };
 
     public string SourceLabel => Source switch
     {
-        AutorunSourceKind.UserRun => "User Run",
-        AutorunSourceKind.UserRunOnce => "User RunOnce",
-        AutorunSourceKind.MachineRun => "Machine Run",
-        AutorunSourceKind.MachineRunOnce => "Machine RunOnce",
-        AutorunSourceKind.UserStartupFolder => "User Startup",
-        AutorunSourceKind.CommonStartupFolder => "All users Startup",
-        AutorunSourceKind.MachineService => "Windows service",
-        AutorunSourceKind.ScheduledTask => "Scheduled task",
-        AutorunSourceKind.DisabledRegistry => "Registry value",
-        AutorunSourceKind.DisabledService => "Windows service",
-        AutorunSourceKind.DisabledScheduledTask => "Scheduled task",
-        _ => "Startup item"
+        AutorunSourceKind.UserRun => L("UserRun"),
+        AutorunSourceKind.UserRunOnce => L("UserRunOnce"),
+        AutorunSourceKind.MachineRun => L("MachineRun"),
+        AutorunSourceKind.MachineRunOnce => L("MachineRunOnce"),
+        AutorunSourceKind.UserStartupFolder => L("UserStartup"),
+        AutorunSourceKind.CommonStartupFolder => L("AllUsersStartup"),
+        AutorunSourceKind.MachineService => L("WindowsService"),
+        AutorunSourceKind.ScheduledTask => L("ScheduledTask"),
+        AutorunSourceKind.DisabledRegistry => L("RegistryValue"),
+        AutorunSourceKind.DisabledService => L("WindowsService"),
+        AutorunSourceKind.DisabledScheduledTask => L("ScheduledTask"),
+        _ => L("StartupItem")
     };
 
     public string TimestampDisplay => Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
@@ -191,7 +192,7 @@ public sealed record HunterMatch
     public string? WindowTitle { get; init; }
     public InstalledProgram? Program { get; init; }
     public int Score { get; init; }
-    public string Reason { get; init; } = "No matching application found.";
+    public string Reason { get; init; } = L("NoMatchingApplicationFound");
     public bool Matched => Program is not null;
 }
 

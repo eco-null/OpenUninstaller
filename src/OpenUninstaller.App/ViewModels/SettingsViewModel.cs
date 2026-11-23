@@ -4,6 +4,7 @@ using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Localization;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -12,15 +13,11 @@ public sealed class SettingsViewModel : PageViewModel
     private readonly AppServices _services;
     private readonly WindowService _windows;
     private string _theme;
-    private LanguageInfo? _selectedLanguage;
     private bool _enableContextMenu;
     private bool _preferSilent;
     private int _keepBackups;
-    private string _doctorSummary = string.Empty;
-    private string _serviceStatus = "Not checked";
-    private string _serviceDetail = string.Empty;
-    private bool? _serviceExecutableExists;
-    private string? _serviceWarning;
+    private DoctorReport? _doctorReport;
+    private BackgroundServiceStatus? _service;
     private bool _serviceNeedsUpdate;
     private bool _maintenanceEnabled;
     private int _maintenanceInterval;
@@ -38,9 +35,6 @@ public sealed class SettingsViewModel : PageViewModel
         _preferSilent = services.Settings.PreferSilentUninstall;
         _keepBackups = services.Settings.KeepBackups;
         _enableContextMenu = services.ContextMenu.IsEnabled();
-        _selectedLanguage = services.Localization.AvailableLanguages
-            .FirstOrDefault(l => l.Id.Equals(services.Settings.Language, StringComparison.OrdinalIgnoreCase))
-            ?? services.Localization.AvailableLanguages.FirstOrDefault(l => l.Id == "english");
 
         var maintenance = MaintenanceSettings.Load(services.Paths);
         _maintenanceEnabled = maintenance.Enabled;
@@ -65,7 +59,6 @@ public sealed class SettingsViewModel : PageViewModel
         UpdateServiceCommand = new AsyncRelayCommand(_ => UpdateServiceAsync(), _ => !IsBusy && ServiceNeedsUpdate);
         RunMaintenanceCommand = new AsyncRelayCommand(_ => RunMaintenanceAsync(), _ => !IsBusy);
 
-        UpdateServiceDetails();
     }
 
     public IReadOnlyList<string> ThemeOptions { get; } = ["Dark", "Light"];
@@ -99,10 +92,20 @@ public sealed class SettingsViewModel : PageViewModel
 
     public IReadOnlyList<LanguageInfo> LanguageOptions => _services.Localization.AvailableLanguages;
 
-    public LanguageInfo? SelectedLanguage
+    public string SelectedLanguageId
     {
-        get => _selectedLanguage;
-        set => SetProperty(ref _selectedLanguage, value);
+        get => _services.Localization.CurrentLanguage;
+        set
+        {
+            if (value == SelectedLanguageId || !LanguageOptions.Any(language => language.Id == value))
+                return;
+
+            _services.Localization.SetLanguage(value);
+            _services.Settings.Language = SelectedLanguageId;
+            if (!_services.Settings.Save())
+                SetStatus("LanguageChangedButCouldNotBeSaved");
+            OnPropertyChanged();
+        }
     }
 
     public bool EnableContextMenu
@@ -135,17 +138,14 @@ public sealed class SettingsViewModel : PageViewModel
         set => SetProperty(ref _keepBackups, Math.Clamp(value, 1, 500));
     }
 
-    public string ServiceStatus
-    {
-        get => _serviceStatus;
-        private set => SetProperty(ref _serviceStatus, value);
-    }
+    public string ServiceStatus => _service?.Label ?? L("NotChecked");
 
-    public string ServiceDetail
-    {
-        get => _serviceDetail;
-        private set => SetProperty(ref _serviceDetail, value);
-    }
+    public string ServiceDetail =>
+        _service is { Installed: true } state && !string.IsNullOrWhiteSpace(state.Detail)
+            ? state.Detail
+            : (_service?.ExecutableExists ?? File.Exists(_services.Background.ExecutablePath))
+                ? $"{_services.Background.ServiceName} · {_services.Background.ExecutablePath}"
+                : L("TheServiceExecutableIsNotInThisBuild");
 
     public bool IsElevated => _services.IsElevated;
     public string ServiceExecutable => _services.Background.ExecutablePath;
@@ -192,16 +192,14 @@ public sealed class SettingsViewModel : PageViewModel
         set => SetProperty(ref _maintenanceCategories, value);
     }
 
-    public string DoctorSummary
-    {
-        get => _doctorSummary;
-        private set => SetProperty(ref _doctorSummary, value);
-    }
+    public string DoctorSummary => _doctorReport is { } report
+        ? string.Join(Environment.NewLine, report.Checks.Concat(report.Warnings.Select(w => "! " + w)))
+        : string.Empty;
 
     public string VersionText => $"OpenUninstaller {_services.Version}";
     public string AdminText => _services.IsElevated
-        ? "Running as administrator. Machine-wide cleanup is available."
-        : "Running as a standard user. Machine-wide keys, folders and service management require elevation.";
+        ? L("RunningAsAdministratorMachineWideCleanupIsAvailable")
+        : L("RunningAsAStandardUserMachineWideKeys");
     public string DataPath => _services.Paths.DataDirectory;
     public string BackupPath => _services.Paths.BackupsDirectory;
     public string TracePath => _services.Paths.TracesDirectory;
@@ -215,12 +213,6 @@ public sealed class SettingsViewModel : PageViewModel
         _services.Settings.Theme = Theme;
         _services.Settings.PreferSilentUninstall = PreferSilent;
         _services.Settings.KeepBackups = KeepBackups;
-
-        if (SelectedLanguage is not null)
-        {
-            _services.Settings.Language = SelectedLanguage.Id;
-            _services.Localization.SetLanguage(SelectedLanguage.Id);
-        }
 
         _services.Settings.EnableContextMenu = EnableContextMenu;
         _services.ContextMenu.SetEnabled(EnableContextMenu);
@@ -244,20 +236,18 @@ public sealed class SettingsViewModel : PageViewModel
         }.Save(_services.Paths);
 
         _services.NotifySettingsChanged();
-        StatusMessage = "Settings and maintenance schedule saved.";
+        SetStatus("SettingsAndMaintenanceScheduleSaved");
     }
 
     private async Task RunDoctorAsync()
     {
         IsBusy = true;
-        StatusMessage = "Checking the environment…";
+        SetStatus("CheckingTheEnvironment");
         try
         {
-            var report = await Task.Run(_services.Doctor.Run);
-            DoctorSummary = string.Join(
-                Environment.NewLine,
-                report.Checks.Concat(report.Warnings.Select(w => "! " + w)));
-            StatusMessage = report.Healthy ? "Environment looks healthy." : "Environment has warnings.";
+            _doctorReport = await Task.Run(_services.Doctor.Run);
+            OnPropertyChanged(nameof(DoctorSummary));
+            SetStatus(_doctorReport.Healthy ? "EnvironmentLooksHealthy" : "EnvironmentHasWarnings");
         }
         finally
         {
@@ -269,11 +259,10 @@ public sealed class SettingsViewModel : PageViewModel
     private async Task RefreshServiceAsync()
     {
         var status = await Task.Run(_services.Background.Query);
-        ServiceStatus = status.Label;
-        _serviceExecutableExists = status.ExecutableExists;
-        _serviceWarning = status.Installed ? status.Detail : null;
+        _service = status;
         ServiceNeedsUpdate = status.Installed && status.NeedsUpdate;
-        UpdateServiceDetails();
+        OnPropertyChanged(nameof(ServiceStatus));
+        OnPropertyChanged(nameof(ServiceDetail));
     }
 
     private async Task UpdateServiceAsync()
@@ -281,8 +270,8 @@ public sealed class SettingsViewModel : PageViewModel
         if (!_services.IsElevated)
         {
             _windows.Error(
-                "Updating the maintenance service needs administrator rights. Restart OpenUninstaller as administrator and try again.",
-                "Background service");
+                L("UpdatingTheMaintenanceServiceNeedsAdministratorRightsRestart"),
+                L("BackgroundService"));
             return;
         }
 
@@ -297,12 +286,12 @@ public sealed class SettingsViewModel : PageViewModel
             if (ok)
             {
                 _windows.Info(
-                    "The maintenance service now runs this version. Its settings and logs were kept.",
-                    "Background service");
+                    L("TheMaintenanceServiceNowRunsThisVersionIts"),
+                    L("BackgroundService"));
             }
             else
             {
-                _windows.Error(error ?? "The service could not be updated.", "Background service");
+                _windows.Error(error ?? L("TheServiceCouldNotBeUpdated"), L("BackgroundService"));
             }
         }
         finally
@@ -312,23 +301,13 @@ public sealed class SettingsViewModel : PageViewModel
         }
     }
 
-    private void UpdateServiceDetails()
-    {
-        var executableExists = _serviceExecutableExists
-                               ?? File.Exists(_services.Background.ExecutablePath);
-        ServiceDetail = !string.IsNullOrWhiteSpace(_serviceWarning) ? _serviceWarning
-            : executableExists
-            ? $"{_services.Background.ServiceName} · {_services.Background.ExecutablePath}"
-            : "The service executable is not in this build. Publish with scripts/publish.ps1 to include it.";
-    }
-
     private async Task InstallServiceAsync()
     {
         if (!_services.IsElevated)
         {
             _windows.Error(
-                "Installing the maintenance service needs administrator rights. Restart OpenUninstaller as administrator and try again.",
-                "Background service");
+                L("InstallingTheMaintenanceServiceNeedsAdministratorRightsRestart"),
+                L("BackgroundService"));
             return;
         }
 
@@ -343,12 +322,12 @@ public sealed class SettingsViewModel : PageViewModel
             if (ok)
             {
                 _windows.Info(
-                    "The maintenance service was installed and started. It runs one pass at startup and then follows maintenance.json.",
-                    "Background service");
+                    L("TheMaintenanceServiceWasInstalledAndStartedIt"),
+                    L("BackgroundService"));
             }
             else
             {
-                _windows.Error(error ?? "The service could not be installed.", "Background service");
+                _windows.Error(error ?? L("TheServiceCouldNotBeInstalled"), L("BackgroundService"));
             }
         }
         finally
@@ -363,14 +342,14 @@ public sealed class SettingsViewModel : PageViewModel
         if (!_services.IsElevated)
         {
             _windows.Error(
-                "Removing the maintenance service needs administrator rights. Restart OpenUninstaller as administrator and try again.",
-                "Background service");
+                L("RemovingTheMaintenanceServiceNeedsAdministratorRightsRestart"),
+                L("BackgroundService"));
             return;
         }
 
         if (!_windows.Confirm(
-                "Stop and remove the OpenUninstaller maintenance service? Backups, logs and settings are kept.",
-                "Background service",
+                L("StopAndRemoveTheOpenUninstallerMaintenanceServiceBackups"),
+                L("BackgroundService"),
                 danger: true))
         {
             return;
@@ -386,7 +365,7 @@ public sealed class SettingsViewModel : PageViewModel
             });
             if (!ok)
             {
-                _windows.Error(error ?? "The service could not be removed.", "Background service");
+                _windows.Error(error ?? L("TheServiceCouldNotBeRemoved"), L("BackgroundService"));
             }
         }
         finally
@@ -399,7 +378,7 @@ public sealed class SettingsViewModel : PageViewModel
     private async Task RunMaintenanceAsync()
     {
         IsBusy = true;
-        StatusMessage = "Running maintenance…";
+        SetStatus("RunningMaintenance");
         try
         {
             var settings = MaintenanceSettings.Load(_services.Paths);
@@ -412,9 +391,9 @@ public sealed class SettingsViewModel : PageViewModel
             }
 
             _windows.Info(
-                string.IsNullOrWhiteSpace(message) ? "Nothing to do." : message,
-                "Maintenance");
-            StatusMessage = "Maintenance finished.";
+                string.IsNullOrWhiteSpace(message) ? L("NothingToDo") : message,
+                L("Maintenance"));
+            SetStatus("MaintenanceFinished");
         }
         finally
         {
@@ -442,7 +421,7 @@ public sealed class SettingsViewModel : PageViewModel
         }
         catch (Exception ex) when (ex is IOException or System.ComponentModel.Win32Exception)
         {
-            _windows.Error($"Could not open the documentation:\n{ex.Message}");
+            _windows.Error(F("CouldNotOpenTheDocumentation", ex.Message));
         }
     }
 }

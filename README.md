@@ -83,7 +83,7 @@ See the [capability matrix](docs/CAPABILITIES.md) for implementation details and
   </tr>
   <tr>
     <td>
-      <p><strong>Settings</strong> — choose appearance, language and cleanup preferences.</p>
+      <p><strong>Settings</strong> — choose appearance, language and cleanup preferences. The desktop language changes immediately and is saved per Windows user.</p>
       <picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/settings-dark.png"><img src="docs/assets/settings-light.png" alt="Settings with theme, language, Explorer integration and backup preferences" width="720"></picture>
     </td>
     <td>
@@ -98,6 +98,9 @@ See the [capability matrix](docs/CAPABILITIES.md) for implementation details and
 ### Download
 
 Choose an installer or portable archive from [GitHub Releases](https://github.com/eco-null/OpenUninstaller/releases/latest).
+
+The desktop app is available in English, Turkish, German, Spanish, French, Italian, Japanese,
+Brazilian Portuguese, Russian, and Simplified Chinese.
 
 - **Installer:** Run `OpenUninstaller-<version>-setup.exe`. It installs for the current user in `%LOCALAPPDATA%\Programs\OpenUninstaller` without an administrator prompt; choose *Install for all users* (or pass `/ALLUSERS`) to install in `Program Files`. The wizard is available in English and Turkish, and an optional task adds `oucli` to PATH.
 - **Portable:** Extract the archive and run `OpenUninstaller.exe`. The command-line executable is in `cli\oucli.exe`; the optional service is in `service\`.

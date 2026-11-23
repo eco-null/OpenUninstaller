@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.App.ViewModels;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.Views;
 
@@ -28,13 +29,12 @@ public partial class UninstallWindow : Window
             return;
         }
 
-        var result = MessageBox.Show(
+        var result = NoticeWindow.Show(
             this,
-            "An operation is still running. Cancel it and close?\n\nA vendor uninstaller may already be mid-flight; OpenUninstaller will not terminate it.",
-            "Operation in progress",
+            L("AnOperationIsStillRunningCancelItAnd"),
+            L("OperationInProgress"),
             MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
+            MessageBoxImage.Warning);
         if (result != MessageBoxResult.Yes)
         {
             e.Cancel = true;

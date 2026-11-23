@@ -8,6 +8,7 @@ using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -201,7 +202,7 @@ public sealed partial class LeftoverScanner
                 var guard = _pathGuard.ValidateForDeletion(target, recursive: isDirectory);
                 if (!guard.Allowed)
                 {
-                    result.Warnings.Add(guard.Reason ?? "The selected target is protected.");
+                    result.Warnings.Add(guard.Reason ?? L("TheSelectedTargetIsProtected"));
                 }
                 else if (isDirectory || File.Exists(target))
                 {
@@ -212,7 +213,7 @@ public sealed partial class LeftoverScanner
                         DisplayPath = target,
                         FilePath = target,
                         Confidence = LeftoverConfidence.Exact,
-                        Reason = "Explicitly selected cleanup target.",
+                        Reason = L("ExplicitlySelectedCleanupTarget"),
                         SizeBytes = SafeSize(target, isDirectory)
                     });
                 }
@@ -233,35 +234,35 @@ public sealed partial class LeftoverScanner
                     UsedTrace = true,
                     TraceId = trace.Id
                 };
-                progress?.Report(new OperationProgress(OperationStages.Scanning, $"Using trace {trace.Id}"));
+                progress?.Report(new OperationProgress(OperationStages.Scanning, F("UsingTrace", trace.Id)));
                 AddTraceItems(trace, program, otherPrograms, result, cancellationToken);
             }
             else
             {
-                result.Warnings.Add("No install trace was found. Results are heuristic suggestions.");
+                result.Warnings.Add(L("NoInstallTraceWasFoundResultsAreHeuristic"));
             }
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning registry and common folders"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("ScanningRegistryAndCommonFolders2")));
             AddHeuristicItems(program, otherPrograms, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Inspecting Windows Installer references"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("InspectingWindowsInstallerReferences")));
             AddInstallerReferenceItems(program, otherPrograms, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning application registrations"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("ScanningApplicationRegistrations")));
             AddAppRegistrationItems(program, otherPrograms, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning file associations and COM registrations"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("ScanningFileAssociationsAndCOMRegistrations")));
             AddAssociationItems(program, otherPrograms, result, cancellationToken);
             AddComItems(program, otherPrograms, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning services and drivers"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("ScanningServicesAndDrivers")));
             AddServiceItems(program, otherPrograms, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning PATH entries and firewall rules"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("ScanningPATHEntriesAndFirewallRules")));
             AddPathItems(program, otherPrograms, result, cancellationToken);
             AddFirewallItems(program, otherPrograms, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Scanning scheduled tasks"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("ScanningScheduledTasks")));
             AddScheduledTaskItems(program, otherPrograms, result, cancellationToken);
 
             var consolidated = Consolidate(result.Items, result.Warnings);
@@ -287,7 +288,7 @@ public sealed partial class LeftoverScanner
         if (trace.SchemaVersion < 2)
         {
             result.Warnings.Add(
-                "This trace uses legacy schema 1: registry key candidates are protected because the trace cannot distinguish new keys from values added to existing keys. Re-run trace-install for value-level evidence.");
+                L("ThisTraceUsesLegacySchema1RegistryKey"));
         }
 
         foreach (var key in trace.RegistryKeys)
@@ -307,7 +308,7 @@ public sealed partial class LeftoverScanner
                 Confidence = LeftoverConfidence.Exact,
                 IsFromTrace = true,
                 RegistryLocation = location,
-                Reason = "Created during the traced install and still present after uninstall." + reasonSuffix
+                Reason = L("CreatedDuringTheTracedInstallAndStillPresent") + reasonSuffix
             };
 
             var guard = RegistryGuard.ValidateForDeletion(location);
@@ -318,7 +319,7 @@ public sealed partial class LeftoverScanner
             else if (trace.SchemaVersion < 2)
             {
                 item.ProtectedReason =
-                    "Legacy trace schema 1 cannot prove this key was created by the installer. Re-run trace-install to use value-level evidence.";
+                    L("LegacyTraceSchema1CannotProveThisKey");
             }
 
             result.Items.Add(item);
@@ -356,7 +357,7 @@ public sealed partial class LeftoverScanner
                         IsFromTrace = true,
                         RegistryLocation = location,
                         ValueName = valueName,
-                        Reason = "This value was added during the traced install to a key that already existed." + reasonSuffix
+                        Reason = L("ThisValueWasAddedDuringTheTracedInstall") + reasonSuffix
                     };
 
                     var valueGuard = RegistryGuard.ValidateValueForDeletion(location);
@@ -387,7 +388,7 @@ public sealed partial class LeftoverScanner
                 Confidence = LeftoverConfidence.Exact,
                 IsFromTrace = true,
                 FilePath = file.Path,
-                Reason = "Created during the traced install and still present after uninstall." + reasonSuffix
+                Reason = L("CreatedDuringTheTracedInstallAndStillPresent") + reasonSuffix
             };
 
             var guard = _pathGuard.ValidateForDeletion(file.Path, recursive: isDirectory);
@@ -397,7 +398,7 @@ public sealed partial class LeftoverScanner
             }
             else if (FindOwningProgram(file.Path, program, otherPrograms) is { } owner)
             {
-                item.ProtectedReason = $"Another installed application ({owner.Name}) uses this path.";
+                item.ProtectedReason = F("AnotherInstalledApplicationUsesThisPath", owner.Name);
             }
 
             result.Items.Add(item);
@@ -406,7 +407,7 @@ public sealed partial class LeftoverScanner
         if (trace.RegistryTruncated || trace.FilesTruncated)
         {
             result.Truncated = true;
-            result.Warnings.Add("The trace was truncated; some locations were not indexed.");
+            result.Warnings.Add(L("TheTraceWasTruncatedSomeLocationsWereNot"));
         }
     }
 
@@ -419,7 +420,7 @@ public sealed partial class LeftoverScanner
         var tokens = NameNormalizer.MatchTokens(program.Name, program.Publisher);
         if (tokens.Count == 0)
         {
-            result.Warnings.Add("The application name has no distinctive tokens; heuristic matching was skipped.");
+            result.Warnings.Add(L("TheApplicationNameHasNoDistinctiveTokensHeuristic"));
             return;
         }
 
@@ -491,7 +492,7 @@ public sealed partial class LeftoverScanner
 
             if (isDirectory && IsVendorFolder(Path.GetFileName(path.TrimEnd('\\')), publisherTokens, combinedTokens))
             {
-                result.Warnings.Add($"Vendor folder '{path}' was preserved to protect other products.");
+                result.Warnings.Add(F("VendorFolderWasPreservedToProtectOtherProducts", path));
                 return;
             }
 
@@ -522,12 +523,12 @@ public sealed partial class LeftoverScanner
                 if (FindOwningProgram(installLocation, program, otherPrograms) is { } owner)
                 {
                     result.Warnings.Add(
-                        $"The recorded install location is used by {owner.Name}; it was not offered for removal.");
+                        F("TheRecordedInstallLocationIsUsedByIt", owner.Name));
                 }
                 else
                 {
                     AddFile(installLocation, (int)LeftoverConfidence.High,
-                        "The recorded install location still exists after uninstall.");
+                        L("TheRecordedInstallLocationStillExistsAfterUninstall"));
                 }
             }
         }
@@ -571,7 +572,7 @@ public sealed partial class LeftoverScanner
                     && productKeyScore >= (int)LeftoverConfidence.Medium
                     && !MatchesOtherProgram(vendor, program, otherPrograms))
                 {
-                    AddRegistry(vendorLocation, productKeyScore, $"Registry key '{vendor}' matches the application.", productRoot: true);
+                    AddRegistry(vendorLocation, productKeyScore, F("RegistryKeyMatchesTheApplication2", vendor), productRoot: true);
                     continue;
                 }
 
@@ -598,7 +599,7 @@ public sealed partial class LeftoverScanner
                     AddRegistry(
                         location,
                         score,
-                        $"Registry key '{vendor}\\{product}' matches the application.");
+                        F("RegistryKeyMatchesTheApplication", vendor, product));
                 }
             }
         }
@@ -617,7 +618,7 @@ public sealed partial class LeftoverScanner
             var personal = rootKind == FolderRootKind.Personal;
             int RootScore(int score) => personal ? Math.Min(score, (int)LeftoverConfidence.Medium) : score;
             string RootReason(string reason) => personal
-                ? reason + " It is in a personal folder and may contain your own files."
+                ? reason + L("ItIsInAPersonalFolderAndMay")
                 : reason;
 
             IEnumerable<string> children;
@@ -661,7 +662,7 @@ public sealed partial class LeftoverScanner
                     var score = Score(folderName, allowPublisherOnly: false);
                     if (score >= (int)LeftoverConfidence.Medium)
                     {
-                        AddFile(child, RootScore(score), RootReason("Folder name matches the application name."));
+                        AddFile(child, RootScore(score), RootReason(L("FolderNameMatchesTheApplicationName")));
                         continue;
                     }
                 }
@@ -712,7 +713,7 @@ public sealed partial class LeftoverScanner
                         AddFile(
                             grandchild,
                             RootScore(grandScore),
-                            RootReason($"Folder '{folderName}\\{grandName}' matches the application name."));
+                            RootReason(F("FolderMatchesTheApplicationName", folderName, grandName)));
                     }
                 }
             }
@@ -743,14 +744,14 @@ public sealed partial class LeftoverScanner
                     if (executableNames.Any(name => leaf.StartsWith(name + ".", StringComparison.OrdinalIgnoreCase)))
                     {
                         AddFile(dump, (int)LeftoverConfidence.Strong,
-                            "Crash dump name identifies an executable in the recorded install location; review before removal.");
+                            L("CrashDumpNameIdentifiesAnExecutableInThe"));
                     }
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 result.Truncated = true;
-                result.Warnings.Add($"Could not inspect crash dumps at '{dumpRoot}': {ex.Message}");
+                result.Warnings.Add(F("CouldNotInspectCrashDumpsAt", dumpRoot, ex.Message));
             }
         }
 
@@ -825,7 +826,7 @@ public sealed partial class LeftoverScanner
                         AddFile(
                             entry,
                             (int)LeftoverConfidence.High,
-                            $"Shortcut target is inside the recorded install location ({target}).");
+                            F("ShortcutTargetIsInsideTheRecordedInstallLocation", target));
                     }
 
                     continue;
@@ -838,7 +839,7 @@ public sealed partial class LeftoverScanner
                     AddFile(
                         entry,
                         (int)LeftoverConfidence.Strong,
-                        $"Shortcut target is missing ({target}) and the name matches the application.");
+                        F("ShortcutTargetIsMissingAndTheNameMatches", target));
                     continue;
                 }
 
@@ -850,7 +851,7 @@ public sealed partial class LeftoverScanner
                     }
 
                     AddFile(entry, Math.Min(shortcutScore, (int)LeftoverConfidence.Strong),
-                        "Shortcut name matches the application name; the target does not establish ownership, so review is required.");
+                        L("ShortcutNameMatchesTheApplicationNameTheTarget"));
                 }
             }
         }
@@ -924,14 +925,14 @@ public sealed partial class LeftoverScanner
                                 || leaf.StartsWith($"AppHang_{name}_", StringComparison.OrdinalIgnoreCase)))
                         {
                             addFile(report, (int)LeftoverConfidence.Strong,
-                                "Windows error report names an executable in the recorded install location; review before removal.");
+                                L("WindowsErrorReportNamesAnExecutableInThe"));
                         }
                     }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     result.Truncated = true;
-                    result.Warnings.Add($"Could not inspect error reports at '{root}': {ex.Message}");
+                    result.Warnings.Add(F("CouldNotInspectErrorReportsAt", root, ex.Message));
                 }
             }
         }
@@ -991,7 +992,7 @@ public sealed partial class LeftoverScanner
                         {
                             limitReached = true;
                             result.Truncated = true;
-                            result.Warnings.Add($"Discovery limit ({maxEntriesPerRoot}) reached at '{root}'; deeper name suggestions are incomplete.");
+                            result.Warnings.Add(F("DiscoveryLimitReachedAtDeeperNameSuggestionsAre", maxEntriesPerRoot, root));
                             break;
                         }
 
@@ -1013,9 +1014,9 @@ public sealed partial class LeftoverScanner
                                 DisplayPath = entry, FilePath = entry,
                                 Confidence = LeftoverConfidence.Low,
                                 Reason = nativeMatch
-                                    ? "Recursive application-data discovery matched the full application name with native alphabetic boundaries; ownership is not established."
-                                    : "Recursive application-data discovery matched the filename or folder name; ownership is not established.",
-                                ProtectedReason = "Report-only name suggestion: additional application ownership evidence is required."
+                                    ? L("RecursiveApplicationDataDiscoveryMatchedTheFullApplication")
+                                    : L("RecursiveApplicationDataDiscoveryMatchedTheFilenameOr"),
+                                ProtectedReason = L("ReportOnlyNameSuggestionAdditionalApplicationOwnershipEvidence")
                             });
                         }
 
@@ -1027,14 +1028,14 @@ public sealed partial class LeftoverScanner
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     result.Truncated = true;
-                    result.Warnings.Add($"Could not inspect deeper application data at '{directory.FullName}': {ex.Message}");
+                    result.Warnings.Add(F("CouldNotInspectDeeperApplicationDataAt", directory.FullName, ex.Message));
                 }
             }
 
             if (depthLimited)
             {
                 result.Truncated = true;
-                result.Warnings.Add($"Discovery depth ({maxDepth}) reached at '{root}'; deeper name suggestions are incomplete.");
+                result.Warnings.Add(F("DiscoveryDepthReachedAtDeeperNameSuggestionsAre", maxDepth, root));
             }
         }
 
@@ -1133,8 +1134,8 @@ public sealed partial class LeftoverScanner
                             Id = $"registry|{properties.Hive}|{properties.View}|{properties.Path}",
                             Kind = LeftoverKind.RegistryKey, RegistryLocation = properties,
                             DisplayPath = properties.DisplayPath, Confidence = LeftoverConfidence.Low,
-                            Reason = $"Windows Installer identity reference matched {(sameLocation ? "the recorded install location" : "the exact display name")}; this is an identity seed, not proof of disposable installer state.",
-                            ProtectedReason = "Windows Installer bookkeeping is report-only and remains protected."
+                            Reason = F("WindowsInstallerIdentityReferenceMatchedThisIsAn", (sameLocation ? L("TheRecordedInstallLocation") : L("TheExactDisplayName"))),
+                            ProtectedReason = L("WindowsInstallerBookkeepingIsReportOnlyAndRemains")
                         });
                     }
                 }
@@ -1142,7 +1143,7 @@ public sealed partial class LeftoverScanner
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 result.Truncated = true;
-                result.Warnings.Add($"Could not inspect Windows Installer references at '{root.DisplayPath}': {ex.Message}");
+                result.Warnings.Add(F("CouldNotInspectWindowsInstallerReferencesAt", root.DisplayPath, ex.Message));
             }
         }
     }
@@ -1258,8 +1259,8 @@ public sealed partial class LeftoverScanner
                         RegistryLocation = location,
                         IsAppCompatEntry = true,
                         Reason = stillExists
-                            ? $"Registration points into the recorded install location ({executable})."
-                            : $"Registration points to a missing executable ({executable})."
+                            ? F("RegistrationPointsIntoTheRecordedInstallLocation", executable)
+                            : F("RegistrationPointsToAMissingExecutable", executable)
                     });
                 }
             }
@@ -1356,8 +1357,8 @@ public sealed partial class LeftoverScanner
                     RegistryLocation = location,
                     IsAssociationEntry = true,
                     Reason = exists
-                        ? $"File-association handler points into the recorded install location ({executable})."
-                        : $"File-association handler points to a missing executable ({executable})."
+                        ? F("FileAssociationHandlerPointsIntoTheRecordedInstall", executable)
+                        : F("FileAssociationHandlerPointsToAMissingExecutable", executable)
                 });
             }
         }
@@ -1453,8 +1454,8 @@ public sealed partial class LeftoverScanner
                     RegistryLocation = location,
                     IsComEntry = true,
                     Reason = exists
-                        ? $"COM server registration points into the recorded install location ({executable})."
-                        : $"COM server registration points to a missing file ({executable})."
+                        ? F("COMServerRegistrationPointsIntoTheRecordedInstall", executable)
+                        : F("COMServerRegistrationPointsToAMissingFile", executable)
                 });
             }
         }
@@ -1557,8 +1558,8 @@ public sealed partial class LeftoverScanner
                     PathSegment = segment,
                     IsMachinePath = machineWide,
                     Reason = underInstall
-                        ? "PATH points into the recorded install location."
-                        : "PATH points to a missing directory whose name matches the application."
+                        ? L("PATHPointsIntoTheRecordedInstallLocation")
+                        : L("PATHPointsToAMissingDirectoryWhoseName")
                 });
             }
         }
@@ -1664,8 +1665,8 @@ public sealed partial class LeftoverScanner
                 ValueName = valueName,
                 IsFirewallRule = true,
                 Reason = exists
-                    ? $"Firewall rule targets a program in the recorded install location ({executable})."
-                    : $"Firewall rule targets a missing program ({executable})."
+                    ? F("FirewallRuleTargetsAProgramInTheRecorded", executable)
+                    : F("FirewallRuleTargetsAMissingProgram", executable)
             });
         }
     }
@@ -1797,11 +1798,11 @@ public sealed partial class LeftoverScanner
             var reason = isDriver
                 ? $"Driver '{displayName ?? service}' " +
                   (exists
-                      ? "uses a binary inside the recorded install location. The driver is not stopped."
-                      : $"points to a missing binary ({executable}).")
+                      ? L("UsesABinaryInsideTheRecordedInstallLocation")
+                      : F("PointsToAMissingBinary", executable))
                 : exists
-                    ? $"Service '{displayName ?? service}' uses a binary inside the recorded install location ({executable}). The service is not stopped."
-                    : $"Service '{displayName ?? service}' points to a missing binary ({executable}).";
+                    ? F("ServiceUsesABinaryInsideTheRecordedInstall", displayName ?? service, executable)
+                    : F("ServicePointsToAMissingBinary", displayName ?? service, executable);
 
             var item = new LeftoverItem
             {
@@ -1820,7 +1821,7 @@ public sealed partial class LeftoverScanner
             if (isBootDriver)
             {
                 item.ProtectedReason =
-                    "Boot-start driver definitions are never removed; a bad change here can stop Windows from starting.";
+                    L("BootStartDriverDefinitionsAreNeverRemovedA");
             }
 
             result.Items.Add(item);
@@ -1959,10 +1960,10 @@ public sealed partial class LeftoverScanner
                 FilePath = file,
                 TaskName = taskName,
                 Reason = executable is null
-                    ? $"Scheduled task uses a COM handler whose server is {(underInstall ? "inside the recorded install location" : "missing")}{detail}."
+                    ? F("ScheduledTaskUsesACOMHandlerWhoseServer", (underInstall ? "inside the recorded install location" : "missing"), detail)
                     : stillExists
-                        ? $"Scheduled task runs an executable in the recorded install location{detail}."
-                        : $"Scheduled task points to a missing executable{detail}."
+                        ? F("ScheduledTaskRunsAnExecutableInTheRecorded", detail)
+                        : F("ScheduledTaskPointsToAMissingExecutable", detail)
             });
         }
     }
@@ -2452,7 +2453,7 @@ public sealed partial class LeftoverScanner
         if (hidden.Count > 0)
         {
             result.Warnings.Add(
-                $"{hidden.Count} ignored leftover(s) hidden. Clear the ignored list from the review window to show them again.");
+                F("IgnoredLeftoverSHiddenClearTheIgnoredList", hidden.Count));
         }
     }
 
@@ -2515,7 +2516,7 @@ public sealed partial class LeftoverScanner
         var result = registry.Concat(tasks).Concat(consolidatedFiles).ToList();
         if (result.Count == 0)
         {
-            warnings.Add("No leftover candidates were found.");
+            warnings.Add(L("NoLeftoverCandidatesWereFound"));
         }
 
         return result;
@@ -2535,7 +2536,7 @@ public sealed partial class LeftoverScanner
             if (bounded.Count == limit)
             {
                 result.Truncated = true;
-                result.Warnings.Add($"Scan limit ({limit}) reached at '{scope}'; some entries were not inspected.");
+                result.Warnings.Add(F("ScanLimitReachedAtSomeEntriesWereNot", limit, scope));
                 break;
             }
 

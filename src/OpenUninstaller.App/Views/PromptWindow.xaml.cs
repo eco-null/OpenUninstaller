@@ -1,4 +1,5 @@
 using System.Windows;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.Views;
 
@@ -26,17 +27,17 @@ public partial class PromptWindow : Window
     {
         if (string.IsNullOrWhiteSpace(InputBox.Text))
         {
-            MessageBox.Show(this, "A value is required.", "OpenUninstaller", MessageBoxButton.OK, MessageBoxImage.Information);
+            NoticeWindow.Show(this, L("AValueIsRequired"), "OpenUninstaller", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         if (_expectedValue is not null
             && !string.Equals(InputBox.Text.Trim(), _expectedValue, StringComparison.Ordinal))
         {
-            MessageBox.Show(
+            NoticeWindow.Show(
                 this,
-                $"Type {_expectedValue} exactly to confirm. This action cannot be undone.",
-                "Confirmation required",
+                F("TypeExactlyToConfirmThisActionCannotBe", _expectedValue),
+                L("ConfirmationRequired"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
             InputBox.SelectAll();

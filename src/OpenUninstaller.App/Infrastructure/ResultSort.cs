@@ -1,10 +1,13 @@
 using System.ComponentModel;
+using OpenUninstaller.Core.Localization;
 
 namespace OpenUninstaller.App.Infrastructure;
 
 public sealed record SortField(string Label, string Path, string Ascending = "A–Z", string Descending = "Z–A", string? PresencePath = null);
-public sealed record SortOption(string Label, string Path, ListSortDirection Direction, string? PresencePath)
+public sealed record SortOption(string Field, string Order, string Path, ListSortDirection Direction, string? PresencePath)
 {
+    public string Label => $"{UiText.Label(Field)} · {UiText.Label(Order)}";
+
     // The shared ComboBox template renders SelectionBoxItem directly.
     public override string ToString() => Label;
 }
@@ -22,8 +25,8 @@ public sealed class ResultSort : ObservableObject
         _namePath = namePath;
         Options = fields.SelectMany(field => new[]
         {
-            new SortOption($"{field.Label} · {field.Ascending}", field.Path, ListSortDirection.Ascending, field.PresencePath),
-            new SortOption($"{field.Label} · {field.Descending}", field.Path, ListSortDirection.Descending, field.PresencePath)
+            new SortOption(field.Label, field.Ascending, field.Path, ListSortDirection.Ascending, field.PresencePath),
+            new SortOption(field.Label, field.Descending, field.Path, ListSortDirection.Descending, field.PresencePath)
         }).ToArray();
         _selectedOption = Options[0];
         Apply();

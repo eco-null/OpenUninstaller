@@ -2,6 +2,7 @@ using System.Diagnostics;
 using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -41,8 +42,8 @@ public sealed class UninstallService
         var command = UninstallCommandResolver.Resolve(program, options.PreferSilent);
         if (!command.IsUsable)
         {
-            messages.Add(command.Error ?? "The vendor uninstaller is unavailable.");
-            messages.Add("Use forced uninstall to remove the registration and scan for leftovers.");
+            messages.Add(command.Error ?? L("TheVendorUninstallerIsUnavailable"));
+            messages.Add(L("UseForcedUninstallToRemoveTheRegistrationAnd"));
             _log.Write("uninstall", "resolve", program.RegistryPath, "failed", command.Error);
             return new UninstallResult
             {
@@ -68,7 +69,7 @@ public sealed class UninstallService
 
         if (!result.Started)
         {
-            messages.Add($"Could not start the uninstaller: {result.Error ?? "unknown error"}.");
+            messages.Add(F("CouldNotStartTheUninstaller", result.Error ?? L("UnknownError")));
             _log.Write("uninstall", "run", command.DisplayCommand, "failed", result.Error);
             return new UninstallResult
             {
@@ -84,8 +85,8 @@ public sealed class UninstallService
 
         if (result.TimedOut || result.StillRunning)
         {
-            messages.Add("The vendor uninstaller is still running. OpenUninstaller did not terminate it.");
-            messages.Add("Close the uninstaller, then refresh the list and scan again.");
+            messages.Add(L("TheVendorUninstallerIsStillRunningOpenUninstallerDid"));
+            messages.Add(L("CloseTheUninstallerThenRefreshTheListAnd"));
             _log.Write("uninstall", "wait", command.DisplayCommand, "timed-out", $"pid={result.ProcessId}");
             return new UninstallResult
             {
@@ -101,19 +102,19 @@ public sealed class UninstallService
             };
         }
 
-        progress?.Report(new OperationProgress(OperationStages.Verifying, "Checking the uninstall registration"));
+        progress?.Report(new OperationProgress(OperationStages.Verifying, L("CheckingTheUninstallRegistration")));
         var stillRegistered = _registry.KeyExists(program.Location);
         var rebootRequired = result.ExitCode is 1641 or 3010;
         var successCode = result.ExitCode is null || SuccessExitCodes.Contains(result.ExitCode.Value);
 
-        messages.Add($"Uninstaller exited with code {result.ExitCode?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"}.");
+        messages.Add(F("UninstallerExitedWithCode", result.ExitCode?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"));
         if (stillRegistered)
         {
-            messages.Add("The registry entry is still present. The vendor uninstaller may have been cancelled, or cleanup is incomplete.");
+            messages.Add(L("TheRegistryEntryIsStillPresentTheVendor"));
         }
         else
         {
-            messages.Add("The registry entry was removed.");
+            messages.Add(L("TheRegistryEntryWasRemoved"));
         }
 
         _log.Write(
@@ -145,7 +146,7 @@ public sealed class UninstallService
         var guard = RegistryGuard.ValidateForDeletion(program.Location, allowUninstallEntry: true);
         if (!guard.Allowed)
         {
-            messages.Add($"Forced uninstall was refused: {guard.Reason}");
+            messages.Add(F("ForcedUninstallWasRefused", guard.Reason));
             _log.Write("force-uninstall", "guard", program.RegistryPath, "rejected", guard.Reason);
             return new UninstallResult
             {
@@ -163,19 +164,19 @@ public sealed class UninstallService
         {
             _log.Write("force-uninstall", "delete-key", program.RegistryPath, "started");
             _registry.DeleteKey(program.Location, recursive: true);
-            messages.Add("The uninstall registration entry was removed.");
+            messages.Add(L("TheUninstallRegistrationEntryWasRemoved"));
             _log.Write("force-uninstall", "delete-key", program.RegistryPath, "completed");
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            messages.Add($"Could not remove the registration entry: {ex.Message}");
+            messages.Add(F("CouldNotRemoveTheRegistrationEntry", ex.Message));
             _log.Write("force-uninstall", "delete-key", program.RegistryPath, "failed", ex.Message);
         }
 
         var stillRegistered = _registry.KeyExists(program.Location);
         if (!stillRegistered)
         {
-            messages.Add("Run the leftover scan next to review files and keys the vendor left behind.");
+            messages.Add(L("RunTheLeftoverScanNextToReviewFiles"));
         }
 
         return new UninstallResult

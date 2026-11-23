@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using OpenUninstaller.Core.Abstractions;
+using OpenUninstaller.Core.Localization;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Support;
 
@@ -30,8 +31,8 @@ public sealed class DoctorService
 
     public DoctorReport Run()
     {
-        var warnings = new List<string>();
-        var checks = new List<string>();
+        var warnings = new LocalizedMessages();
+        var checks = new LocalizedMessages();
         var writable = false;
 
         try
@@ -41,22 +42,22 @@ public sealed class DoctorService
             File.WriteAllText(probe, "ok");
             File.Delete(probe);
             writable = true;
-            checks.Add("Data directory is writable.");
+            checks.Add("DataDirectoryIsWritable");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            warnings.Add($"Data directory is not writable: {ex.Message}");
+            warnings.Add("DataDirectoryIsNotWritable", ex.Message);
         }
 
         int programCount = 0;
         try
         {
             programCount = _scanner.Scan().Count;
-            checks.Add($"Detected {programCount} installed applications.");
+            checks.Add("DetectedInstalledApplications", programCount);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            warnings.Add($"Inventory failed: {ex.Message}");
+            warnings.Add("InventoryFailed", ex.Message);
         }
 
         int traceCount = 0;
@@ -65,25 +66,25 @@ public sealed class DoctorService
         {
             traceCount = _traces.List().Count;
             backupCount = _backups.List().Count;
-            checks.Add($"{traceCount} trace(s), {backupCount} backup(s) available.");
+            checks.Add("TraceSBackupSAvailable", traceCount, backupCount);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            warnings.Add($"Local store check failed: {ex.Message}");
+            warnings.Add("LocalStoreCheckFailed", ex.Message);
         }
 
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            warnings.Add("OpenUninstaller requires Windows.");
+            warnings.Add("OpenUninstallerRequiresWindows");
         }
 
         checks.Add(_elevation.IsElevated
-            ? "Running elevated: machine-wide changes are available."
-            : "Running unelevated: HKLM and some folders need elevation.");
+            ? "RunningElevatedMachineWideChangesAreAvailable"
+            : "RunningUnelevatedHKLMAndSomeFoldersNeedElevation");
 
         if (!_elevation.IsElevated)
         {
-            warnings.Add("Some cleanup operations will be refused without administrator rights.");
+            warnings.Add("SomeCleanupOperationsWillBeRefusedWithoutAdministrator");
         }
 
         return new DoctorReport

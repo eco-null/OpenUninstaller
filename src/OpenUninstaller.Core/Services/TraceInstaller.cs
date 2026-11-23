@@ -2,6 +2,7 @@ using Microsoft.Win32;
 using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -64,21 +65,21 @@ public sealed class TraceInstaller
     {
         if (string.IsNullOrWhiteSpace(installerPath) || !File.Exists(installerPath))
         {
-            throw new FileNotFoundException("The installer was not found.", installerPath);
+            throw new FileNotFoundException(L("TheInstallerWasNotFound"), installerPath);
         }
 
         var canonicalInstaller = Path.GetFullPath(installerPath);
-        progress?.Report(new OperationProgress(OperationStages.Preparing, "Indexing registry before install"));
+        progress?.Report(new OperationProgress(OperationStages.Preparing, L("IndexingRegistryBeforeInstall")));
         var beforeRegistry = await Task.Run(
             () => _registrySnapshotter.Capture(RegistryScopes, cancellationToken: cancellationToken),
             cancellationToken).ConfigureAwait(false);
 
-        progress?.Report(new OperationProgress(OperationStages.Preparing, "Indexing files before install"));
+        progress?.Report(new OperationProgress(OperationStages.Preparing, L("IndexingFilesBeforeInstall")));
         var beforeFiles = await Task.Run(
             () => _fileSnapshotter.Capture(FileRoots, cancellationToken: cancellationToken),
             cancellationToken).ConfigureAwait(false);
 
-        progress?.Report(new OperationProgress(OperationStages.RunningUninstaller, "Running the installer"));
+        progress?.Report(new OperationProgress(OperationStages.RunningUninstaller, L("RunningTheInstaller")));
         var run = await _runner.RunAsync(
             canonicalInstaller,
             string.Empty,
@@ -88,15 +89,15 @@ public sealed class TraceInstaller
 
         if (!run.Started)
         {
-            throw new InvalidOperationException($"The installer did not start: {run.Error ?? "unknown error"}");
+            throw new InvalidOperationException(F("TheInstallerDidNotStart", run.Error ?? L("UnknownError")));
         }
 
-        progress?.Report(new OperationProgress(OperationStages.Scanning, "Indexing registry after install"));
+        progress?.Report(new OperationProgress(OperationStages.Scanning, L("IndexingRegistryAfterInstall")));
         var afterRegistry = await Task.Run(
             () => _registrySnapshotter.Capture(RegistryScopes, cancellationToken: cancellationToken),
             cancellationToken).ConfigureAwait(false);
 
-        progress?.Report(new OperationProgress(OperationStages.Scanning, "Indexing files after install"));
+        progress?.Report(new OperationProgress(OperationStages.Scanning, L("IndexingFilesAfterInstall")));
         var afterFiles = await Task.Run(
             () => _fileSnapshotter.Capture(FileRoots, cancellationToken: cancellationToken),
             cancellationToken).ConfigureAwait(false);
@@ -126,7 +127,7 @@ public sealed class TraceInstaller
         };
 
         _store.Save(trace);
-        progress?.Report(new OperationProgress(OperationStages.Completed, $"Trace saved with {trace.KeyCount} keys and {trace.FileCount} files"));
+        progress?.Report(new OperationProgress(OperationStages.Completed, F("TraceSavedWithKeysAndFiles", trace.KeyCount, trace.FileCount)));
         return trace;
     }
 

@@ -59,6 +59,9 @@ jobs:
           $app = "src\OpenUninstaller.App\bin\Release\net8.0-windows\OpenUninstaller.exe"
           # Hosted runners have no user to protect, and UI Automation actions are ~2 s slower on a hidden desktop.
           dotnet run --project tests\OpenUninstaller.UiSmoke\OpenUninstaller.UiSmoke.csproj -c Release --no-build -- $app --visible
+          if ($LASTEXITCODE -ne 0) { throw "UI smoke failed" }
+          dotnet run --project tests\OpenUninstaller.UiSmoke\OpenUninstaller.UiSmoke.csproj -c Release --no-build -- --verify-localization --visible
+          if ($LASTEXITCODE -ne 0) { throw "Localization UI checks failed" }
 
       - name: Publish self-contained artifact
         if: github.event_name != 'pull_request'

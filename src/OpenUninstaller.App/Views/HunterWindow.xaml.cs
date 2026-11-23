@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.Views;
 
@@ -57,7 +58,7 @@ public partial class HunterWindow : Window, IDisposable
         {
             if (TrackingStatusText is not null)
             {
-                TrackingStatusText.Text = $"Live activity: {_tracker.FileEvents.Count} file changes, {_tracker.SpawnedProcesses.Count} processes";
+                TrackingStatusText.Text = F("LiveActivityFileChangesProcesses", _tracker.FileEvents.Count, _tracker.SpawnedProcesses.Count);
             }
         });
     }
@@ -78,12 +79,13 @@ public partial class HunterWindow : Window, IDisposable
             if (!match.Matched && string.IsNullOrWhiteSpace(match.ExePath))
             {
                 var detail = string.IsNullOrWhiteSpace(match.Reason)
-                    ? "No window or process found under cursor."
+                    ? L("NoWindowOrProcessFoundUnderCursor")
                     : match.Reason;
 
-                var result = MessageBox.Show(
-                    $"{detail}\n\nDo you want to inspect live system activity recorded so far?",
-                    "Hunter mode",
+                var result = NoticeWindow.Show(
+                    null,
+                    F("DoYouWantToInspectLiveSystemActivity", detail),
+                    L("HunterMode"),
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Information);
 

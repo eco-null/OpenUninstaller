@@ -1,3 +1,5 @@
+using static OpenUninstaller.Core.Localization.UiText;
+
 namespace OpenUninstaller.Core.Models;
 
 public enum BrowserDataKind
@@ -8,7 +10,7 @@ public enum BrowserDataKind
 
 public sealed record BrowserDataFile(BrowserDataKind Kind, string Path, long Bytes)
 {
-    public string KindLabel => Kind == BrowserDataKind.History ? "History" : "Cookies";
+    public string KindLabel => Kind == BrowserDataKind.History ? L("History") : L("Cookies");
 }
 
 public sealed class BrowserProfile
@@ -23,7 +25,7 @@ public sealed class BrowserProfile
     public int HistoryCount => Files.Count(f => f.Kind == BrowserDataKind.History);
     public int CookieCount => Files.Count(f => f.Kind == BrowserDataKind.Cookies);
     public string SizeDisplay => InstalledProgram.FormatBytes(TotalBytes);
-    public string Detail => $"{HistoryCount} history · {CookieCount} cookie file(s)";
+    public string Detail => F("HistoryCookieFileS", HistoryCount, CookieCount);
     public string DisplayName => $"{Browser} · {ProfileName}";
 }
 
@@ -46,6 +48,6 @@ public sealed class BrowserCleanResult
     public List<string> Messages { get; } = [];
     public bool Succeeded => Messages.Count == 0 || DeletedFiles > 0;
     public string Summary => DryRun
-        ? $"Would remove {DeletedFiles} browser file(s), {InstalledProgram.FormatBytes(Bytes)}."
-        : $"Removed {DeletedFiles} browser file(s), {InstalledProgram.FormatBytes(Bytes)}.";
+        ? F("WouldRemoveBrowserFileS", DeletedFiles, InstalledProgram.FormatBytes(Bytes))
+        : F("RemovedBrowserFileS", DeletedFiles, InstalledProgram.FormatBytes(Bytes));
 }

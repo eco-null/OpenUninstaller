@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -30,10 +31,10 @@ public sealed class PrivacyCategoryRow : ObservableObject
 
     public PrivacyCategory Category { get; }
     public string Id => Category.Id;
-    public string Title => Category.Title;
-    public string Description => Category.Description;
+    public string Title => OpenUninstaller.Core.Localization.UiText.Label(Category.Title);
+    public string Description => OpenUninstaller.Core.Localization.UiText.Label(Category.Description);
     public string SizeDisplay => Category.SizeDisplay;
-    public string ItemLabel => $"{Category.ItemCount} item(s)";
+    public string ItemLabel => F("ItemS4", Category.ItemCount);
     public string? Warning => Category.Warning;
 
     public bool IsSelected
@@ -91,7 +92,7 @@ public sealed class EvidenceRemoverDriveRow : ObservableObject
     public string DisplayName => Drive.DisplayName;
     public string FreeSpaceDisplay => Drive.FreeSpaceDisplay;
     public string TotalSizeDisplay => Drive.TotalSizeDisplay;
-    public string Detail => $"{Drive.DriveLetter} ({Drive.VolumeLabel}) - {Drive.FreeSpaceDisplay} free of {Drive.TotalSizeDisplay}";
+    public string Detail => F("FreeOf", Drive.DriveLetter, Drive.VolumeLabel, Drive.FreeSpaceDisplay, Drive.TotalSizeDisplay);
     public double FreePercentage => Drive.FreePercentage;
 }
 
@@ -105,8 +106,8 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
     private bool _shredDryRun;
     private bool _privacyDryRun;
     private bool _browserDryRun;
-    private string _privacyTotalLabel = "Not scanned yet";
-    private string _browserTotalLabel = "Not scanned yet";
+    private (long Bytes, int Count)? _privacyTotal;
+    private (long Bytes, int Files, int Profiles)? _browserTotal;
 
     public PrivacyViewModel(AppServices services, WindowService windows)
     {
@@ -181,8 +182,8 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
     }
 
     public string ShredTargetLabel => ShredTargets.Count == 0
-        ? "No files or folders selected"
-        : $"{ShredTargets.Count} target(s) selected";
+        ? L("NoFilesOrFoldersSelected")
+        : F("TargetSSelected", ShredTargets.Count);
 
     public string ShredDetailLabel
     {
@@ -190,36 +191,35 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
         {
             if (ShredTargets.Count == 0)
             {
-                return "Add files or a folder to overwrite them permanently.";
+                return L("AddFilesOrAFolderToOverwriteThem");
             }
 
             var files = ShredTargets.Count(t => !t.IsDirectory);
             var folders = ShredTargets.Count - files;
-            return $"{files} file(s) · {folders} folder(s) · {Passes} overwrite pass(es)";
+            return F("FileSFolderSOverwritePassEs", files, folders, Passes);
         }
     }
 
-    public string PrivacyTotalLabel
-    {
-        get => _privacyTotalLabel;
-        private set => SetProperty(ref _privacyTotalLabel, value);
-    }
+    public string PrivacyTotalLabel => _privacyTotal is { } total
+        ? F("ItemS3", InstalledProgram.FormatBytes(total.Bytes), total.Count)
+        : L("NotScannedYet");
 
-    public string BrowserTotalLabel
+    public string BrowserTotalLabel => _browserTotal switch
     {
-        get => _browserTotalLabel;
-        private set => SetProperty(ref _browserTotalLabel, value);
-    }
+        null => L("NotScannedYet"),
+        { Files: 0 } => L("NoBrowserHistoryOrCookieFilesFound"),
+        { } total => F("FileSInProfileS", InstalledProgram.FormatBytes(total.Bytes), total.Files, total.Profiles)
+    };
 
     public int SelectedCount => Categories.Count(c => c.IsSelected);
     public string SelectedLabel => SelectedCount == 0
-        ? "No privacy categories selected"
-        : $"{SelectedCount} category(ies) selected";
+        ? L("NoPrivacyCategoriesSelected")
+        : F("CategoryIesSelected", SelectedCount);
 
     public int BrowserSelectedCount => BrowserProfiles.Count(p => p.IsSelected);
     public string BrowserSelectedLabel => BrowserSelectedCount == 0
-        ? "No browser profiles selected"
-        : $"{BrowserSelectedCount} profile(s) selected";
+        ? L("NoBrowserProfilesSelected")
+        : F("ProfileSSelected", BrowserSelectedCount);
 
     public EvidenceRemoverDriveRow? SelectedDrive
     {
@@ -278,7 +278,7 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
         }
 
         IsBusy = true;
-        StatusMessage = "Reading Windows history and app state…";
+        SetStatus("ReadingWindowsHistoryAndAppState");
         try
         {
             Drives.Clear();
@@ -299,7 +299,8 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
                 Categories.Add(new PrivacyCategoryRow(category, OnSelectionChanged));
             }
 
-            PrivacyTotalLabel = $"{InstalledProgram.FormatBytes(scan.TotalBytes)} · {scan.TotalItems} item(s)";
+            _privacyTotal = (scan.TotalBytes, scan.TotalItems);
+            OnPropertyChanged(nameof(PrivacyTotalLabel));
 
             BrowserProfiles.Clear();
             var browsers = await Task.Run(() => _services.Browser.Scan());
@@ -308,17 +309,17 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
                 BrowserProfiles.Add(new BrowserProfileRow(profile, OnBrowserSelectionChanged));
             }
 
-            BrowserTotalLabel = browsers.TotalFiles == 0
-                ? "No browser history or cookie files found"
-                : $"{InstalledProgram.FormatBytes(browsers.TotalBytes)} · {browsers.TotalFiles} file(s) in {browsers.Profiles.Count} profile(s)";
-            StatusMessage = scan.Categories.Sum(c => c.ItemCount) == 0 && BrowserProfiles.Count == 0
-                ? "No history traces were found."
-                : $"{PrivacyTotalLabel} · {BrowserTotalLabel}";
+            _browserTotal = (browsers.TotalBytes, browsers.TotalFiles, browsers.Profiles.Count);
+            OnPropertyChanged(nameof(BrowserTotalLabel));
+            var foundHistory = scan.Categories.Any(c => c.ItemCount != 0) || BrowserProfiles.Count != 0;
+            SetStatus(() => !foundHistory
+                ? L("NoHistoryTracesWereFound")
+                : $"{PrivacyTotalLabel} · {BrowserTotalLabel}");
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            _windows.Error($"The privacy scan failed:\n{ex.Message}");
-            StatusMessage = "The privacy scan failed.";
+            _windows.Error(F("ThePrivacyScanFailed2", ex.Message));
+            SetStatus("ThePrivacyScanFailed");
         }
         finally
         {
@@ -329,7 +330,7 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
 
     private void AddFiles()
     {
-        foreach (var file in _windows.PickFiles("Select files to shred"))
+        foreach (var file in _windows.PickFiles(L("SelectFilesToShred")))
         {
             AddTarget(file, isDirectory: false);
         }
@@ -337,7 +338,7 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
 
     private void AddFolder()
     {
-        var folder = _windows.PickFolder("Select a folder to shred");
+        var folder = _windows.PickFolder(L("SelectAFolderToShred"));
         if (!string.IsNullOrWhiteSpace(folder))
         {
             AddTarget(folder, isDirectory: true);
@@ -355,7 +356,7 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
         string detail;
         if (isDirectory)
         {
-            detail = "Folder";
+            detail = L("Folder");
         }
         else
         {
@@ -365,7 +366,7 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                detail = "File";
+                detail = L("File");
             }
         }
 
@@ -398,16 +399,18 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
             return;
         }
 
-        if (!ShredDryRun)
+        var dryRun = ShredDryRun;
+        var passes = Passes;
+        if (!dryRun)
         {
             var warning = string.Join(
                 Environment.NewLine,
                 paths.Take(12).Select(p => "• " + p)) + (paths.Count > 12 ? $"{Environment.NewLine}• …" : string.Empty);
             var confirmation = _windows.PromptExact(
-                "Shred permanently",
-                "This cannot be undone. Files are overwritten, truncated and deleted; the recycle bin is not used.\n" +
-                "SSD wear-levelling and filesystem journals may still keep copies.\n\n" +
-                warning + "\n\nType SHRED to continue:",
+                L("ShredPermanently"),
+                L("ThisCannotBeUndoneFilesAreOverwrittenTruncated") +
+                L("SSDWearLevellingAndFilesystemJournalsMayStill") +
+                warning + L("TypeSHREDToContinue"),
                 "SHRED");
             if (confirmation is null)
             {
@@ -416,15 +419,15 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
         }
 
         IsBusy = true;
-        StatusMessage = ShredDryRun ? "Calculating the shred plan…" : "Overwriting and deleting…";
+        SetStatus(dryRun ? "CalculatingTheShredPlan" : "OverwritingAndDeleting");
         try
         {
             var result = await Task.Run(() =>
-                _services.Shredder.Shred(paths, Passes, ShredDryRun));
-            var verb = ShredDryRun ? "Would shred" : "Shredded";
-            var message = $"{verb} {result.ShreddedFiles} file(s), {InstalledProgram.FormatBytes(result.ShreddedBytes)}" +
-                          (result.DeletedDirectories > 0 ? $", removed {result.DeletedDirectories} folder(s)" : string.Empty) +
-                          $".{Environment.NewLine}Passes: {result.Passes} · Skipped: {result.Skipped.Count} · Failed: {result.Failed.Count}";
+                _services.Shredder.Shred(paths, passes, dryRun));
+            var message = F(dryRun ? "ShredPreviewSummary" : "ShredResultSummary", result.ShreddedFiles,
+                              InstalledProgram.FormatBytes(result.ShreddedBytes)) +
+                          (result.DeletedDirectories > 0 ? F("RemovedFolderS", result.DeletedDirectories) : string.Empty) +
+                          "\n" + F("ShredResultCounts", result.Passes, result.Skipped.Count, result.Failed.Count);
             if (result.Failed.Count > 0)
             {
                 message += Environment.NewLine + string.Join(Environment.NewLine, result.Failed.Take(8));
@@ -435,28 +438,28 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
                 message += Environment.NewLine + string.Join(Environment.NewLine, result.Rejected.Take(8));
             }
 
-            if (ShredDryRun)
+            if (dryRun)
             {
-                message += $"{Environment.NewLine}{Environment.NewLine}Dry run: nothing was deleted.";
+                message += "\n\n" + L("DryRunNothingWasDeleted");
             }
 
             if (result.Failed.Count == 0 && result.Rejected.Count == 0)
             {
-                _windows.Info(message, "Shred files");
+                _windows.Info(message, L("ShredFiles"));
             }
             else
             {
-                _windows.Error(message, "Shred files");
+                _windows.Error(message, L("ShredFiles"));
             }
 
-            if (!ShredDryRun)
+            if (!dryRun)
             {
                 ClearTargets();
             }
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "Shredding was cancelled.";
+            SetStatus("ShreddingWasCancelled");
         }
         finally
         {
@@ -473,13 +476,14 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
             return;
         }
 
-        if (!PrivacyDryRun)
+        var dryRun = PrivacyDryRun;
+        if (!dryRun)
         {
             var names = string.Join(Environment.NewLine, selected.Select(c => "• " + c.Title));
             var confirmation = _windows.PromptExact(
-                "Clean Windows history",
-                "These history entries are deleted without a backup so the privacy data is not copied elsewhere.\n\n" +
-                names + "\n\nType CLEAN to continue:",
+                L("CleanWindowsHistory"),
+                L("TheseHistoryEntriesAreDeletedWithoutABackup") +
+                names + L("TypeCLEANToContinue"),
                 "CLEAN");
             if (confirmation is null)
             {
@@ -488,31 +492,31 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
         }
 
         IsBusy = true;
-        StatusMessage = PrivacyDryRun ? "Calculating what would be removed…" : "Cleaning history…";
+        SetStatus(dryRun ? "CalculatingWhatWouldBeRemoved" : "CleaningHistory");
         try
         {
             var ids = selected.Select(c => c.Id).ToList();
-            var result = await Task.Run(() => _services.Privacy.Clean(ids, PrivacyDryRun));
-            var message = $"{(PrivacyDryRun ? "Would remove" : "Removed")} {result.ItemsDeleted} item(s), " +
-                          $"{InstalledProgram.FormatBytes(result.Bytes)}." +
-                          $"{Environment.NewLine}Failed: {result.FailedItems}";
+            var result = await Task.Run(() => _services.Privacy.Clean(ids, dryRun));
+            var message = F(dryRun ? "WouldRemovePrivacyItems" : "RemovedPrivacyItems",
+                              result.ItemsDeleted, InstalledProgram.FormatBytes(result.Bytes)) +
+                          F("Failed2", Environment.NewLine, result.FailedItems);
             if (result.Messages.Count > 0)
             {
                 message += Environment.NewLine + string.Join(Environment.NewLine, result.Messages.Take(10));
             }
 
-            if (PrivacyDryRun)
+            if (dryRun)
             {
-                message += $"{Environment.NewLine}{Environment.NewLine}Dry run: nothing was deleted.";
+                message += "\n\n" + L("DryRunNothingWasDeleted");
             }
 
-            if (result.Succeeded || PrivacyDryRun)
+            if (result.Succeeded || dryRun)
             {
-                _windows.Info(message, "Privacy");
+                _windows.Info(message, L("Privacy"));
             }
             else
             {
-                _windows.Error(message, "Privacy");
+                _windows.Error(message, L("Privacy"));
             }
         }
         finally
@@ -531,14 +535,15 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
             return;
         }
 
-        if (!BrowserDryRun)
+        var dryRun = BrowserDryRun;
+        if (!dryRun)
         {
             var names = string.Join(Environment.NewLine, selected.Select(p => "• " + p.DisplayName));
             var confirmation = _windows.PromptExact(
-                "Remove browser history and cookies",
-                "These profile databases are deleted without a backup so the browsing history is not copied elsewhere.\n" +
-                "A browser that is running is skipped. Passwords, bookmarks, autofill and extensions are never touched.\n\n" +
-                names + "\n\nType CLEAN to continue:",
+                L("RemoveBrowserHistoryAndCookies"),
+                L("TheseProfileDatabasesAreDeletedWithoutABackup") +
+                L("ABrowserThatIsRunningIsSkippedPasswords") +
+                names + L("TypeCLEANToContinue"),
                 "CLEAN");
             if (confirmation is null)
             {
@@ -547,14 +552,14 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
         }
 
         IsBusy = true;
-        StatusMessage = BrowserDryRun ? "Calculating browser cleanup…" : "Removing browser history and cookies…";
+        SetStatus(dryRun ? "CalculatingBrowserCleanup" : "RemovingBrowserHistoryAndCookies");
         try
         {
-            var result = await Task.Run(() => _services.Browser.Clean(selected, BrowserDryRun));
+            var result = await Task.Run(() => _services.Browser.Clean(selected, dryRun));
             var message = result.Summary;
             if (result.Skipped > 0)
             {
-                message += $"{Environment.NewLine}Skipped: {result.Skipped} file(s).";
+                message += "\n" + F("SkippedBrowserFiles", result.Skipped);
             }
 
             if (result.Messages.Count > 0)
@@ -562,18 +567,18 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
                 message += Environment.NewLine + string.Join(Environment.NewLine, result.Messages.Take(10));
             }
 
-            if (BrowserDryRun)
+            if (dryRun)
             {
-                message += $"{Environment.NewLine}{Environment.NewLine}Dry run: nothing was deleted.";
+                message += "\n\n" + L("DryRunNothingWasDeleted");
             }
 
-            if (result.Messages.Count == 0 || BrowserDryRun)
+            if (result.Messages.Count == 0 || dryRun)
             {
-                _windows.Info(message, "Browser data");
+                _windows.Info(message, L("BrowserData"));
             }
             else
             {
-                _windows.Error(message, "Browser data");
+                _windows.Error(message, L("BrowserData"));
             }
         }
         finally
@@ -640,11 +645,10 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
 
         var drive = SelectedDrive.Drive;
         var confirmed = _windows.Confirm(
-            $"Wipe unallocated free space on {drive.DisplayName} ({drive.FreeSpaceDisplay})?\n\n" +
-            "This will overwrite all deleted files and unused sectors with zeros to make forensic data recovery impossible. " +
-            "Existing files and programs will NOT be touched.\n\n" +
-            "Do you want to proceed?",
-            "Evidence Remover - Wipe Free Space",
+            F("WipeUnallocatedFreeSpaceOn", drive.DisplayName, drive.FreeSpaceDisplay) +
+            L("WipeFreeSpaceExplanation") + "\n\n" +
+            L("DoYouWantToProceed"),
+            L("EvidenceRemoverWipeFreeSpace"),
             danger: true);
 
         if (!confirmed)
@@ -654,16 +658,16 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
 
         IsWiping = true;
         WipePercent = 0;
-        WipeProgressStatus = $"Initializing free space wipe on {drive.DisplayName}…";
+        WipeProgressStatus = F("InitializingFreeSpaceWipeOn", drive.DisplayName);
         WipeEtaStatus = string.Empty;
         _wipeCts = new CancellationTokenSource();
 
         var progress = new Progress<WipeProgress>(p =>
         {
             WipePercent = p.PercentComplete;
-            WipeProgressStatus = $"{p.PercentComplete:F1}% — {InstalledProgram.FormatBytes(p.BytesWiped)} of {InstalledProgram.FormatBytes(p.TotalBytesToWipe)} wiped";
+            WipeProgressStatus = F("OfWiped", p.PercentComplete, InstalledProgram.FormatBytes(p.BytesWiped), InstalledProgram.FormatBytes(p.TotalBytesToWipe));
             WipeEtaStatus = p.EstimatedTimeRemaining.HasValue
-                ? $"ETA: {p.EstimatedTimeRemaining.Value:mm\\:ss}"
+                ? F("ETA", p.EstimatedTimeRemaining.Value)
                 : string.Empty;
         });
 
@@ -673,19 +677,19 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
             if (result.Succeeded)
             {
                 var formatted = InstalledProgram.FormatBytes(result.TotalBytesWiped);
-                _windows.Info($"Free space wipe complete!\nSuccessfully wiped {formatted} in {result.Duration:mm\\:ss}.", "Evidence Remover");
-                WipeProgressStatus = "Free space wipe complete.";
+                _windows.Info(F("FreeSpaceWipeCompleteSuccessfullyWipedIn", formatted, result.Duration), L("EvidenceRemover"));
+                WipeProgressStatus = L("FreeSpaceWipeComplete");
             }
             else
             {
-                _windows.Error($"Free space wipe stopped or failed:\n{result.ErrorMessage}");
-                WipeProgressStatus = $"Failed: {result.ErrorMessage}";
+                _windows.Error(F("FreeSpaceWipeStoppedOrFailed", result.ErrorMessage));
+                WipeProgressStatus = F("Failed", result.ErrorMessage);
             }
         }
         catch (OperationCanceledException)
         {
-            _windows.Info("Free space wipe was cancelled. Temporary wipe files were cleaned up.", "Evidence Remover");
-            WipeProgressStatus = "Wipe cancelled.";
+            _windows.Info(L("FreeSpaceWipeWasCancelledTemporaryWipeFiles"), L("EvidenceRemover"));
+            WipeProgressStatus = L("WipeCancelled");
         }
         finally
         {
@@ -701,7 +705,7 @@ public sealed class PrivacyViewModel : PageViewModel, IDisposable
     {
         if (_wipeCts is { IsCancellationRequested: false })
         {
-            WipeProgressStatus = "Cancelling wipe and cleaning up temporary files…";
+            WipeProgressStatus = L("CancellingWipeAndCleaningUpTemporaryFiles");
             _wipeCts.Cancel();
         }
     }

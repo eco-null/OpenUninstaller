@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -32,14 +33,14 @@ public static partial class UninstallCommandResolver
                 Arguments = string.Empty,
                 DisplayCommand = string.Empty,
                 IsWindowsInstaller = program.IsWindowsInstaller,
-                Error = "This application has no registered uninstall command."
+                Error = L("ThisApplicationHasNoRegisteredUninstallCommand")
             };
         }
 
         var expanded = Environment.ExpandEnvironmentVariables(raw.Trim());
         if (!TrySplitExecutable(expanded, out var executable, out var arguments))
         {
-            return Error("The uninstall command has no executable.");
+            return Error(L("TheUninstallCommandHasNoExecutable"));
         }
 
         var fileName = Path.GetFileName(executable);
@@ -51,7 +52,7 @@ public static partial class UninstallCommandResolver
 
             if (productCode is null)
             {
-                return Error("The MSI uninstall command has no product code.", windowsInstaller: true);
+                return Error(L("TheMSIUninstallCommandHasNoProductCode"), windowsInstaller: true);
             }
 
             var msiExecutable = executable.Contains(Path.DirectorySeparatorChar) || executable.Contains(Path.AltDirectorySeparatorChar)
@@ -63,7 +64,7 @@ public static partial class UninstallCommandResolver
         executable = ResolveSystemExecutable(executable);
         var warning = File.Exists(executable)
             ? null
-            : $"The uninstaller executable was not found at '{executable}'. Forced uninstall may be required.";
+            : F("TheUninstallerExecutableWasNotFoundAtForced", executable);
 
         return new UninstallCommandInfo
         {

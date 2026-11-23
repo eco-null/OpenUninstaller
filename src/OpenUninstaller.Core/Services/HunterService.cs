@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -39,7 +40,7 @@ public static class HunterService
     {
         if (window == nint.Zero)
         {
-            return new HunterMatch { Reason = "No window is under the cursor." };
+            return new HunterMatch { Reason = L("NoWindowIsUnderTheCursor") };
         }
 
         var threadId = GetWindowThreadProcessId(window, out var processId);
@@ -47,7 +48,7 @@ public static class HunterService
         var title = GetWindowTitle(window);
         if (processId == 0)
         {
-            return new HunterMatch { WindowTitle = title, Reason = "Could not resolve the window's process." };
+            return new HunterMatch { WindowTitle = title, Reason = L("CouldNotResolveTheWindowSProcess") };
         }
 
         var exePath = GetExecutablePath((int)processId);
@@ -58,7 +59,7 @@ public static class HunterService
                 ProcessId = (int)processId,
                 WindowTitle = title,
                 ProcessName = null,
-                Reason = "The process executable could not be read (it may be protected)."
+                Reason = L("TheProcessExecutableCouldNotBeReadIt")
             };
         }
 
@@ -78,7 +79,7 @@ public static class HunterService
         var bestScore = 0;
         var bestLocationLength = 0;
         var ambiguous = false;
-        var reason = "No installed application matched this window.";
+        var reason = L("NoInstalledApplicationMatchedThisWindow");
 
         foreach (var program in programs)
         {
@@ -93,13 +94,13 @@ public static class HunterService
                 && PathsEqual(icon, normalizedExe))
             {
                 score = 120;
-                candidateReason = "The executable matches the application's display icon.";
+                candidateReason = L("TheExecutableMatchesTheApplicationSDisplayIcon");
             }
             else if (ExecutableFromCommand(program.UninstallCommand) is { } uninstaller
                      && PathsEqual(uninstaller, normalizedExe))
             {
                 score = 110;
-                candidateReason = "The executable is the application's uninstaller.";
+                candidateReason = L("TheExecutableIsTheApplicationSUninstaller");
             }
             else if (installLocation is not null
                      && !PathsEqual(installLocation, Path.GetPathRoot(installLocation)!)
@@ -107,7 +108,7 @@ public static class HunterService
             {
                 score = 100;
                 locationLength = installLocation.TrimEnd('\\').Length;
-                candidateReason = "The executable is inside the application's install location.";
+                candidateReason = L("TheExecutableIsInsideTheApplicationSInstall");
             }
 
             if (score > bestScore || (score == bestScore && locationLength > bestLocationLength))
@@ -137,7 +138,7 @@ public static class HunterService
         {
             best = null;
             bestScore = 0;
-            reason = "The executable matches multiple installed applications equally; ownership is ambiguous.";
+            reason = L("TheExecutableMatchesMultipleInstalledApplicationsEquallyOwnership");
         }
 
         return new HunterMatch

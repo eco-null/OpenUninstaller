@@ -4,22 +4,23 @@
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
-    <TextBlock Text="Settings" Style="{StaticResource PageTitle}" Margin="0,0,0,20"/>
+    <TextBlock Text="{infra:Loc NavSettings}" Style="{StaticResource PageTitle}" Margin="0,0,0,20"/>
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <infra:ResponsiveCardPanel AutomationProperties.AutomationId="SettingsCards" MaxColumns="2" Gap="20">
         <StackPanel AutomationProperties.AutomationId="SettingsPreferences">
           <Border Style="{StaticResource Card}" Margin="0,0,0,16">
             <StackPanel>
-              <TextBlock Text="Appearance" Style="{StaticResource SectionTitle}"/>
+              <TextBlock Text="{infra:Loc Appearance}" Style="{StaticResource SectionTitle}"/>
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*"/>
                   <ColumnDefinition Width="200"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                  <TextBlock Text="Theme" FontSize="13"/>
+                  <TextBlock Text="{infra:Loc SettingsTheme}" FontSize="13"/>
                 </StackPanel>
-                <ListBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding Theme, Mode=TwoWay}" Style="{StaticResource ThemeSelector}" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Color theme"/>
+                <ListBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding Theme, Mode=TwoWay}"
+                         ItemTemplate="{StaticResource LocalizedOption}" Style="{StaticResource ThemeSelector}" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="{infra:Loc ColorTheme}"/>
               </Grid>
               <Border Height="1" Background="{DynamicResource Border}" Margin="0,14,0,14"/>
               <Grid>
@@ -28,9 +29,12 @@
                   <ColumnDefinition Width="260"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                  <TextBlock Text="Language" FontSize="13"/>
+                  <TextBlock Text="{infra:Loc SettingsLanguage}" FontSize="13"/>
                 </StackPanel>
-                <ComboBox Grid.Column="1" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}" Background="{DynamicResource SurfaceAlt}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource Border}" Padding="8,6" VerticalAlignment="Center">
+                <ComboBox Grid.Column="1" ItemsSource="{Binding LanguageOptions}" SelectedValuePath="Id"
+                          SelectedValue="{Binding SelectedLanguageId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          AutomationProperties.AutomationId="LanguageSelector" AutomationProperties.Name="{infra:Loc SettingsLanguage}"
+                          Background="{DynamicResource SurfaceAlt}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource Border}" Padding="8,6" VerticalAlignment="Center">
                   <ComboBox.ItemTemplate>
                     <DataTemplate>
                       <TextBlock Text="{Binding Name}"/>
@@ -40,47 +44,47 @@
               </Grid>
               <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Margin="0,18,0,0" Padding="0,18,0,0">
                 <StackPanel>
-                  <TextBlock Text="Windows Explorer integration" Style="{StaticResource SectionTitle}"/>
-                  <CheckBox Content="Add Explorer context menu shortcuts" IsChecked="{Binding EnableContextMenu}" Margin="0,0,0,4"/>
+                  <TextBlock Text="{infra:Loc WindowsExplorerIntegration}" Style="{StaticResource SectionTitle}"/>
+                  <CheckBox Content="{infra:Loc AddExplorerContextMenuShortcuts}" IsChecked="{Binding EnableContextMenu}" Margin="0,0,0,4"/>
                 </StackPanel>
               </Border>
             </StackPanel>
           </Border>
           <Border Style="{StaticResource Card}" Margin="0,0,0,16">
             <StackPanel>
-              <TextBlock Text="Cleanup behavior" Style="{StaticResource SectionTitle}"/>
-              <CheckBox Content="Use silent uninstall when available" IsChecked="{Binding PreferSilent}" Margin="0,0,0,10"/>
-              <CheckBox Content="Always back up uninstall leftovers" IsChecked="True" IsEnabled="False" Margin="0,0,0,4"/>
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Keep the newest" FontSize="12.5" VerticalAlignment="Center"/>
-                <TextBox Style="{StaticResource Input}" Width="72" Margin="10,0" Text="{Binding KeepBackups, UpdateSourceTrigger=LostFocus}"/>
-                <TextBlock Text="backups when pruning" FontSize="12.5" VerticalAlignment="Center"/>
-              </StackPanel>
+              <TextBlock Text="{infra:Loc CleanupBehavior}" Style="{StaticResource SectionTitle}"/>
+              <CheckBox Content="{infra:Loc UseSilentUninstallWhenAvailable}" IsChecked="{Binding PreferSilent}" Margin="0,0,0,10"/>
+              <CheckBox Content="{infra:Loc AlwaysBackUpUninstallLeftovers}" IsChecked="True" IsEnabled="False" Margin="0,0,0,4"/>
+              <DockPanel>
+                <TextBox DockPanel.Dock="Right" Style="{StaticResource Input}" Width="72" Margin="10,0,0,0"
+                         Text="{Binding KeepBackups, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="{infra:Loc BackupsToKeepWhenPruning}"/>
+                <TextBlock Text="{infra:Loc BackupsToKeepWhenPruning}" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center"/>
+              </DockPanel>
               <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                <Button Content="Save settings" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}"/>
+                <Button Content="{infra:Loc SaveSettings}" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}"/>
                 <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Muted}" Margin="14,0,0,0" VerticalAlignment="Center"/>
               </StackPanel>
               <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Margin="0,18,0,0" Padding="0,18,0,0">
                 <StackPanel>
-                  <TextBlock Text="Permissions" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="{infra:Loc Permissions}" Style="{StaticResource SectionTitle}"/>
                   <TextBlock Text="{Binding AdminText}" Style="{StaticResource Muted}" Margin="0,0,0,12"/>
-                  <Button Content="Restart as administrator" Style="{StaticResource BaseButton}" Command="{Binding ElevateCommand}" HorizontalAlignment="Left"/>
+                  <Button Content="{infra:Loc RestartAsAdministrator}" Style="{StaticResource BaseButton}" Command="{Binding ElevateCommand}" HorizontalAlignment="Left"/>
                 </StackPanel>
               </Border>
             </StackPanel>
           </Border>
           <Border Style="{StaticResource Card}">
             <StackPanel>
-              <TextBlock Text="Local data" Style="{StaticResource SectionTitle}"/>
+              <TextBlock Text="{infra:Loc LocalData}" Style="{StaticResource SectionTitle}"/>
               <Grid Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="90"/>
                   <ColumnDefinition Width="*"/>
                   <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Backups" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                <TextBlock Text="{infra:Loc NavBackups}" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Text="{Binding BackupPath}" Style="{StaticResource Mono}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                <Button Grid.Column="2" Content="Open" Style="{StaticResource GhostButton}" Command="{Binding OpenBackupsCommand}"/>
+                <Button Grid.Column="2" Content="{infra:Loc Open}" Style="{StaticResource GhostButton}" Command="{Binding OpenBackupsCommand}"/>
               </Grid>
               <Grid Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
@@ -88,9 +92,9 @@
                   <ColumnDefinition Width="*"/>
                   <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Traces" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                <TextBlock Text="{infra:Loc Traces}" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Text="{Binding TracePath}" Style="{StaticResource Mono}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                <Button Grid.Column="2" Content="Open" Style="{StaticResource GhostButton}" Command="{Binding OpenTracesCommand}"/>
+                <Button Grid.Column="2" Content="{infra:Loc Open}" Style="{StaticResource GhostButton}" Command="{Binding OpenTracesCommand}"/>
               </Grid>
               <Grid>
                 <Grid.ColumnDefinitions>
@@ -98,16 +102,16 @@
                   <ColumnDefinition Width="*"/>
                   <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Logs" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                <TextBlock Text="{infra:Loc Logs}" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Text="{Binding LogPath}" Style="{StaticResource Mono}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                <Button Grid.Column="2" Content="Open" Style="{StaticResource GhostButton}" Command="{Binding OpenLogsCommand}"/>
+                <Button Grid.Column="2" Content="{infra:Loc Open}" Style="{StaticResource GhostButton}" Command="{Binding OpenLogsCommand}"/>
               </Grid>
               <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Margin="0,18,0,0" Padding="0,18,0,0">
                 <StackPanel>
-                  <TextBlock Text="Trace bundles" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="{infra:Loc TraceBundles}" Style="{StaticResource SectionTitle}"/>
                   <StackPanel Orientation="Horizontal">
-                    <Button Content="Export all…" Style="{StaticResource BaseButton}" Command="{Binding ExportTracesCommand}" Margin="0,0,8,0"/>
-                    <Button Content="Import bundle…" Style="{StaticResource BaseButton}" Command="{Binding ImportTraceCommand}"/>
+                    <Button Content="{infra:Loc ExportAll}" Style="{StaticResource BaseButton}" Command="{Binding ExportTracesCommand}" Margin="0,0,8,0"/>
+                    <Button Content="{infra:Loc ImportBundle}" Style="{StaticResource BaseButton}" Command="{Binding ImportTraceCommand}"/>
                   </StackPanel>
                 </StackPanel>
               </Border>
@@ -117,50 +121,50 @@
         <StackPanel AutomationProperties.AutomationId="SettingsMaintenance">
           <Border Style="{StaticResource Card}" Margin="0,0,0,16">
             <StackPanel>
-              <TextBlock Text="Background maintenance service" Style="{StaticResource SectionTitle}"/>
+              <TextBlock Text="{infra:Loc BackgroundMaintenanceService}" Style="{StaticResource SectionTitle}"/>
               <Grid Margin="0,12,0,4">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="Auto"/>
                   <ColumnDefinition Width="Auto"/>
                   <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Status:" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{infra:Loc Status}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Grid.Column="1" Text="{Binding ServiceStatus}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <Button Grid.Column="2" Content="Refresh" Style="{StaticResource GhostButton}" HorizontalAlignment="Right" Command="{Binding RefreshServiceCommand}"/>
+                <Button Grid.Column="2" Content="{infra:Loc ActionRefresh}" Style="{StaticResource GhostButton}" HorizontalAlignment="Right" Command="{Binding RefreshServiceCommand}"/>
               </Grid>
               <TextBlock Text="{Binding ServiceDetail}" Style="{StaticResource Mono}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
-              <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                <Button Content="Update service" Style="{StaticResource BaseButton}" Command="{Binding UpdateServiceCommand}" IsEnabled="{Binding IsElevated}" Margin="0,0,8,0"
+              <WrapPanel Margin="0,12,0,0">
+                <Button Content="{infra:Loc UpdateService}" Style="{StaticResource BaseButton}" Command="{Binding UpdateServiceCommand}" IsEnabled="{Binding IsElevated}" Margin="0,0,8,6"
                         Visibility="{Binding ServiceNeedsUpdate, Converter={StaticResource BoolVisibility}}"/>
-                <Button Content="Install service" Style="{StaticResource BaseButton}" Command="{Binding InstallServiceCommand}" IsEnabled="{Binding IsElevated}" Margin="0,0,8,0"/>
-                <Button Content="Remove service" Style="{StaticResource BaseButton}" Command="{Binding RemoveServiceCommand}" IsEnabled="{Binding IsElevated}" Margin="0,0,8,0"/>
-                <Button Content="Run maintenance now" Style="{StaticResource GhostButton}" Command="{Binding RunMaintenanceCommand}"/>
-              </StackPanel>
-              <TextBlock Style="{StaticResource Muted}" Margin="0,10,0,0" Text="Administrator required to install, update or remove."/>
+                <Button Content="{infra:Loc InstallService}" Style="{StaticResource BaseButton}" Command="{Binding InstallServiceCommand}" IsEnabled="{Binding IsElevated}" Margin="0,0,8,6"/>
+                <Button Content="{infra:Loc RemoveService}" Style="{StaticResource BaseButton}" Command="{Binding RemoveServiceCommand}" IsEnabled="{Binding IsElevated}" Margin="0,0,8,6"/>
+                <Button Content="{infra:Loc RunMaintenanceNow}" Style="{StaticResource GhostButton}" Command="{Binding RunMaintenanceCommand}" Margin="0,0,0,6"/>
+              </WrapPanel>
+              <TextBlock Style="{StaticResource Muted}" Margin="0,10,0,0" Text="{infra:Loc AdministratorRequiredToInstallUpdateOrRemove}"/>
               <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Margin="0,16,0,0" Padding="0,14,0,0">
                 <StackPanel>
-                  <TextBlock Text="Maintenance schedule" Style="{StaticResource SectionTitle}"/>
-                  <CheckBox Content="Maintenance enabled" IsChecked="{Binding MaintenanceEnabled}" Margin="0,0,0,10"/>
+                  <TextBlock Text="{infra:Loc MaintenanceSchedule}" Style="{StaticResource SectionTitle}"/>
+                  <CheckBox Content="{infra:Loc MaintenanceEnabled}" IsChecked="{Binding MaintenanceEnabled}" Margin="0,0,0,10"/>
                   <WrapPanel>
                     <StackPanel Margin="0,0,22,10">
-                      <TextBlock Text="Interval (minutes)" Style="{StaticResource Caption}"/>
+                      <TextBlock Text="{infra:Loc IntervalMinutes}" Style="{StaticResource Caption}"/>
                       <TextBox Style="{StaticResource Input}" Width="110" Text="{Binding MaintenanceInterval, UpdateSourceTrigger=LostFocus}"/>
                     </StackPanel>
                     <StackPanel Margin="0,0,22,10">
-                      <TextBlock Text="Keep backups" Style="{StaticResource Caption}"/>
+                      <TextBlock Text="{infra:Loc KeepBackups}" Style="{StaticResource Caption}"/>
                       <TextBox Style="{StaticResource Input}" Width="90" Text="{Binding MaintenanceKeepBackups, UpdateSourceTrigger=LostFocus}"/>
                     </StackPanel>
                     <StackPanel Margin="0,0,22,10">
-                      <TextBlock Text="Keep logs (days)" Style="{StaticResource Caption}"/>
+                      <TextBlock Text="{infra:Loc KeepLogsDays}" Style="{StaticResource Caption}"/>
                       <TextBox Style="{StaticResource Input}" Width="90" Text="{Binding MaintenanceLogDays, UpdateSourceTrigger=LostFocus}"/>
                     </StackPanel>
                     <StackPanel Margin="0,0,22,10">
-                      <TextBlock Text="Keep scan history (days)" Style="{StaticResource Caption}"/>
+                      <TextBlock Text="{infra:Loc KeepScanHistoryDays}" Style="{StaticResource Caption}"/>
                       <TextBox Style="{StaticResource Input}" Width="100" Text="{Binding MaintenanceScanDays, UpdateSourceTrigger=LostFocus}"/>
                     </StackPanel>
                   </WrapPanel>
-                  <CheckBox Content="Clean junk during maintenance" IsChecked="{Binding MaintenanceCleanJunk}" Margin="0,4,0,8"/>
-                  <TextBlock Text="Junk categories (comma separated; empty means none)" Style="{StaticResource Caption}"/>
+                  <CheckBox Content="{infra:Loc CleanJunkDuringMaintenance}" IsChecked="{Binding MaintenanceCleanJunk}" Margin="0,4,0,8"/>
+                  <TextBlock Text="{infra:Loc JunkCategoriesCommaSeparatedEmptyMeansNone}" Style="{StaticResource Caption}"/>
                   <TextBox Style="{StaticResource Input}" Margin="0,4,0,10" IsEnabled="{Binding MaintenanceCleanJunk}" Text="{Binding MaintenanceCategories, UpdateSourceTrigger=LostFocus}"/>
                 </StackPanel>
               </Border>
@@ -168,15 +172,15 @@
           </Border>
           <Border Style="{StaticResource Card}">
             <StackPanel>
-              <TextBlock Text="Diagnostics" Style="{StaticResource SectionTitle}"/>
-              <Button Content="Run environment check" Style="{StaticResource BaseButton}" Command="{Binding RunDoctorCommand}" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+              <TextBlock Text="{infra:Loc Diagnostics}" Style="{StaticResource SectionTitle}"/>
+              <Button Content="{infra:Loc RunEnvironmentCheck}" Style="{StaticResource BaseButton}" Command="{Binding RunDoctorCommand}" HorizontalAlignment="Left" Margin="0,0,0,10"/>
               <TextBox Style="{StaticResource Input}" IsReadOnly="True" MinHeight="90" AcceptsReturn="True" TextWrapping="Wrap" Text="{Binding DoctorSummary, Mode=OneWay}" Visibility="{Binding DoctorSummary, Converter={StaticResource TextToVis}}"/>
               <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Muted}" Margin="0,8,0,0"/>
               <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Margin="0,18,0,0" Padding="0,18,0,0">
                 <StackPanel>
-                  <TextBlock Text="About" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="{infra:Loc About}" Style="{StaticResource SectionTitle}"/>
                   <TextBlock Text="{Binding VersionText}" FontSize="13" FontWeight="SemiBold"/>
-                  <Button Content="Open documentation" Style="{StaticResource GhostButton}" Command="{Binding OpenDocsCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                  <Button Content="{infra:Loc OpenDocumentation}" Style="{StaticResource GhostButton}" Command="{Binding OpenDocsCommand}" HorizontalAlignment="Left" Margin="0,10,0,0"/>
                 </StackPanel>
               </Border>
             </StackPanel>

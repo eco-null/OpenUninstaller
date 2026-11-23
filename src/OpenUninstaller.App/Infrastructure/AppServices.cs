@@ -4,15 +4,21 @@ using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Services;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.Infrastructure;
 
 /// <summary>Composition root for the desktop app. One instance per process.</summary>
 public sealed class AppServices
 {
-    private AppServices()
+    private AppServices(AppPaths paths)
     {
-        Paths = AppPaths.CreateDefault();
+        Paths = paths;
+        Localization = LocalizationService.Instance;
+        Settings = UiSettings.Load(Paths);
+        Localization.SetLanguage(Settings.Language);
+        Settings.Language = Localization.CurrentLanguage;
+
         Registry = new WindowsRegistryStore();
         Files = new PhysicalFileSystem();
         Runner = new ProcessRunner();
@@ -44,9 +50,6 @@ public sealed class AppServices
         Background = new BackgroundServiceManager(Paths);
         Doctor = new DoctorService(Paths, Scanner, Traces, Backups, Elevation);
         ContextMenu = new ContextMenuService();
-        Localization = LocalizationService.Instance;
-        Settings = UiSettings.Load(Paths);
-        Localization.SetLanguage(Settings.Language);
     }
 
     public AppPaths Paths { get; }
@@ -92,9 +95,9 @@ public sealed class AppServices
 
     public void NotifySettingsChanged() => SettingsChanged?.Invoke(this, EventArgs.Empty);
 
-    public static AppServices Create() => new();
+    public static AppServices Create(AppPaths? paths = null) => new(paths ?? AppPaths.CreateDefault());
 
     public IReadOnlyList<InstalledProgram> ScanPrograms() => Scanner.Scan();
 
-    public string FormatAdminState => IsElevated ? "Administrator" : "Standard user";
+    public string FormatAdminState => IsElevated ? L("Administrator") : L("StandardUser");
 }

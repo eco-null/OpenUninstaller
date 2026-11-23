@@ -1,3 +1,5 @@
+using static OpenUninstaller.Core.Localization.UiText;
+
 namespace OpenUninstaller.Core.Models;
 
 /// <summary>
@@ -16,5 +18,5 @@ public sealed record MsixPackage
     public bool IsFramework { get; init; }
     public bool IsResourcePackage { get; init; }
 
-    public string KindDisplay => IsFramework ? "Framework" : IsResourcePackage ? "Resource" : "App";
+    public string KindDisplay => IsFramework ? L("Framework") : IsResourcePackage ? L("Resource") : L("App");
 }

@@ -1,15 +1,23 @@
 using System.Diagnostics;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
 public sealed record BackgroundServiceStatus
 {
+    private readonly string _detail = string.Empty;
+
     public bool Installed { get; init; }
     public bool Running { get; init; }
     public string State { get; init; } = "Unknown";
-    public string Detail { get; init; } = string.Empty;
+    public string Detail
+    {
+        get => FormatDetail?.Invoke() ?? _detail;
+        init => _detail = value;
+    }
+    internal Func<string>? FormatDetail { get; init; }
     public string ExecutablePath { get; init; } = string.Empty;
     public bool ExecutableExists { get; init; }
 
@@ -25,10 +33,25 @@ public sealed record BackgroundServiceStatus
     /// </summary>
     public bool NeedsUpdate { get; init; }
 
-    public string Label => !Installed
-        ? "Not installed"
-        : NeedsUpdate ? (Running ? "Running · update available" : $"{State} · update available")
-        : Running ? "Running" : State;
+    public string Label
+    {
+        get
+        {
+            if (!Installed)
+                return L(State is "Error" or "Unavailable" ? State : "NotInstalled");
+
+            var state = L(State switch
+            {
+                "RUNNING" => "Running",
+                "START_PENDING" or "CONTINUE_PENDING" => "Starting",
+                "STOP_PENDING" => "Stopping",
+                "STOPPED" => "Stopped",
+                "PAUSED" or "PAUSE_PENDING" => "Paused",
+                _ => "Unknown"
+            });
+            return NeedsUpdate ? F("UpdateAvailable", state) : state;
+        }
+    }
 }
 
 /// <summary>
@@ -49,7 +72,7 @@ public sealed class BackgroundServiceManager
         _serviceName = string.IsNullOrWhiteSpace(serviceName) ? DefaultServiceName : serviceName;
         if (!_serviceName.All(ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.'))
         {
-            throw new ArgumentException("The service name contains unsupported characters.", nameof(serviceName));
+            throw new ArgumentException(L("TheServiceNameContainsUnsupportedCharacters"), nameof(serviceName));
         }
 
         _configuredExecutable = executablePath;
@@ -89,7 +112,7 @@ public sealed class BackgroundServiceManager
             return new BackgroundServiceStatus
             {
                 State = "Unavailable",
-                Detail = "sc.exe was not found.",
+                Detail = L("ScExeWasNotFound"),
                 ExecutablePath = executable,
                 ExecutableExists = exists
             };
@@ -100,7 +123,7 @@ public sealed class BackgroundServiceManager
         {
             return new BackgroundServiceStatus
             {
-                Detail = "The maintenance service is not installed.",
+                Detail = L("TheMaintenanceServiceIsNotInstalled"),
                 ExecutablePath = executable,
                 ExecutableExists = exists
             };
@@ -111,7 +134,7 @@ public sealed class BackgroundServiceManager
             return new BackgroundServiceStatus
             {
                 State = "Error",
-                Detail = FirstLine(run.Output) ?? $"sc query exited with {run.ExitCode}.",
+                Detail = FirstLine(run.Output) ?? F("ScQueryExitedWith", run.ExitCode),
                 ExecutablePath = executable,
                 ExecutableExists = exists
             };
@@ -124,18 +147,17 @@ public sealed class BackgroundServiceManager
         var outsideProgramFiles = binary is not null && !IsAdminOnlyLocation(binary);
         var needsUpdate = exists && (outsideProgramFiles || IsOutdated(installedVersion, bundledVersion));
 
-        var detail = state is null ? "The service state could not be parsed." : string.Empty;
+        Func<string>? detail = state is null ? () => L("TheServiceStateCouldNotBeParsed") : null;
         if (outsideProgramFiles)
         {
             // Installs made before the binaries were staged under Program Files run LocalSystem
             // code from the per-user application folder.
-            detail = $"The service runs {binary}, which non-administrators may be able to replace. " +
-                     "Update the service to move it under Program Files.";
+            detail = () => F("TheServiceRunsWhichNonAdministratorsMayBe", binary) +
+                           L("UpdateTheServiceToMoveItUnderProgram");
         }
         else if (needsUpdate)
         {
-            detail = $"The service runs version {installedVersion ?? "unknown"}; this build includes " +
-                     $"{bundledVersion}. Update the service to run the new version.";
+            detail = () => F("ServiceVersionUpdate", installedVersion ?? L("Unknown"), bundledVersion);
         }
 
         return new BackgroundServiceStatus
@@ -143,7 +165,7 @@ public sealed class BackgroundServiceManager
             Installed = true,
             Running = state is "RUNNING" or "START_PENDING",
             State = state ?? "Unknown",
-            Detail = detail,
+            FormatDetail = detail,
             ExecutablePath = executable,
             ExecutableExists = exists,
             InstalledVersion = installedVersion,
@@ -163,13 +185,13 @@ public sealed class BackgroundServiceManager
         error = null;
         if (!File.Exists(ExecutablePath))
         {
-            error = $"The service executable was not found at {ExecutablePath}. Publish the app with scripts/publish.ps1 first.";
+            error = F("TheServiceExecutableWasNotFoundAtPublish", ExecutablePath);
             return false;
         }
 
         if (!Query().Installed)
         {
-            error = "The maintenance service is not installed.";
+            error = L("TheMaintenanceServiceIsNotInstalled");
             return false;
         }
 
@@ -182,7 +204,7 @@ public sealed class BackgroundServiceManager
 
         if (!WaitForState("STOPPED", TimeSpan.FromSeconds(30)))
         {
-            error = "The maintenance service did not stop within 30 seconds; nothing was changed.";
+            error = L("TheMaintenanceServiceDidNotStopWithin30");
             return false;
         }
 
@@ -194,7 +216,7 @@ public sealed class BackgroundServiceManager
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             RunSc($"start \"{_serviceName}\"");
-            error = $"Could not copy the service files to {InstalledDirectory}: {ex.Message} The previous version was restarted.";
+            error = F("CouldNotCopyTheServiceFilesToThe", InstalledDirectory, ex.Message);
             return false;
         }
 
@@ -263,13 +285,13 @@ public sealed class BackgroundServiceManager
         error = null;
         if (!File.Exists(ExecutablePath))
         {
-            error = $"The service executable was not found at {ExecutablePath}. Publish the app with scripts/publish.ps1 first.";
+            error = F("TheServiceExecutableWasNotFoundAtPublish", ExecutablePath);
             return false;
         }
 
         if (Query().Installed)
         {
-            error = "The maintenance service is already installed. Remove it first to reinstall it.";
+            error = L("TheMaintenanceServiceIsAlreadyInstalledRemoveIt");
             return false;
         }
 
@@ -280,7 +302,7 @@ public sealed class BackgroundServiceManager
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            error = $"Could not copy the service files to {InstalledDirectory}: {ex.Message}";
+            error = F("CouldNotCopyTheServiceFilesTo", InstalledDirectory, ex.Message);
             return false;
         }
 
@@ -325,7 +347,7 @@ public sealed class BackgroundServiceManager
 
         if (!TryRemoveStagedBinaries())
         {
-            error = $"The service was removed, but {InstalledDirectory} could not be deleted yet. Delete it after the service process exits.";
+            error = F("TheServiceWasRemovedButCouldNotBe", InstalledDirectory);
             return false;
         }
 
@@ -558,7 +580,7 @@ public sealed class BackgroundServiceManager
     {
         var detail = FirstLine(run.Output);
         return detail is null
-            ? $"sc {action} failed with exit code {run.ExitCode}. Administrator rights may be required."
+            ? F("ScFailedWithExitCodeAdministratorRightsMay", action, run.ExitCode)
             : $"sc {action} failed ({run.ExitCode}): {detail}";
     }
 
@@ -583,7 +605,7 @@ public sealed class BackgroundServiceManager
 
             if (process is null)
             {
-                return (-1, "sc.exe could not be started.");
+                return (-1, L("ScExeCouldNotBeStarted"));
             }
 
             var stdout = process.StandardOutput.ReadToEndAsync();
@@ -598,7 +620,7 @@ public sealed class BackgroundServiceManager
                 {
                 }
 
-                return (-1, "sc.exe timed out.");
+                return (-1, L("ScExeTimedOut"));
             }
 
             Task.WaitAll(stdout, stderr);

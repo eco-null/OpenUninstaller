@@ -3,6 +3,7 @@ using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -52,7 +53,7 @@ public sealed class MaintenanceService
             var result = new MaintenanceRunResult { RanAt = _clock.UtcNow };
             if (!settings.Enabled)
             {
-                result.Warnings.Add("Maintenance is disabled in maintenance.json.");
+                result.Warnings.Add(L("MaintenanceIsDisabledInMaintenanceJson"));
                 return result;
             }
 
@@ -61,7 +62,7 @@ public sealed class MaintenanceService
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var pruned = _backups.Prune(settings.KeepBackups);
-                result.Steps.Add($"Backups: kept {settings.KeepBackups}, removed {pruned}.");
+                result.Steps.Add(F("BackupsKeptRemoved", settings.KeepBackups, pruned));
 
                 var expiredLogs = ExpireFiles(
                     _paths.LogsDirectory,
@@ -77,7 +78,7 @@ public sealed class MaintenanceService
                 {
                     expiredLogs += ExpireFiles(ownLogs, "*.jsonl", settings.LogRetentionDays, _log.FilePath);
                 }
-                result.Steps.Add($"Logs: removed {expiredLogs} older than {settings.LogRetentionDays} day(s).");
+                result.Steps.Add(F("LogsRemovedOlderThanDayS", expiredLogs, settings.LogRetentionDays));
 
                 var expiredSnapshots = ExpireFiles(
                     Path.Combine(_paths.DataDirectory, "ScanHistory"),
@@ -85,13 +86,13 @@ public sealed class MaintenanceService
                     settings.ScanHistoryRetentionDays,
                     keep: null);
                 result.Steps.Add(
-                    $"Scan history: removed {expiredSnapshots} older than {settings.ScanHistoryRetentionDays} day(s).");
+                    F("ScanHistoryRemovedOlderThanDayS", expiredSnapshots, settings.ScanHistoryRetentionDays));
 
                 if (settings.CleanJunk && settings.JunkCategories.Count > 0)
                 {
                     var cleanup = _junk.Clean(settings.JunkCategories, dryRun: false, cancellationToken);
-                    var detail = $"Junk: freed {InstalledProgram.FormatBytes(cleanup.FreedBytes)} " +
-                                 $"({cleanup.DeletedItems} item(s), {cleanup.FailedItems} failed).";
+                    var detail = F("JunkFreed", InstalledProgram.FormatBytes(cleanup.FreedBytes)) +
+                                 F("ItemSFailed", cleanup.DeletedItems, cleanup.FailedItems);
                     result.Steps.Add(detail);
                     result.Warnings.AddRange(cleanup.Messages);
                 }

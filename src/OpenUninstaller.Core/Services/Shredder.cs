@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -36,7 +37,7 @@ public sealed class Shredder
             var existsAsDirectory = Directory.Exists(raw);
             if (!existsAsFile && !existsAsDirectory)
             {
-                plan.Rejected.Add($"{raw}: the path does not exist.");
+                plan.Rejected.Add(F("ThePathDoesNotExist", raw));
                 continue;
             }
 
@@ -181,7 +182,7 @@ public sealed class Shredder
             var attributes = File.GetAttributes(path);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
             {
-                result.Skipped.Add($"{path}: reparse points are never shredded.");
+                result.Skipped.Add(F("ReparsePointsAreNeverShredded", path));
                 return false;
             }
 

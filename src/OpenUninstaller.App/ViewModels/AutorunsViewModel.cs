@@ -5,6 +5,7 @@ using System.IO;
 using System.Windows.Data;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -129,8 +130,8 @@ public sealed class AutorunsViewModel : PageViewModel
     public int DisabledCount => Entries.Count(e => !e.IsEnabled);
     public int HistoryCount => _allHistory.Count;
     public int CanRollbackCount => _allHistory.Count(h => h.CanRollback);
-    public string CountLabel => IsHistoryView ? $"{HistoryEntries.Count} history entries"
-        : $"{Entries.Count} entries · {EnabledCount} enabled · {DisabledCount} disabled";
+    public string CountLabel => IsHistoryView ? F("HistoryEntries", HistoryEntries.Count)
+        : F("EntriesEnabledDisabled", Entries.Count, EnabledCount, DisabledCount);
 
     public override void Activate() => _ = RefreshAsync();
 
@@ -142,7 +143,7 @@ public sealed class AutorunsViewModel : PageViewModel
         }
 
         IsBusy = true;
-        StatusMessage = "Reading autoruns and history…";
+        SetStatus("ReadingAutorunsAndHistory");
         try
         {
             var scanTask = Task.Run(_services.Autoruns.Scan);
@@ -170,14 +171,15 @@ public sealed class AutorunsViewModel : PageViewModel
             OnPropertyChanged(nameof(CountLabel));
             OnPropertyChanged(nameof(HistoryCount));
             OnPropertyChanged(nameof(CanRollbackCount));
-            StatusMessage = scan.Warnings.Count == 0
+            var warningCount = scan.Warnings.Count;
+            SetStatus(() => warningCount == 0
                 ? CountLabel
-                : $"{CountLabel} · {scan.Warnings.Count} warning(s)";
+                : F("WarningS", CountLabel, warningCount));
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            _windows.Error($"Autoruns could not be read:\n{ex.Message}");
-            StatusMessage = "Autoruns could not be read.";
+            _windows.Error(F("AutorunsCouldNotBeRead2", ex.Message));
+            SetStatus("AutorunsCouldNotBeRead");
         }
         finally
         {
@@ -198,15 +200,15 @@ public sealed class AutorunsViewModel : PageViewModel
         }
 
         if (!_windows.Confirm(
-            $"Restore autorun entry '{item.Name}' to its original startup state?",
-            "Confirm rollback",
+            F("RestoreAutorunEntryToItsOriginalStartupState", item.Name),
+            L("ConfirmRollback"),
             danger: false))
         {
             return;
         }
 
         IsBusy = true;
-        StatusMessage = $"Rolling back {item.Name}…";
+        SetStatus("RollingBack", item.Name);
         try
         {
             var (success, error) = await Task.Run(() =>
@@ -217,12 +219,12 @@ public sealed class AutorunsViewModel : PageViewModel
 
             if (!success)
             {
-                _windows.Error(error ?? $"Failed to roll back '{item.Name}'.");
+                _windows.Error(error ?? F("FailedToRollBack", item.Name));
             }
         }
         catch (Exception ex)
         {
-            _windows.Error($"Rollback error:\n{ex.Message}");
+            _windows.Error(F("RollbackError", ex.Message));
         }
         finally
         {
@@ -236,30 +238,30 @@ public sealed class AutorunsViewModel : PageViewModel
     {
         if (CanRollbackCount == 0)
         {
-            _windows.Info("There are no disabled entries available to roll back.", "Rollback");
+            _windows.Info(L("ThereAreNoDisabledEntriesAvailableToRoll"), L("Rollback"));
             return;
         }
 
         if (!_windows.Confirm(
-            $"Restore all {CanRollbackCount} disabled autorun entries to their original states?",
-            "Confirm rollback all",
+            F("RestoreAllDisabledAutorunEntriesToTheirOriginal", CanRollbackCount),
+            L("ConfirmRollbackAll"),
             danger: false))
         {
             return;
         }
 
         IsBusy = true;
-        StatusMessage = "Rolling back all disabled autorun entries…";
+        SetStatus("RollingBackAllDisabledAutorunEntries");
         try
         {
             var result = await Task.Run(() => _services.Autoruns.RollbackAll());
             _windows.Info(
-                $"Rollback complete.\nRestored: {result.SucceededCount}\nFailed: {result.FailedCount}",
-                "Rollback all");
+                F("RollbackCompleteRestoredFailed", result.SucceededCount, result.FailedCount),
+                L("RollbackAll"));
         }
         catch (Exception ex)
         {
-            _windows.Error($"Rollback all error:\n{ex.Message}");
+            _windows.Error(F("RollbackAllError", ex.Message));
         }
         finally
         {
@@ -281,37 +283,36 @@ public sealed class AutorunsViewModel : PageViewModel
         {
             try { Process.Start(new ProcessStartInfo("ms-settings:startupapps") { UseShellExecute = true }); }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
-            { _windows.Error($"Windows Startup settings could not be opened: {ex.Message}"); }
+            { _windows.Error(F("WindowsStartupSettingsCouldNotBeOpened", ex.Message)); }
             return;
         }
 
-        var action = entry.IsEnabled ? "Disable" : "Enable";
         var explanation = entry.Source switch
         {
             AutorunSourceKind.MachineService when entry.IsEnabled =>
-                "The service start mode is stored and the service is set to Disabled. It is not stopped.",
+                L("TheServiceStartModeIsStoredAndThe"),
             AutorunSourceKind.MachineService =>
-                "The original service start mode is restored from the disabled store.",
+                L("TheOriginalServiceStartModeIsRestoredFrom"),
             AutorunSourceKind.ScheduledTask when entry.IsEnabled =>
-                "The task is disabled through the Task Scheduler and the original definition is kept.",
+                L("TheTaskIsDisabledThroughTheTaskScheduler"),
             AutorunSourceKind.ScheduledTask or AutorunSourceKind.DisabledScheduledTask =>
-                "The task is enabled again through the Task Scheduler. Its definition is kept.",
+                L("TheTaskIsEnabledAgainThroughTheTask"),
             _ when !entry.IsEnabled && entry.StartupApprovalLocation is not null =>
-                "The existing startup entry is enabled in Windows. Its launch command is kept.",
+                L("TheExistingStartupEntryIsEnabledInWindows"),
             _ when entry.IsEnabled =>
-                "The entry is copied to OpenUninstaller's disabled store and can be re-enabled later.",
-            _ => "The entry is restored from the disabled store."
+                L("TheEntryIsCopiedToOpenUninstallerSDisabled"),
+            _ => L("TheEntryIsRestoredFromTheDisabledStore")
         };
         if (!_windows.Confirm(
-                $"{action} \"{entry.Name}\"?\n\n{explanation}",
-                $"{action} autorun",
+                F(entry.IsEnabled ? "ConfirmDisableAutorun" : "ConfirmEnableAutorun", entry.Name, explanation),
+                L("NavAutoruns"),
                 danger: false))
         {
             return;
         }
 
         IsBusy = true;
-        StatusMessage = $"{action} {entry.Name}…";
+        SetStatus(entry.IsEnabled ? "DisablingAutorun" : "EnablingAutorun", entry.Name);
         try
         {
             var (success, error) = await Task.Run(() =>
@@ -325,7 +326,7 @@ public sealed class AutorunsViewModel : PageViewModel
 
             if (!success)
             {
-                _windows.Error(error ?? "The autorun entry could not be changed.");
+                _windows.Error(error ?? L("TheAutorunEntryCouldNotBeChanged"));
             }
         }
         finally

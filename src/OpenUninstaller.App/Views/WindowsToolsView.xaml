@@ -18,7 +18,7 @@
     </Grid.RowDefinitions>
 
     <StackPanel Grid.Row="0" Margin="0,0,0,18">
-      <TextBlock Text="Windows tools" Style="{StaticResource PageTitle}" />
+      <TextBlock Text="{infra:Loc NavTools}" Style="{StaticResource PageTitle}" />
     </StackPanel>
 
     <Border Grid.Row="1" Style="{StaticResource Card}" Padding="14,11" Margin="0,0,0,16">
@@ -28,10 +28,11 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBox Style="{StaticResource SearchInput}" Tag="Search tools…" AutomationProperties.Name="Search tools"
+          <TextBox Style="{StaticResource SearchInput}" Tag="{infra:Loc SearchTools}" AutomationProperties.Name="{infra:Loc SearchTools2}"
                    Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,0" />
-          <TextBlock Text="Category:" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" Width="140" />
+          <TextBlock Text="{infra:Loc Category}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ComboBox ItemsSource="{Binding Categories}" ItemTemplate="{StaticResource LocalizedOption}"
+                    SelectedItem="{Binding SelectedCategory}" Width="170" />
         </StackPanel>
         <TextBlock Grid.Column="1" Text="{Binding CountLabel}" Style="{StaticResource Muted}" VerticalAlignment="Center" />
       </Grid>
@@ -52,15 +53,15 @@
                 <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="20"
                            Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" Margin="0,0,20,0" VerticalAlignment="Center">
-                  <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
-                  <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" Margin="0,5,0,0" />
-                  <TextBlock Text="{Binding Category}" Style="{StaticResource Caption}" Margin="0,6,0,0" />
+                  <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding DisplayDescription}" Style="{StaticResource Muted}" Margin="0,5,0,0" />
+                  <TextBlock Text="{infra:LocValue Path=Category}" Style="{StaticResource Caption}" Margin="0,6,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                  <Button Content="Launch" Style="{StaticResource BaseButton}" AutomationProperties.Name="{Binding Name, StringFormat='Launch {0}'}"
+                  <Button Content="{infra:Loc Launch}" Style="{StaticResource BaseButton}" AutomationProperties.Name="{infra:LocValue Path=DisplayName, FormatKey=Launch2}"
                           Command="{Binding DataContext.LaunchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           CommandParameter="{Binding}" />
-                  <Button Content="Delete" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
+                  <Button Content="{infra:Loc Delete}" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
                           Visibility="{Binding IsCustom, Converter={StaticResource BooleanToVisibilityConverter}}"
                           Command="{Binding DataContext.RemoveCustomToolCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           CommandParameter="{Binding}" />

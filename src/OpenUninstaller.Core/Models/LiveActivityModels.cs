@@ -1,3 +1,5 @@
+using OpenUninstaller.Core.Localization;
+
 namespace OpenUninstaller.Core.Models;
 
 public enum LiveChangeKind
@@ -14,6 +16,13 @@ public sealed class LiveTrackedFileEvent
     public required string Path { get; init; }
     public string? OldPath { get; init; }
     public required LiveChangeKind Kind { get; init; }
+    public string KindLabel => UiText.L(Kind switch
+    {
+        LiveChangeKind.Created => "Created",
+        LiveChangeKind.Deleted => "DeletedEvent",
+        LiveChangeKind.Renamed => "RenamedEvent",
+        _ => "ChangedEvent"
+    });
     public required DateTime Timestamp { get; init; }
     public long Size { get; init; }
 }

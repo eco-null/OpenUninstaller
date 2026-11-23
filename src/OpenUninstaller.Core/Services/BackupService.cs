@@ -7,6 +7,7 @@ using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -132,7 +133,7 @@ public sealed class BackupService
                         .ToList();
                     foreach (var item in missing)
                     {
-                        warnings.Add($"{item.DisplayPath}: the value no longer exists.");
+                        warnings.Add(F("TheValueNoLongerExists", item.DisplayPath));
                     }
 
                     if (missing.Count > 0)
@@ -154,7 +155,7 @@ public sealed class BackupService
 
                 if (!result.Started || result.ExitCode != 0 || !File.Exists(exportPath))
                 {
-                    warnings.Add($"{representative.DisplayPath}: registry export failed. The item will not be deleted.");
+                    warnings.Add(F("RegistryExportFailedTheItemWillNotBe", representative.DisplayPath));
                     _log.Write("backup", "export-registry", representative.DisplayPath, "failed", result.Error ?? $"exit={result.ExitCode}");
                     continue;
                 }
@@ -177,7 +178,7 @@ public sealed class BackupService
                 };
                 if (!TryPrepareRegistryImport(backupEntry, exportPath, out _, out var exportError))
                 {
-                    warnings.Add($"{representative.DisplayPath}: registry export cannot be restored safely ({exportError}). The item will not be deleted.");
+                    warnings.Add(F("RegistryExportCannotBeRestoredSafelyTheItem", representative.DisplayPath, exportError));
                     continue;
                 }
                 manifest.Registry.Add(backupEntry);
@@ -199,7 +200,7 @@ public sealed class BackupService
                 var path = item.FilePath;
                 if (string.IsNullOrWhiteSpace(path))
                 {
-                    warnings.Add($"{item.DisplayPath}: missing file path.");
+                    warnings.Add(F("MissingFilePath", item.DisplayPath));
                     continue;
                 }
 
@@ -234,7 +235,7 @@ public sealed class BackupService
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    warnings.Add($"{path}: could not be backed up ({ex.Message}). The item will not be deleted.");
+                    warnings.Add(F("CouldNotBeBackedUpTheItemWill", path, ex.Message));
                     _log.Write("backup", "copy", path, "failed", ex.Message);
                     TryDeleteDirectory(destination);
                 }
@@ -352,7 +353,7 @@ public sealed class BackupService
         var record = Get(backupId);
         if (record is null)
         {
-            preview.Warnings.Add("Backup not found or its manifest is unreadable.");
+            preview.Warnings.Add(L("BackupNotFoundOrItsManifestIsUnreadable"));
             return preview;
         }
 
@@ -363,19 +364,19 @@ public sealed class BackupService
             var exportPath = Path.Combine(record.Directory, entry.ExportFile.Replace('/', Path.DirectorySeparatorChar));
             if (!File.Exists(exportPath))
             {
-                preview.Entries.Add(new RestorePreviewEntry(target, "Registry key", RestorePreviewAction.Blocked, "The registry export is missing from the backup."));
+                preview.Entries.Add(new RestorePreviewEntry(target, L("RegistryKey"), RestorePreviewAction.Blocked, L("TheRegistryExportIsMissingFromTheBackup")));
                 continue;
             }
 
             if (!string.Equals(Hashing.Sha256File(exportPath), entry.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                preview.Entries.Add(new RestorePreviewEntry(target, "Registry key", RestorePreviewAction.Blocked, "The registry export hash does not match the manifest."));
+                preview.Entries.Add(new RestorePreviewEntry(target, L("RegistryKey"), RestorePreviewAction.Blocked, L("TheRegistryExportHashDoesNotMatchThe")));
                 continue;
             }
 
             if (!TryPrepareRegistryImport(entry, exportPath, out _, out var registryError))
             {
-                preview.Entries.Add(new RestorePreviewEntry(target, "Registry key", RestorePreviewAction.Blocked, registryError));
+                preview.Entries.Add(new RestorePreviewEntry(target, L("RegistryKey"), RestorePreviewAction.Blocked, registryError));
                 continue;
             }
 
@@ -383,9 +384,9 @@ public sealed class BackupService
             var exists = location is not null && _registry.KeyExists(location.Value);
             preview.Entries.Add(new RestorePreviewEntry(
                 target,
-                "Registry key",
+                L("RegistryKey"),
                 RestorePreviewAction.Restore,
-                exists ? "Import will merge this key; matching values are overwritten." : "Import will recreate this key."));
+                exists ? L("ImportWillMergeThisKeyMatchingValuesAre") : L("ImportWillRecreateThisKey")));
         }
 
         var archivePath = Path.Combine(record.Directory, "files.zip");
@@ -394,12 +395,12 @@ public sealed class BackupService
         {
             if (!File.Exists(archivePath))
             {
-                preview.Warnings.Add("The file archive is missing; file entries are blocked.");
+                preview.Warnings.Add(L("TheFileArchiveIsMissingFileEntriesAre"));
             }
             else if (manifest.ArchiveSha256 is { Length: > 0 } expected
                      && !string.Equals(Hashing.Sha256File(archivePath), expected, StringComparison.OrdinalIgnoreCase))
             {
-                preview.Warnings.Add("The file archive hash does not match the manifest; file entries are blocked.");
+                preview.Warnings.Add(L("TheFileArchiveHashDoesNotMatchThe2"));
             }
             else
             {
@@ -411,10 +412,10 @@ public sealed class BackupService
         {
             var isTask = file.Kind == "scheduled-task";
             var target = isTask ? file.TaskName ?? file.OriginalPath : file.OriginalPath;
-            var kind = isTask ? "Scheduled task" : file.Kind == "directory" ? "Folder" : "File";
+            var kind = isTask ? L("ScheduledTask") : file.Kind == "directory" ? L("Folder") : L("File");
             if (!archiveUsable)
             {
-                preview.Entries.Add(new RestorePreviewEntry(target, kind, RestorePreviewAction.Blocked, "The file archive is missing or damaged.", file.Bytes));
+                preview.Entries.Add(new RestorePreviewEntry(target, kind, RestorePreviewAction.Blocked, L("TheFileArchiveIsMissingOrDamaged"), file.Bytes));
                 continue;
             }
 
@@ -422,7 +423,7 @@ public sealed class BackupService
             {
                 if (!ScheduledTaskGuard.ValidateTaskName(file.TaskName, out var taskError))
                 {
-                    preview.Entries.Add(new RestorePreviewEntry(target, kind, RestorePreviewAction.Blocked, taskError ?? "Invalid task name.", file.Bytes));
+                    preview.Entries.Add(new RestorePreviewEntry(target, kind, RestorePreviewAction.Blocked, taskError ?? L("InvalidTaskName"), file.Bytes));
                     continue;
                 }
 
@@ -433,7 +434,7 @@ public sealed class BackupService
                     File.Exists(taskPath)
                         ? overwrite ? RestorePreviewAction.Overwrite : RestorePreviewAction.Skip
                         : RestorePreviewAction.Restore,
-                    File.Exists(taskPath) ? "The task already exists." : "The task will be recreated from its XML.",
+                    File.Exists(taskPath) ? L("TheTaskAlreadyExists") : L("TheTaskWillBeRecreatedFromItsXML"),
                     file.Bytes));
                 continue;
             }
@@ -441,7 +442,7 @@ public sealed class BackupService
             var guard = _pathGuard.ValidateForDeletion(file.OriginalPath, recursive: file.Kind == "directory");
             if (!guard.Allowed)
             {
-                preview.Entries.Add(new RestorePreviewEntry(target, kind, RestorePreviewAction.Blocked, guard.Reason ?? "The target is not allowed.", file.Bytes));
+                preview.Entries.Add(new RestorePreviewEntry(target, kind, RestorePreviewAction.Blocked, guard.Reason ?? L("TheTargetIsNotAllowed"), file.Bytes));
                 continue;
             }
 
@@ -460,7 +461,7 @@ public sealed class BackupService
                 exists
                     ? overwrite ? RestorePreviewAction.Overwrite : RestorePreviewAction.Skip
                     : RestorePreviewAction.Restore,
-                exists ? "The target already exists." : "The target does not exist.",
+                exists ? L("TheTargetAlreadyExists") : L("TheTargetDoesNotExist"),
                 file.Bytes));
         }
 
@@ -475,7 +476,7 @@ public sealed class BackupService
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         using var lifecycle = TryAcquireBackupLock(backupId);
         if (lifecycle is null)
-            return new RestoreResult { BackupId = backupId, Succeeded = false, Warnings = { "Backup is unavailable or in use." } };
+            return new RestoreResult { BackupId = backupId, Succeeded = false, Warnings = { L("BackupIsUnavailableOrInUse") } };
         var record = Get(backupId);
         if (record is null)
         {
@@ -484,7 +485,7 @@ public sealed class BackupService
                 BackupId = backupId,
                 Succeeded = false,
                 Duration = stopwatch.Elapsed,
-                Warnings = { "Backup not found or its manifest is unreadable." }
+                Warnings = { L("BackupNotFoundOrItsManifestIsUnreadable") }
             };
         }
 
@@ -497,13 +498,13 @@ public sealed class BackupService
             var exportPath = Path.Combine(record.Directory, entry.ExportFile.Replace('/', Path.DirectorySeparatorChar));
             if (!File.Exists(exportPath))
             {
-                result.Entries.Add(new RestoreEntryResult($"{entry.Hive}\\{entry.Path}", RestoreEntryStatus.Failed, "Backup file is missing."));
+                result.Entries.Add(new RestoreEntryResult($"{entry.Hive}\\{entry.Path}", RestoreEntryStatus.Failed, L("BackupFileIsMissing")));
                 continue;
             }
 
             if (!string.Equals(Hashing.Sha256File(exportPath), entry.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                result.Entries.Add(new RestoreEntryResult($"{entry.Hive}\\{entry.Path}", RestoreEntryStatus.Failed, "Backup file hash mismatch."));
+                result.Entries.Add(new RestoreEntryResult($"{entry.Hive}\\{entry.Path}", RestoreEntryStatus.Failed, L("BackupFileHashMismatch")));
                 continue;
             }
 
@@ -537,7 +538,7 @@ public sealed class BackupService
                 status,
                 status == RestoreEntryStatus.Restored
                     ? null
-                    : run.Error ?? $"reg import exited with {run.ExitCode} and the key was not found afterwards."));
+                    : run.Error ?? F("RegImportExitedWithAndTheKeyWas", run.ExitCode)));
             _log.Write("restore", "import-registry", $"{entry.Hive}\\{entry.Path}", status.ToString());
         }
 
@@ -546,12 +547,12 @@ public sealed class BackupService
             var archivePath = Path.Combine(record.Directory, "files.zip");
             if (!File.Exists(archivePath))
             {
-                result.Warnings.Add("The file archive is missing; files were not restored.");
+                result.Warnings.Add(L("TheFileArchiveIsMissingFilesWereNot"));
             }
             else if (manifest.ArchiveSha256 is { Length: > 0 } expected
                      && !string.Equals(Hashing.Sha256File(archivePath), expected, StringComparison.OrdinalIgnoreCase))
             {
-                result.Warnings.Add("The file archive hash does not match the manifest; files were not restored.");
+                result.Warnings.Add(L("TheFileArchiveHashDoesNotMatchThe"));
             }
             else
             {
@@ -567,7 +568,7 @@ public sealed class BackupService
                         var source = Path.GetFullPath(Path.Combine(extraction, fileEntry.ArchivePrefix.Replace('/', Path.DirectorySeparatorChar)));
                         if (!PathGuard.IsUnder(source, extraction))
                         {
-                            result.Entries.Add(new RestoreEntryResult(fileEntry.OriginalPath, RestoreEntryStatus.Failed, "Invalid archive prefix."));
+                            result.Entries.Add(new RestoreEntryResult(fileEntry.OriginalPath, RestoreEntryStatus.Failed, L("InvalidArchivePrefix")));
                             continue;
                         }
                         var target = fileEntry.OriginalPath;
@@ -586,7 +587,7 @@ public sealed class BackupService
 
                         if (!overwrite && (File.Exists(target) || System.IO.Directory.Exists(target)))
                         {
-                            result.Entries.Add(new RestoreEntryResult(target, RestoreEntryStatus.Skipped, "Target exists. Enable overwrite to restore."));
+                            result.Entries.Add(new RestoreEntryResult(target, RestoreEntryStatus.Skipped, L("TargetExistsEnableOverwriteToRestore")));
                             continue;
                         }
 
@@ -608,7 +609,7 @@ public sealed class BackupService
                         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DllNotFoundException or EntryPointNotFoundException)
                         {
                             var detail = ex is DllNotFoundException or EntryPointNotFoundException
-                                ? "Transactional filesystem restore is unavailable on this system."
+                                ? L("TransactionalFilesystemRestoreIsUnavailableOnThisSystem")
                                 : ex.Message;
                             result.Entries.Add(new RestoreEntryResult(target, RestoreEntryStatus.Failed, detail));
                             _log.Write("restore", "copy", target, "failed", ex.Message);
@@ -617,7 +618,7 @@ public sealed class BackupService
                 }
                 catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
                 {
-                    result.Warnings.Add($"Could not extract the file archive: {ex.Message}");
+                    result.Warnings.Add(F("CouldNotExtractTheFileArchive", ex.Message));
                 }
                 finally
                 {
@@ -694,13 +695,13 @@ public sealed class BackupService
         var label = entry.TaskName ?? entry.OriginalPath;
         if (string.IsNullOrWhiteSpace(entry.TaskName))
         {
-            result.Entries.Add(new RestoreEntryResult(label, RestoreEntryStatus.Failed, "The backup has no task name."));
+            result.Entries.Add(new RestoreEntryResult(label, RestoreEntryStatus.Failed, L("TheBackupHasNoTaskName")));
             return;
         }
 
         if (!File.Exists(source))
         {
-            result.Entries.Add(new RestoreEntryResult(label, RestoreEntryStatus.Failed, "The task XML is missing from the archive."));
+            result.Entries.Add(new RestoreEntryResult(label, RestoreEntryStatus.Failed, L("TheTaskXMLIsMissingFromTheArchive")));
             return;
         }
 
@@ -715,7 +716,7 @@ public sealed class BackupService
             result.Entries.Add(new RestoreEntryResult(
                 label,
                 RestoreEntryStatus.Skipped,
-                "Target exists. Enable overwrite to restore."));
+                L("TargetExistsEnableOverwriteToRestore")));
             return;
         }
 
@@ -734,7 +735,7 @@ public sealed class BackupService
         result.Entries.Add(new RestoreEntryResult(
             label,
             restored ? RestoreEntryStatus.Restored : RestoreEntryStatus.Failed,
-            restored ? null : run.Error ?? $"schtasks exited with {run.ExitCode}."));
+            restored ? null : run.Error ?? F("SchtasksExitedWith", run.ExitCode)));
         _log.Write("restore", "create-scheduled-task", label, restored ? "Restored" : "Failed");
     }
 
@@ -772,7 +773,7 @@ public sealed class BackupService
             cancellationToken.ThrowIfCancellationRequested();
             var attributes = File.GetAttributes(current);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("Directory contains a reparse point; it cannot be backed up safely.");
+                throw new IOException(L("DirectoryContainsAReparsePointItCannotBe"));
             if ((attributes & FileAttributes.Directory) != 0)
             {
                 Directory.CreateDirectory(target);
@@ -793,7 +794,7 @@ public sealed class BackupService
 
     private bool ValidateArchiveTargets(string archivePath, BackupFileEntry file, out string error)
     {
-        error = "The archive contains an unsafe target.";
+        error = L("TheArchiveContainsAnUnsafeTarget");
         try
         {
             var prefix = file.ArchivePrefix.Replace('\\', '/').TrimEnd('/') + "/";
@@ -849,7 +850,7 @@ public sealed class BackupService
     private static bool TryPrepareRegistryImport(BackupRegistryEntry entry, string path, out string output, out string error)
     {
         output = "";
-        error = "The registry export is invalid or outside the declared backup scope.";
+        error = L("TheRegistryExportIsInvalidOrOutsideThe");
         var location = TryParseLocation(entry);
         if (location is null || !Enum.IsDefined(location.Value.View) ||
             string.IsNullOrWhiteSpace(entry.Path) || entry.Path.StartsWith('\\') ||

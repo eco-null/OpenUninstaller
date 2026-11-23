@@ -4,6 +4,7 @@ using Microsoft.Win32;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -257,7 +258,7 @@ public sealed partial class LeftoverScanner
                             && FindOwningProgram(product.FullName, OrphanScanTarget, installed) is null)
                         {
                             AddOrphanFolder(product, isProgramRoot,
-                                $"No installed {name} application matches the product folder '{product.Name}'.", result);
+                                F("NoInstalledApplicationMatchesTheProductFolder", name, product.Name), result);
                         }
                     }
 
@@ -267,7 +268,7 @@ public sealed partial class LeftoverScanner
                 if (!claims.Claims(name))
                 {
                     AddOrphanFolder(folder, isProgramRoot,
-                        "No installed application or Store app matches this folder name or owns this path.", result);
+                        L("NoInstalledApplicationOrStoreAppMatchesThis2"), result);
                 }
             }
         }
@@ -300,7 +301,7 @@ public sealed partial class LeftoverScanner
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             result.Truncated = true;
-            result.Warnings.Add($"Could not inspect '{root}': {ex.Message}");
+            result.Warnings.Add(F("CouldNotInspect", root, ex.Message));
             return [];
         }
     }
@@ -377,7 +378,7 @@ public sealed partial class LeftoverScanner
             return;
         }
 
-        const string reason = "No installed application or Store app matches this user registry key; review before removal.";
+        var reason = L("NoInstalledApplicationOrStoreAppMatchesThis");
         foreach (var vendor in BoundedEntries(vendors, 2000, software.DisplayPath, result, cancellationToken))
         {
             if (RegistryVendorExclusions.Contains(vendor) || OrphanRegistryExclusions.Contains(vendor)
@@ -475,7 +476,7 @@ public sealed partial class LeftoverScanner
                     DisplayPath = shortcut,
                     FilePath = shortcut,
                     Confidence = LeftoverConfidence.High,
-                    Reason = $"Shortcut target is missing ({target}) and no installed application owns it."
+                    Reason = F("ShortcutTargetIsMissingAndNoInstalledApplication", target)
                 });
             }
         }
@@ -543,7 +544,7 @@ public sealed partial class LeftoverScanner
         if (registeredFamilies.Count == 0)
         {
             // Without the package list every folder would look orphaned.
-            result.Warnings.Add("The Store package list could not be read; Store app data was not compared.");
+            result.Warnings.Add(L("TheStorePackageListCouldNotBeRead"));
             return;
         }
 
@@ -578,7 +579,7 @@ public sealed partial class LeftoverScanner
                 DisplayPath = folder,
                 FilePath = folder,
                 Confidence = LeftoverConfidence.Strong,
-                Reason = $"Store app data for package family {family}, which is no longer registered for this user."
+                Reason = F("StoreAppDataForPackageFamilyWhichIs", family)
             });
         }
     }
@@ -658,7 +659,7 @@ public sealed partial class LeftoverScanner
                 FilePath = file,
                 TaskName = taskName,
                 Confidence = LeftoverConfidence.Strong,
-                Reason = $"Scheduled task runs a program that no longer exists ({command}) and no installed application owns it."
+                Reason = F("ScheduledTaskRunsAProgramThatNoLonger", command)
             });
         }
     }

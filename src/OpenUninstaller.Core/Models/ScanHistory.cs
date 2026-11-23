@@ -1,3 +1,5 @@
+using static OpenUninstaller.Core.Localization.UiText;
+
 namespace OpenUninstaller.Core.Models;
 
 public sealed record LeftoverSnapshotItem
@@ -42,7 +44,7 @@ public sealed class LeftoverScanDiff
     public int PersistentCount => PersistentItems.Count;
 
     public string Summary => Previous is null
-        ? "No previous scan was stored for this application."
-        : $"{NewCount} new · {ResolvedCount} resolved · {PersistentCount} unchanged since " +
+        ? L("NoPreviousScanWasStoredForThisApplication")
+        : F("NewResolvedUnchangedSince", NewCount, ResolvedCount, PersistentCount) +
           $"{Previous.ScannedAt.ToLocalTime():yyyy-MM-dd HH:mm}.";
 }

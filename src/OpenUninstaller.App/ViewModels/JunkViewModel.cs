@@ -5,6 +5,7 @@ using System.Windows.Data;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -15,11 +16,11 @@ public sealed class JunkCategoryRow : ObservableObject
     public JunkCategoryRow(JunkCategory category, Action<JunkCategoryRow> changed) { Category = category; _changed = changed; }
     public JunkCategory Category { get; }
     public string Id => Category.Id;
-    public string Title => Category.Title;
-    public string Description => Category.Description;
+    public string Title => Label(Category.Title);
+    public string Description => Label(Category.Description);
     public string SizeDisplay => Category.SizeDisplay;
-    public string ItemLabel => $"{Category.ItemCount:N0} item(s) · {Category.SkippedItems:N0} skipped" +
-        (Category.IsComplete ? string.Empty : " · Incomplete");
+    public string ItemLabel => F("ItemSSkipped", Category.ItemCount, Category.SkippedItems) +
+        (Category.IsComplete ? string.Empty : L("Incomplete"));
     public bool CanClean => Category.CanClean;
     public bool RequiresElevation => Category.RequiresElevation;
     public bool IsSelected
@@ -45,7 +46,7 @@ public sealed class JunkFileRow : ObservableObject
     public string ModifiedDisplay => LastWriteUtc.ToLocalTime().ToString("g");
     public string Reason => File.Reason;
     public bool CanClean => File.CanClean;
-    public string SafetyLabel => CanClean ? "Safe location" : "Review only";
+    public string SafetyLabel => CanClean ? L("SafeLocation") : L("ReviewOnly");
     public bool IsSelected
     {
         get => _isSelected;
@@ -144,12 +145,12 @@ public sealed class JunkViewModel : PageViewModel, IDisposable
         set { if (SetProperty(ref _dryRun, value)) OnPropertyChanged(nameof(DryRunLabel)); }
     }
     public int SelectedCount => _files.Count(f => f.IsSelected) + Categories.Count(c => c.Id == "recycle-bin" && c.IsSelected);
-    public string SelectionLabel => $"{_files.Count(f => f.IsSelected):N0} file(s) selected" +
-        (Categories.Any(c => c.Id == "recycle-bin" && c.IsSelected) ? " · Recycle bin selected" : string.Empty);
-    public string TotalLabel => $"{InstalledProgram.FormatBytes(_totalBytes)} · {_totalItems:N0} item(s)";
-    public string FileCountLabel => $"{FilesView.Cast<object>().Count():N0} of {_files.Count:N0} file(s)";
+    public string SelectionLabel => F("FileSSelected", _files.Count(f => f.IsSelected)) +
+        (Categories.Any(c => c.Id == "recycle-bin" && c.IsSelected) ? L("RecycleBinSelected") : string.Empty);
+    public string TotalLabel => F("ItemS", InstalledProgram.FormatBytes(_totalBytes), _totalItems);
+    public string FileCountLabel => F("OfFileS", FilesView.Cast<object>().Count(), _files.Count);
     public bool HasFiles => _files.Count > 0;
-    public string DryRunLabel => DryRun ? "Dry run: nothing will be deleted" : "Selected cache files are permanently deleted";
+    public string DryRunLabel => DryRun ? L("DryRunNothingWillBeDeleted") : L("SelectedCacheFilesArePermanentlyDeleted");
 
     // Automatic activation never starts a drive-wide scan.
     public override void Activate()
@@ -170,7 +171,7 @@ public sealed class JunkViewModel : PageViewModel, IDisposable
         var cancellation = _cancellation;
         var generation = ++_scanGeneration;
         RaiseCommandStates();
-        StatusMessage = "Scanning temporary files and caches…";
+        SetStatus("ScanningTemporaryFilesAndCaches");
         Categories.Clear();
         SetFiles([]);
         WarningText = string.Empty;
@@ -183,27 +184,28 @@ public sealed class JunkViewModel : PageViewModel, IDisposable
             {
                 if (generation != _scanGeneration || !IsBusy) return;
                 Categories.Add(new JunkCategoryRow(category, CategorySelectionChanged));
-                StatusMessage = $"Scanned {category.Title} · {category.ItemCount:N0} item(s)";
+                SetStatus(() => F("ScannedItemS", Label(category.Title), category.ItemCount));
             });
             var scan = await Task.Run(() => _services.Junk.Scan(options, progress, cancellation.Token));
             // Final results do not depend on progress callback delivery order.
             Categories.Clear();
             foreach (var category in scan.Categories) Categories.Add(new JunkCategoryRow(category, CategorySelectionChanged));
             CompletePreview();
-            StatusMessage = scan.IsComplete
-                ? $"Scan complete · {TotalLabel}"
-                : $"Scan incomplete · {TotalLabel}. Review warnings before cleaning.";
+            var complete = scan.IsComplete;
+            SetStatus(() => complete
+                ? F("ScanComplete", TotalLabel)
+                : F("ScanIncompleteReviewWarningsBeforeCleaning", TotalLabel));
         }
         catch (OperationCanceledException)
         {
             CompletePreview();
-            StatusMessage = $"Scan cancelled · Partial results: {TotalLabel}. Scan again to finish.";
+            SetStatus(() => F("ScanCancelledPartialResultsScanAgainToFinish", TotalLabel));
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException)
         {
             CompletePreview();
-            ValidationMessage = $"The scan could not finish: {ex.Message}";
-            StatusMessage = "Partial results. Review warnings and scan again.";
+            ValidationMessage = F("TheScanCouldNotFinish", ex.Message);
+            SetStatus("PartialResultsReviewWarningsAndScanAgain");
         }
         finally
         {
@@ -222,16 +224,16 @@ public sealed class JunkViewModel : PageViewModel, IDisposable
         var includedRoots = SplitLines(IncludedFolderPaths);
         var includeKnown = IncludeKnownLocations;
         if (!includeKnown && roots.Length == 0 && includedRoots.Length == 0)
-            throw new ArgumentException("Choose safe locations, a pattern folder, an include folder, or at least one local drive.");
+            throw new ArgumentException(L("ChooseSafeLocationsAPatternFolderAnInclude"));
         foreach (var root in roots.Concat(includedRoots))
             if (!System.IO.Path.IsPathFullyQualified(root) || !Directory.Exists(root))
-                throw new ArgumentException($"The scan folder is not an existing absolute path: {root}");
+                throw new ArgumentException(F("TheScanFolderIsNotAnExistingAbsolute", root));
         var patterns = roots.Length == 0 ? [] : Patterns.Split([';', '\r', '\n'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (roots.Length > 0 && patterns.Length == 0) throw new ArgumentException("Enter at least one file pattern, such as *.tmp.");
+        if (roots.Length > 0 && patterns.Length == 0) throw new ArgumentException(L("EnterAtLeastOneFilePatternSuchAs"));
         if (patterns.Any(p => p.IndexOfAny(['\\', '/', ':']) >= 0))
-            throw new ArgumentException("File patterns may use * and ?; enter folders separately.");
+            throw new ArgumentException(L("FilePatternsMayUseAndEnterFoldersSeparately"));
         if (UseAgeFilter && roots.Length > 0 && MinimumAgeHours < 24)
-            throw new ArgumentException("The minimum file age must be at least 24 hours.");
+            throw new ArgumentException(L("TheMinimumFileAgeMustBeAtLeast"));
         return new JunkScanOptions
         {
             IncludeKnownLocations = includeKnown,
@@ -274,15 +276,15 @@ public sealed class JunkViewModel : PageViewModel, IDisposable
         if (selectedFiles.Count == 0 && !recycleBin) return;
         var dryRun = DryRun;
         if (!dryRun && !_windows.Confirm(
-            $"Permanently delete {selectedFiles.Count:N0} selected cache file(s)?\n\n" +
-            "Only files in this preview are processed. Changed files and files in use are skipped." +
-            (recycleBin ? "\n\nThe entire Recycle bin will also be emptied, including items added since this scan." : string.Empty),
-            "Clean junk files", danger: true)) return;
+            F("PermanentlyDeleteSelectedCacheFileS", selectedFiles.Count) +
+            L("OnlyFilesInThisPreviewAreProcessedChanged") +
+            (recycleBin ? L("TheEntireRecycleBinWillAlsoBeEmptied") : string.Empty),
+            L("CleanJunkFiles"), danger: true)) return;
         IsBusy = true;
         _cancellation = new CancellationTokenSource();
         var cancellation = _cancellation;
         RaiseCommandStates();
-        StatusMessage = "Cleaning selected files…";
+        SetStatus("CleaningSelectedFiles");
         try
         {
             var result = await Task.Run(() =>
@@ -301,16 +303,17 @@ public sealed class JunkViewModel : PageViewModel, IDisposable
                 return filesResult;
             });
             WarningText = string.Join(Environment.NewLine, result.Messages);
-            var verb = dryRun ? "Would free" : "Freed";
-            _windows.Info($"{verb} {InstalledProgram.FormatBytes(result.FreedBytes)} across {result.DeletedItems:N0} item(s).\n" +
-                $"Skipped: {result.SkippedItems:N0} · Failed: {result.FailedItems:N0}" +
-                (result.Messages.Count > 0 ? "\n\nSee cleanup details on the Junk files page." : string.Empty) +
-                (dryRun ? "\n\nDry run: nothing was deleted." : string.Empty), "Junk files");
-            StatusMessage = $"{verb} {InstalledProgram.FormatBytes(result.FreedBytes)} · Skipped: {result.SkippedItems:N0} · Failed: {result.FailedItems:N0}. Scan again to refresh.";
+            var verb = dryRun ? L("WouldFree") : L("Freed");
+            _windows.Info(F("AcrossItemS", verb, InstalledProgram.FormatBytes(result.FreedBytes), result.DeletedItems) +
+                F("SkippedFailed", result.SkippedItems, result.FailedItems) +
+                (result.Messages.Count > 0 ? L("SeeCleanupDetailsOnTheJunkFilesPage") : string.Empty) +
+                (dryRun ? "\n\n" + L("DryRunNothingWasDeleted") : string.Empty), L("NavJunk"));
+            SetStatus(() => F("SkippedFailedScanAgainToRefresh", L(dryRun ? "WouldFree" : "Freed"),
+                InstalledProgram.FormatBytes(result.FreedBytes), result.SkippedItems, result.FailedItems));
         }
-        catch (OperationCanceledException) { StatusMessage = "Cleanup cancelled. Some selected files may have been processed; scan again to refresh."; }
+        catch (OperationCanceledException) { SetStatus("CleanupCancelledSomeSelectedFilesMayHaveBeen"); }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException)
-        { ValidationMessage = $"Cleanup could not finish: {ex.Message}"; StatusMessage = "Scan again before another cleanup."; }
+        { ValidationMessage = F("CleanupCouldNotFinish", ex.Message); SetStatus("ScanAgainBeforeAnotherCleanup"); }
         finally
         {
             _cancellation = null;
@@ -322,12 +325,12 @@ public sealed class JunkViewModel : PageViewModel, IDisposable
     }
     private void AddFolder()
     {
-        var folder = _windows.PickFolder("Choose a folder to scan for temporary patterns");
+        var folder = _windows.PickFolder(L("ChooseAFolderToScanForTemporaryPatterns"));
         if (folder is not null) FolderPaths = string.IsNullOrWhiteSpace(FolderPaths) ? folder : FolderPaths.TrimEnd() + Environment.NewLine + folder;
     }
     private void AddIncludedFolder()
     {
-        var folder = _windows.PickFolder("Include all files in a folder for review");
+        var folder = _windows.PickFolder(L("IncludeAllFilesInAFolderForReview"));
         if (folder is not null) IncludedFolderPaths = string.IsNullOrWhiteSpace(IncludedFolderPaths)
             ? folder : IncludedFolderPaths.TrimEnd() + Environment.NewLine + folder;
     }

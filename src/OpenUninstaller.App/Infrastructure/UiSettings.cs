@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.IO;
 using OpenUninstaller.Core.Support;
 
@@ -12,12 +13,10 @@ public sealed class UiSettings
         WriteIndented = true
     };
 
-    private string _path;
+    private string _path = null!;
 
-    private UiSettings(string path)
-    {
-        _path = path;
-    }
+    [JsonConstructor]
+    private UiSettings() { }
 
     public string Theme { get; set; } = "Dark";
     public string Language { get; set; } = "english";
@@ -28,35 +27,43 @@ public sealed class UiSettings
 
     public static UiSettings Load(AppPaths paths)
     {
-        var path = Path.Combine(paths.DataDirectory, "ui-settings.json");
-        try
+        var path = Path.Combine(paths.LocalDataDirectory, "ui-settings.json");
+        var legacyPath = Path.Combine(paths.DataDirectory, "ui-settings.json");
+        var source = File.Exists(path) ? path : legacyPath;
+        UiSettings? settings = null;
+        if (File.Exists(source))
         {
-            if (File.Exists(path))
+            try
             {
-                var loaded = JsonSerializer.Deserialize<UiSettings>(File.ReadAllText(path), JsonOptions);
-                if (loaded is not null)
-                {
-                    loaded._path = path;
-                    return loaded;
-                }
+                settings = JsonSerializer.Deserialize<UiSettings>(File.ReadAllText(source), JsonOptions);
             }
-        }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
-        {
+            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
         }
 
-        return new UiSettings(path);
+        settings ??= new UiSettings();
+        settings._path = path;
+        return settings;
     }
 
-    public void Save()
+    public bool Save()
     {
+        var directory = Path.GetDirectoryName(_path)!;
+        var pending = Path.Combine(directory, Path.GetRandomFileName());
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            File.WriteAllText(_path, JsonSerializer.Serialize(this, JsonOptions));
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(pending, JsonSerializer.Serialize(this, JsonOptions));
+            File.Move(pending, _path, overwrite: true);
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            return false;
+        }
+        finally
+        {
+            try { File.Delete(pending); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
 }

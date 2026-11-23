@@ -7,6 +7,7 @@ using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -164,7 +165,7 @@ public sealed class AutorunService
                     }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
-                { result.Warnings.Add($"Service identity: {entry.Name}: {ex.Message}"); }
+                { result.Warnings.Add(F("ServiceIdentity", entry.Name, ex.Message)); }
             }
             entry = entry with { ExecutablePath = executable, Publisher = publisher };
             result.Entries[index] = entry with { IsWindowsComponent = AutorunIdentity.IsWindowsComponent(entry, _paths) };
@@ -185,19 +186,19 @@ public sealed class AutorunService
         var entry = Find(id);
         if (entry is null)
         {
-            error = "Autorun entry not found.";
+            error = L("AutorunEntryNotFound");
             return false;
         }
 
         if (!entry.IsEnabled)
         {
-            error = "The entry is already disabled.";
+            error = L("TheEntryIsAlreadyDisabled");
             return false;
         }
 
         if (entry.Source == AutorunSourceKind.PackagedStartupTask)
         {
-            error = "Manage this Windows app in Windows Settings > Apps > Startup.";
+            error = L("ManageThisWindowsAppInWindowsSettingsApps");
             return false;
         }
 
@@ -207,14 +208,14 @@ public sealed class AutorunService
             {
                 if (entry.RegistryLocation is not { } serviceLocation)
                 {
-                    error = "The service has no registry location.";
+                    error = L("TheServiceHasNoRegistryLocation");
                     return false;
                 }
 
                 var start = _registry.GetValue(serviceLocation, "Start")?.AsInt32() ?? 3;
                 if (start == 4)
                 {
-                    error = "The service is already disabled.";
+                    error = L("TheServiceIsAlreadyDisabled");
                     return false;
                 }
 
@@ -242,7 +243,7 @@ public sealed class AutorunService
                 }
 
                 _log.Write("autorun", "disable-service", entry.Name, "completed", entry.LocationDisplay);
-                RecordHistory(entry, AutorunHistoryAction.Disabled, $"Original start mode: {start}");
+                RecordHistory(entry, AutorunHistoryAction.Disabled, F("OriginalStartMode", start));
                 return true;
             }
 
@@ -274,7 +275,7 @@ public sealed class AutorunService
                 }
 
                 _log.Write("autorun", "disable-task", entry.Name, "completed", entry.LocationDisplay);
-                RecordHistory(entry, AutorunHistoryAction.Disabled, $"Task: {entry.TaskName}");
+                RecordHistory(entry, AutorunHistoryAction.Disabled, F("Task2", entry.TaskName));
                 return true;
             }
 
@@ -283,7 +284,7 @@ public sealed class AutorunService
                 var value = _registry.GetValue(location, entry.Name);
                 if (value is null || value.Data is not (string or string[]))
                 {
-                    error = "Only string registry values can be disabled.";
+                    error = L("OnlyStringRegistryValuesCanBeDisabled");
                     return false;
                 }
 
@@ -324,7 +325,7 @@ public sealed class AutorunService
             }
             else
             {
-                error = "The entry has no supported storage location.";
+                error = L("TheEntryHasNoSupportedStorageLocation");
                 return false;
             }
 
@@ -346,19 +347,19 @@ public sealed class AutorunService
         var entry = Find(id);
         if (entry is null)
         {
-            error = "Autorun entry not found.";
+            error = L("AutorunEntryNotFound");
             return false;
         }
 
         if (entry.IsEnabled)
         {
-            error = "The entry is already enabled.";
+            error = L("TheEntryIsAlreadyEnabled");
             return false;
         }
 
         if (entry.Source == AutorunSourceKind.PackagedStartupTask)
         {
-            error = "Manage this Windows app in Windows Settings > Apps > Startup.";
+            error = L("ManageThisWindowsAppInWindowsSettingsApps");
             return false;
         }
 
@@ -371,7 +372,7 @@ public sealed class AutorunService
                 var enabledData = new byte[data.Length];
                 enabledData[0] = (byte)(data[0] & ~1);
                 _registry.SetValue(approval, valueName, RegistryValueKind.Binary, enabledData);
-                RecordHistory(entry, AutorunHistoryAction.Enabled, "Enabled in Windows Startup approval.");
+                RecordHistory(entry, AutorunHistoryAction.Enabled, L("EnabledInWindowsStartupApproval"));
                 _log.Write("autorun", "enable-startup-approved", entry.Name, "completed", entry.LocationDisplay);
                 return true;
             }
@@ -401,14 +402,14 @@ public sealed class AutorunService
                 }
 
                 _log.Write("autorun", "enable-task-external", entry.Name, "completed", entry.LocationDisplay);
-                RecordHistory(entry, AutorunHistoryAction.Enabled, $"Task: {entry.TaskName}");
+                RecordHistory(entry, AutorunHistoryAction.Enabled, F("Task2", entry.TaskName));
                 return true;
             }
 
             error = entry.Source == AutorunSourceKind.MachineService
-                ? "This service was disabled outside OpenUninstaller, so its original start mode is "
-                  + "not stored. Set the start mode in Windows Services and refresh."
-                : "The disabled entry's backup data is missing.";
+                ? L("ThisServiceWasDisabledOutsideOpenUninstallerSoIts")
+                  + L("NotStoredSetTheStartModeInWindows")
+                : L("TheDisabledEntrySBackupDataIsMissing");
             return false;
         }
 
@@ -419,13 +420,13 @@ public sealed class AutorunService
         }
         catch (JsonException)
         {
-            error = "The disabled entry's backup data is corrupt.";
+            error = L("TheDisabledEntrySBackupDataIsCorrupt");
             return false;
         }
 
         if (payload is null)
         {
-            error = "The disabled entry's backup data is missing.";
+            error = L("TheDisabledEntrySBackupDataIsMissing");
             return false;
         }
 
@@ -437,7 +438,7 @@ public sealed class AutorunService
                     || !Enum.TryParse<RegistryView>(payload.View, true, out var serviceView)
                     || string.IsNullOrWhiteSpace(payload.Path))
                 {
-                    error = "The disabled service has an invalid registry location.";
+                    error = L("TheDisabledServiceHasAnInvalidRegistryLocation");
                     return false;
                 }
 
@@ -445,13 +446,13 @@ public sealed class AutorunService
                 var current = _registry.GetValue(serviceLocation, "Start")?.AsInt32();
                 if (current is null)
                 {
-                    error = "The service definition no longer exists.";
+                    error = L("TheServiceDefinitionNoLongerExists");
                     return false;
                 }
 
                 if (current != 4 && current != originalStart)
                 {
-                    error = "The service start mode changed while it was disabled; refusing to overwrite it.";
+                    error = L("TheServiceStartModeChangedWhileItWas");
                     return false;
                 }
 
@@ -475,13 +476,13 @@ public sealed class AutorunService
             {
                 if (File.Exists(payload.FilePath))
                 {
-                    error = "The original Startup item already exists; refusing to overwrite it.";
+                    error = L("TheOriginalStartupItemAlreadyExistsRefusingTo");
                     return false;
                 }
 
                 if (!File.Exists(payload.DisabledPath))
                 {
-                    error = "The disabled Startup file is missing.";
+                    error = L("TheDisabledStartupFileIsMissing");
                     return false;
                 }
 
@@ -493,20 +494,20 @@ public sealed class AutorunService
                 if (!Enum.TryParse<RegistryHive>(payload.Hive, true, out var hive)
                     || !Enum.TryParse<RegistryView>(payload.View, true, out var view))
                 {
-                    error = "The disabled entry has an invalid registry location.";
+                    error = L("TheDisabledEntryHasAnInvalidRegistryLocation");
                     return false;
                 }
 
                 if (string.IsNullOrWhiteSpace(payload.Path))
                 {
-                    error = "The disabled entry has no registry path.";
+                    error = L("TheDisabledEntryHasNoRegistryPath");
                     return false;
                 }
 
                 var location = new RegistryLocation(hive, view, payload.Path);
                 if (_registry.GetValue(location, payload.Name) is not null)
                 {
-                    error = "The original registry value already exists; refusing to overwrite it.";
+                    error = L("TheOriginalRegistryValueAlreadyExistsRefusingTo");
                     return false;
                 }
 
@@ -592,7 +593,7 @@ public sealed class AutorunService
                                 Timestamp = DateTimeOffset.UtcNow,
                                 PreviousState = "Enabled",
                                 NewState = "Disabled",
-                                Detail = "Disabled backup in OpenUninstaller",
+                                Detail = L("DisabledBackupInOpenUninstaller"),
                                 CanRollback = true
                             });
                         }
@@ -612,27 +613,27 @@ public sealed class AutorunService
         error = null;
         if (string.IsNullOrWhiteSpace(entryId))
         {
-            error = "Entry ID is required for rollback.";
+            error = L("EntryIDIsRequiredForRollback");
             return false;
         }
 
         var entry = Find(entryId);
         if (entry is null)
         {
-            error = $"Autorun entry with ID '{entryId}' was not found.";
+            error = F("AutorunEntryWithIDWasNotFound", entryId);
             return false;
         }
 
         if (entry.IsEnabled)
         {
-            error = $"Autorun entry '{entry.Name}' is already enabled; no rollback needed.";
+            error = F("AutorunEntryIsAlreadyEnabledNoRollbackNeeded", entry.Name);
             return false;
         }
 
         if (!_registry.KeyExists(DisabledStoreLocation(entryId))
             && !(entry.Source == AutorunSourceKind.ScheduledTask && !string.IsNullOrWhiteSpace(entry.TaskName)))
         {
-            error = $"Entry '{entry.Name}' was not disabled by OpenUninstaller and has no backup payload to roll back.";
+            error = F("EntryWasNotDisabledByOpenUninstallerAndHas", entry.Name);
             return false;
         }
 
@@ -641,7 +642,7 @@ public sealed class AutorunService
             return false;
         }
 
-        RecordHistory(entry, AutorunHistoryAction.RolledBack, "Restored via rollback");
+        RecordHistory(entry, AutorunHistoryAction.RolledBack, L("RestoredViaRollback"));
         _log.Write("autorun", "rollback", entry.Name, "completed", entry.LocationDisplay);
         return true;
     }
@@ -654,7 +655,7 @@ public sealed class AutorunService
 
         if (candidates.Count == 0)
         {
-            result.Messages.Add("No OpenUninstaller-disabled autorun entries to roll back.");
+            result.Messages.Add(L("NoOpenUninstallerDisabledAutorunEntriesToRollBack"));
             return result;
         }
 
@@ -663,15 +664,15 @@ public sealed class AutorunService
             if (Enable(entry.Id, out var err))
             {
                 result.SucceededCount++;
-                result.Messages.Add($"Restored {entry.Name}");
-                RecordHistory(entry, AutorunHistoryAction.RolledBack, "Restored via rollback all");
+                result.Messages.Add(F("RestoredAutorunEntry", entry.Name));
+                RecordHistory(entry, AutorunHistoryAction.RolledBack, L("RestoredViaRollbackAll"));
                 _log.Write("autorun", "rollback-all-item", entry.Name, "completed", entry.LocationDisplay);
             }
             else
             {
                 result.FailedCount++;
-                result.Messages.Add($"Failed to restore {entry.Name}: {err}");
-                _log.Write("autorun", "rollback-all-item", entry.Name, "failed", err ?? "unknown error");
+                result.Messages.Add(F("FailedToRestore", entry.Name, err));
+                _log.Write("autorun", "rollback-all-item", entry.Name, "failed", err ?? L("UnknownError"));
             }
         }
 
@@ -716,7 +717,7 @@ public sealed class AutorunService
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            result.Warnings.Add($"Services: {ex.Message}");
+            result.Warnings.Add(F("Services2", ex.Message));
             return;
         }
 
@@ -781,14 +782,14 @@ public sealed class AutorunService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            result.Warnings.Add($"Scheduled tasks: {ex.Message}");
+            result.Warnings.Add(F("ScheduledTasks2", ex.Message));
             return;
         }
 
         if (files.Count == 0 && existingTasks.Count == 0)
         {
             result.Warnings.Add(
-                "Scheduled tasks: no task files were readable. Run as administrator to list them.");
+                L("ScheduledTasksNoTaskFilesWereReadableRun"));
         }
 
         foreach (var file in files)
@@ -831,7 +832,7 @@ public sealed class AutorunService
                 IsEnabled = enabled,
                 FilePath = file,
                 TaskName = taskName,
-                LocationDisplay = $"Task Scheduler: {taskName}",
+                LocationDisplay = F("TaskScheduler2", taskName),
                 Publisher = TryGetPublisher(command ?? string.Empty)
             });
     }
@@ -877,7 +878,7 @@ public sealed class AutorunService
 
         if (!run.Started || run.ExitCode != 0)
         {
-            error = run.Error ?? $"schtasks exited with {run.ExitCode}.";
+            error = run.Error ?? F("SchtasksExitedWith", run.ExitCode);
             return false;
         }
 
@@ -898,7 +899,7 @@ public sealed class AutorunService
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            result.Warnings.Add($"Disabled autoruns: {ex.Message}");
+            result.Warnings.Add(F("DisabledAutoruns", ex.Message));
             return;
         }
 
@@ -925,7 +926,7 @@ public sealed class AutorunService
                         || !Enum.TryParse<RegistryView>(payload.View, true, out var serviceView)
                         || string.IsNullOrWhiteSpace(payload.Path))
                     {
-                        result.Warnings.Add($"Disabled service record '{id}' has an invalid location.");
+                        result.Warnings.Add(F("DisabledServiceRecordHasAnInvalidLocation", id));
                         continue;
                     }
 
@@ -956,8 +957,8 @@ public sealed class AutorunService
                         FilePath = payload.FilePath,
                         TaskName = payload.TaskName,
                         LocationDisplay = string.IsNullOrWhiteSpace(payload.TaskName)
-                            ? "Task Scheduler"
-                            : $"Task Scheduler: {payload.TaskName}",
+                            ? L("TaskScheduler")
+                            : F("TaskScheduler2", payload.TaskName),
                         Publisher = TryGetPublisher(payload.Command)
                     });
                     continue;
@@ -977,7 +978,7 @@ public sealed class AutorunService
             }
             catch (JsonException)
             {
-                result.Warnings.Add($"Ignored corrupt disabled autorun record '{id}'.");
+                result.Warnings.Add(F("IgnoredCorruptDisabledAutorunRecord", id));
             }
         }
     }

@@ -5,6 +5,7 @@ using System.Windows.Data;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -75,7 +76,7 @@ public sealed class WindowsToolsViewModel : PageViewModel
         }
     }
 
-    public string CountLabel => $"{ToolsView.Cast<WindowsTool>().Count()} of {_tools.Count} tool(s)";
+    public string CountLabel => F("OfToolS", ToolsView.Cast<WindowsTool>().Count(), _tools.Count);
 
     public RelayCommand LaunchCommand { get; }
     public RelayCommand RemoveCustomToolCommand { get; }
@@ -123,7 +124,7 @@ public sealed class WindowsToolsViewModel : PageViewModel
             return;
         }
 
-        if (!_windows.Confirm($"Remove custom tool '{target.Name}'?", "Remove Custom Tool"))
+        if (!_windows.Confirm(F("RemoveCustomTool2", target.Name), L("RemoveCustomTool")))
         {
             return;
         }
@@ -149,7 +150,9 @@ public sealed class WindowsToolsViewModel : PageViewModel
             return true;
         }
 
-        return tool.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+        return tool.DisplayName.Contains(_searchText, StringComparison.CurrentCultureIgnoreCase)
+               || tool.DisplayDescription.Contains(_searchText, StringComparison.CurrentCultureIgnoreCase)
+               || tool.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                || tool.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                || tool.Command.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
     }
@@ -163,8 +166,8 @@ public sealed class WindowsToolsViewModel : PageViewModel
 
         if (tool.Command == "regedit.exe"
             && !_windows.Confirm(
-                "Open the Registry Editor?\n\nChanges there can prevent Windows from starting. OpenUninstaller does not edit the registry from this shortcut.",
-                "Registry Editor",
+                L("OpenTheRegistryEditorChangesThereCanPrevent"),
+                L("RegistryEditor"),
                 danger: true))
         {
             return;
@@ -177,7 +180,7 @@ public sealed class WindowsToolsViewModel : PageViewModel
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            _windows.Error($"Could not start {tool.Name}:\n{ex.Message}");
+            _windows.Error(F("CouldNotStart", tool.DisplayName, ex.Message));
         }
     }
 }

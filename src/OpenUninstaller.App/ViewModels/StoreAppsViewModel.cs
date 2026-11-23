@@ -6,6 +6,7 @@ using System.Windows.Data;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -82,10 +83,10 @@ public sealed class StoreAppsViewModel : PageViewModel
         }
     }
 
-    public string CountLabel => $"{PackagesView.Cast<MsixPackage>().Count()} of {_packages.Count} package(s)";
+    public string CountLabel => F("OfPackageS", PackagesView.Cast<MsixPackage>().Count(), _packages.Count);
     public string EmptyLabel => _packages.Count == 0
-        ? "No MSIX or Microsoft Store packages are registered for this user."
-        : "No package matches the search.";
+        ? L("NoMSIXOrMicrosoftStorePackagesAreRegistered")
+        : L("NoPackageMatchesTheSearch");
 
     public override void Activate() => _ = RefreshAsync();
 
@@ -97,7 +98,7 @@ public sealed class StoreAppsViewModel : PageViewModel
         }
 
         IsBusy = true;
-        StatusMessage = "Reading the MSIX package repository…";
+        SetStatus("ReadingTheMSIXPackageRepository");
         try
         {
             var packages = await Task.Run(_services.Msix.Scan);
@@ -110,11 +111,11 @@ public sealed class StoreAppsViewModel : PageViewModel
             PackagesView.Refresh();
             OnPropertyChanged(nameof(CountLabel));
             OnPropertyChanged(nameof(EmptyLabel));
-            StatusMessage = $"{_packages.Count} package(s) loaded.";
+            SetStatus("PackageSLoaded", _packages.Count);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            StatusMessage = $"The package inventory could not be read: {ex.Message}";
+            SetStatus("ThePackageInventoryCouldNotBeRead", ex.Message);
         }
         finally
         {
@@ -135,15 +136,15 @@ public sealed class StoreAppsViewModel : PageViewModel
 
         var package = _selected;
         if (!_windows.Confirm(
-                $"Uninstall Windows package '{package.DisplayName}'?\n\nPackage: {package.PackageFullName}\n\n" +
-                "This will remove the package for the current user.",
-                "Uninstall Windows App"))
+                F("UninstallWindowsPackagePackage", package.DisplayName, package.PackageFullName) +
+                L("ThisWillRemoveThePackageForTheCurrent"),
+                L("UninstallWindowsApp")))
         {
             return;
         }
 
         IsBusy = true;
-        StatusMessage = $"Uninstalling {package.DisplayName}…";
+        SetStatus("Uninstalling", package.DisplayName);
         UninstallCommand.RaiseCanExecuteChanged();
         ResetCommand.RaiseCanExecuteChanged();
         TerminateCommand.RaiseCanExecuteChanged();
@@ -152,13 +153,13 @@ public sealed class StoreAppsViewModel : PageViewModel
             var (success, error) = await _services.Msix.UninstallPackageAsync(package.PackageFullName);
             if (success)
             {
-                _windows.Info($"Package '{package.DisplayName}' has been uninstalled successfully.", "Uninstall Complete");
+                _windows.Info(F("PackageHasBeenUninstalledSuccessfully", package.DisplayName), L("UninstallComplete"));
                 await RefreshAsync();
             }
             else
             {
-                _windows.Error($"Failed to uninstall '{package.DisplayName}':\n\n{error}", "Uninstall Failed");
-                StatusMessage = $"Uninstall failed: {error}";
+                _windows.Error(F("FailedToUninstall", package.DisplayName, error), L("UninstallFailed2"));
+                SetStatus("UninstallFailed", error);
             }
         }
         finally
@@ -179,15 +180,15 @@ public sealed class StoreAppsViewModel : PageViewModel
 
         var package = _selected;
         if (!_windows.Confirm(
-                $"Reset package '{package.DisplayName}'?\n\nPackage: {package.PackageFullName}\n\n" +
-                "This will reset the app data and restore default settings.",
-                "Reset Windows App"))
+                F("ResetPackagePackage", package.DisplayName, package.PackageFullName) +
+                L("ThisWillResetTheAppDataAndRestore"),
+                L("ResetWindowsApp")))
         {
             return;
         }
 
         IsBusy = true;
-        StatusMessage = $"Resetting {package.DisplayName}…";
+        SetStatus("Resetting", package.DisplayName);
         UninstallCommand.RaiseCanExecuteChanged();
         ResetCommand.RaiseCanExecuteChanged();
         TerminateCommand.RaiseCanExecuteChanged();
@@ -196,13 +197,13 @@ public sealed class StoreAppsViewModel : PageViewModel
             var (success, error) = await _services.Msix.ResetPackageAsync(package.PackageFullName);
             if (success)
             {
-                _windows.Info($"Package '{package.DisplayName}' was successfully reset.", "Reset Complete");
-                StatusMessage = $"Reset {package.DisplayName}.";
+                _windows.Info(F("PackageWasSuccessfullyReset", package.DisplayName), L("ResetComplete"));
+                SetStatus("Reset2", package.DisplayName);
             }
             else
             {
-                _windows.Error($"Failed to reset '{package.DisplayName}':\n\n{error}", "Reset Failed");
-                StatusMessage = $"Reset failed: {error}";
+                _windows.Error(F("FailedToReset", package.DisplayName, error), L("ResetFailed2"));
+                SetStatus("ResetFailed", error);
             }
         }
         finally
@@ -223,17 +224,17 @@ public sealed class StoreAppsViewModel : PageViewModel
 
         var package = _selected;
         IsBusy = true;
-        StatusMessage = $"Terminating processes for {package.DisplayName}…";
+        SetStatus("TerminatingProcessesFor", package.DisplayName);
         try
         {
             var (success, error) = await _services.Msix.TerminatePackageAsync(package.PackageFullName);
             if (success)
             {
-                StatusMessage = $"Terminated processes for {package.DisplayName}.";
+                SetStatus("TerminatedProcessesFor", package.DisplayName);
             }
             else
             {
-                _windows.Error($"Failed to terminate processes:\n\n{error}", "Terminate Failed");
+                _windows.Error(F("FailedToTerminateProcesses", error), L("TerminateFailed"));
             }
         }
         finally
@@ -251,7 +252,7 @@ public sealed class StoreAppsViewModel : PageViewModel
 
         if (!MsixInventoryService.OpenPackageLocation(_selected.InstallLocation))
         {
-            _windows.Error($"Could not open install folder: {_selected.InstallLocation}", "Open Location");
+            _windows.Error(F("CouldNotOpenInstallFolder", _selected.InstallLocation), L("OpenLocation"));
         }
     }
 
@@ -263,7 +264,7 @@ public sealed class StoreAppsViewModel : PageViewModel
         }
 
         Clipboard.SetText(_selected.PackageFullName);
-        StatusMessage = "Package full name copied to clipboard.";
+        SetStatus("PackageFullNameCopiedToClipboard");
     }
 
     private bool Filter(object item)

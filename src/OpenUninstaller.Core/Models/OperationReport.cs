@@ -29,7 +29,7 @@ public sealed record DoctorReport
     public int ProgramCount { get; init; }
     public int TraceCount { get; init; }
     public int BackupCount { get; init; }
-    public List<string> Checks { get; init; } = [];
-    public List<string> Warnings { get; init; } = [];
+    public IReadOnlyList<string> Checks { get; init; } = [];
+    public IReadOnlyList<string> Warnings { get; init; } = [];
     public bool Healthy => DataDirectoryWritable;
 }

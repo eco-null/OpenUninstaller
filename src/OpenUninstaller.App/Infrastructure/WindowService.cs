@@ -4,6 +4,7 @@ using System.Windows;
 using OpenUninstaller.App.ViewModels;
 using OpenUninstaller.App.Views;
 using OpenUninstaller.Core.Models;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.Infrastructure;
 
@@ -100,20 +101,19 @@ public sealed class WindowService
         window.ShowDialog();
     }
 
-    public bool Confirm(string message, string title = "Confirm", bool danger = false)
+    public bool Confirm(string message, string? title = null, bool danger = false)
     {
-        var result = MessageBox.Show(
+        var result = NoticeWindow.Show(
             Owner ?? Application.Current.MainWindow,
             message,
-            title,
+            title ?? L("Confirm"),
             MessageBoxButton.YesNo,
-            danger ? MessageBoxImage.Warning : MessageBoxImage.Question,
-            MessageBoxResult.No);
+            danger ? MessageBoxImage.Warning : MessageBoxImage.Question);
         return result == MessageBoxResult.Yes;
     }
 
     public void Error(string message, string title = "OpenUninstaller")
-        => MessageBox.Show(
+        => NoticeWindow.Show(
             Owner ?? Application.Current.MainWindow,
             message,
             title,
@@ -121,7 +121,7 @@ public sealed class WindowService
             MessageBoxImage.Error);
 
     public void Info(string message, string title = "OpenUninstaller")
-        => MessageBox.Show(
+        => NoticeWindow.Show(
             Owner ?? Application.Current.MainWindow,
             message,
             title,
@@ -143,7 +143,7 @@ public sealed class WindowService
         }
         catch (Exception ex) when (ex is IOException or System.ComponentModel.Win32Exception or UnauthorizedAccessException)
         {
-            Error($"Could not open the folder:\n{ex.Message}");
+            Error(F("CouldNotOpenTheFolder", ex.Message));
         }
     }
 
@@ -151,7 +151,7 @@ public sealed class WindowService
     {
         if (!_services.Elevation.TryRelaunchElevated())
         {
-            Error("Elevation was declined or is unavailable.");
+            Error(L("ElevationWasDeclinedOrIsUnavailable"));
             return;
         }
 

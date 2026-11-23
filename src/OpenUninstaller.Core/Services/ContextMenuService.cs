@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using Microsoft.Win32;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -18,7 +19,12 @@ public sealed class ContextMenuService
         @"Software\Classes\lnkfile\shell"
     ];
 
-    public string DefaultMenuText { get; set; } = "Uninstall with OpenUninstaller";
+    private string? _defaultMenuText;
+    public string DefaultMenuText
+    {
+        get => _defaultMenuText ?? L("UninstallWithOpenUninstaller");
+        set => _defaultMenuText = value;
+    }
 
     public bool IsEnabled()
     {

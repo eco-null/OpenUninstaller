@@ -2,6 +2,7 @@ using System.Diagnostics;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -69,7 +70,7 @@ public sealed class BrowserDataService
             {
                 result.Skipped += profile.Files.Count;
                 result.Messages.Add(
-                    $"{profile.Browser} is running. Close it and rescan; its {profile.ProfileName} profile was left untouched.");
+                    F("IsRunningCloseItAndRescanItsProfile", profile.Browser, profile.ProfileName));
                 continue;
             }
 
@@ -99,7 +100,7 @@ public sealed class BrowserDataService
                     File.Delete(file.Path);
                     if (File.Exists(file.Path))
                     {
-                        result.Messages.Add($"{file.Path}: still exists after deletion.");
+                        result.Messages.Add(F("StillExistsAfterDeletion", file.Path));
                         continue;
                     }
 
@@ -139,7 +140,7 @@ public sealed class BrowserDataService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            result.Warnings.Add($"{browser}: the profile folder could not be read ({ex.Message}).");
+            result.Warnings.Add(F("TheProfileFolderCouldNotBeRead", browser, ex.Message));
             return;
         }
 
@@ -195,7 +196,7 @@ public sealed class BrowserDataService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            result.Warnings.Add($"Firefox: the profile folder could not be read ({ex.Message}).");
+            result.Warnings.Add(F("FirefoxTheProfileFolderCouldNotBeRead", ex.Message));
             return;
         }
 

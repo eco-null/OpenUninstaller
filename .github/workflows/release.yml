@@ -95,6 +95,8 @@ jobs:
           # Hosted runners have no user to protect, and UI Automation actions are ~2 s slower on a hidden desktop.
           & $smoke $app --visible
           if ($LASTEXITCODE -ne 0) { throw "UI smoke failed" }
+          & $smoke --verify-localization --visible
+          if ($LASTEXITCODE -ne 0) { throw "Localization UI checks failed" }
 
       - name: Check built version
         shell: pwsh

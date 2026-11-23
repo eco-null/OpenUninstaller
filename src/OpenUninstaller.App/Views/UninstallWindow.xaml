@@ -1,6 +1,6 @@
 <Window x:Class="OpenUninstaller.App.Views.UninstallWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:infra="clr-namespace:OpenUninstaller.App.Infrastructure"
         Icon="/OpenUninstaller;component/Assets/app.ico"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -37,7 +37,7 @@
         </StackPanel>
         <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets"
                 Style="{StaticResource IconButton}" Command="{Binding CloseCommand}"
-                AutomationProperties.Name="Close" />
+                AutomationProperties.Name="{infra:Loc Close}" />
       </Grid>
     </Border>
 
@@ -49,7 +49,7 @@
         <StackPanel>
           <Border Style="{StaticResource Card}" Margin="0,0,0,14">
             <StackPanel>
-              <TextBlock Text="Uninstall command" Style="{StaticResource SectionTitle}" />
+              <TextBlock Text="{infra:Loc UninstallCommand}" Style="{StaticResource SectionTitle}" />
               <Border Background="{DynamicResource AppBackground}" CornerRadius="7" Padding="12" Margin="0,0,0,10">
                 <TextBlock Text="{Binding CommandDisplay}" Style="{StaticResource Mono}" TextWrapping="Wrap" />
               </Border>
@@ -66,21 +66,21 @@
 
           <Border Style="{StaticResource Card}" Margin="0,0,0,14">
             <StackPanel>
-              <TextBlock Text="Options" Style="{StaticResource SectionTitle}" />
-              <CheckBox Content="Prefer the quiet uninstall command" IsChecked="{Binding PreferSilent}"
+              <TextBlock Text="{infra:Loc Options}" Style="{StaticResource SectionTitle}" />
+              <CheckBox Content="{infra:Loc PreferTheQuietUninstallCommand}" IsChecked="{Binding PreferSilent}"
                         Margin="0,0,0,8" />
-              <CheckBox Content="Forced uninstall (remove registration only)" IsChecked="{Binding Force}"
+              <CheckBox Content="{infra:Loc ForcedUninstallRemoveRegistrationOnly}" IsChecked="{Binding Force}"
                         Margin="0,0,0,4" />
               <TextBlock Style="{StaticResource Muted}"
-                         Text="Skips the vendor uninstaller and removes the registration only. Use when normal uninstall is unavailable." />
+                         Text="{infra:Loc SkipsTheVendorUninstallerAndRemovesTheRegistration}" />
             </StackPanel>
           </Border>
 
           <Border Style="{StaticResource Card}" BorderBrush="{DynamicResource Danger}" Background="{DynamicResource DangerSoft}">
             <StackPanel>
-              <TextBlock Text="What happens next" FontSize="13" FontWeight="SemiBold" />
+              <TextBlock Text="{infra:Loc WhatHappensNext}" FontSize="13" FontWeight="SemiBold" />
               <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,0"
-                         Text="Runs the vendor uninstaller, then lets you review leftovers before deletion. Deleted leftovers are backed up." />
+                         Text="{infra:Loc RunsTheVendorUninstallerThenLetsYouReview}" />
             </StackPanel>
           </Border>
         </StackPanel>
@@ -95,8 +95,8 @@
                    HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,14" />
         <ProgressBar IsIndeterminate="True" />
         <TextBlock Style="{StaticResource Muted}" Margin="0,14,0,0" TextAlignment="Center"
-                   Text="Wait for the vendor uninstaller to finish. Keep this window open during scanning." />
-        <Button Content="Cancel" Style="{StaticResource BaseButton}" Command="{Binding CancelCommand}"
+                   Text="{infra:Loc WaitForTheVendorUninstallerToFinishKeep}" />
+        <Button Content="{infra:Loc Cancel}" Style="{StaticResource BaseButton}" Command="{Binding CancelCommand}"
                 HorizontalAlignment="Center" Margin="0,18,0,0" />
       </StackPanel>
 
@@ -122,9 +122,9 @@
                          TextWrapping="Wrap" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-              <Button Content="Select all allowed" Style="{StaticResource GhostButton}"
+              <Button Content="{infra:Loc SelectAllAllowed}" Style="{StaticResource GhostButton}"
                       Command="{Binding SelectAllCommand}" />
-              <Button Content="Clear" Style="{StaticResource GhostButton}"
+              <Button Content="{infra:Loc Clear}" Style="{StaticResource GhostButton}"
                       Command="{Binding SelectNoneCommand}" />
             </StackPanel>
           </Grid>
@@ -138,9 +138,9 @@
           <TextBlock Text="{Binding ReviewWarning}" Foreground="{DynamicResource Warning}"
                      FontSize="12" Margin="0,0,12,0" TextWrapping="Wrap" VerticalAlignment="Center" />
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-            <Button Content="Ignore selected" Style="{StaticResource GhostButton}"
+            <Button Content="{infra:Loc IgnoreSelected}" Style="{StaticResource GhostButton}"
                     Command="{Binding IgnoreCommand}" Margin="0,0,6,0" />
-            <Button Content="Reset ignored" Style="{StaticResource GhostButton}"
+            <Button Content="{infra:Loc ResetIgnored}" Style="{StaticResource GhostButton}"
                     Command="{Binding ResetIgnoredCommand}"
                     Visibility="{Binding HasIgnoredEntries, Converter={StaticResource BoolVisibility}}" />
           </StackPanel>
@@ -203,11 +203,9 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center">
-            <Run Text="{Binding SelectedSizeLabel, Mode=OneWay}" />
-            <Run Text=" selected. A verified backup is created before deletion." />
-          </TextBlock>
-          <Button Grid.Column="1" Content="Back up and delete selected" Style="{StaticResource DangerButton}"
+          <TextBlock Style="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap"
+                     Text="{infra:LocValue Path=SelectedSizeLabel, FormatKey=SelectedSizeAVerifiedBackupIsCreatedBefore}" />
+          <Button Grid.Column="1" Content="{infra:Loc BackUpAndDeleteSelected}" Style="{StaticResource DangerButton}"
                   Command="{Binding DeleteCommand}" />
         </Grid>
       </Grid>
@@ -229,15 +227,15 @@
 
           <Border Style="{StaticResource Card}" Background="{DynamicResource SurfaceAlt}">
             <StackPanel>
-              <TextBlock Text="Review database" Style="{StaticResource SectionTitle}" />
+              <TextBlock Text="{infra:Loc ReviewDatabase}" Style="{StaticResource SectionTitle}" />
               <TextBlock Style="{StaticResource Muted}"
-                         Text="Restore deleted leftovers from Backups." />
+                         Text="{infra:Loc RestoreDeletedLeftoversFromBackups}" />
               <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                <Button Content="Open backup folder" Style="{StaticResource BaseButton}"
+                <Button Content="{infra:Loc OpenBackupFolder}" Style="{StaticResource BaseButton}"
                         Command="{Binding OpenBackupCommand}" Margin="0,0,8,0" />
-                <Button Content="Open log" Style="{StaticResource BaseButton}"
+                <Button Content="{infra:Loc OpenLog}" Style="{StaticResource BaseButton}"
                         Command="{Binding OpenLogCommand}" Margin="0,0,8,0" />
-                <Button Content="Close" Style="{StaticResource PrimaryButton}"
+                <Button Content="{infra:Loc Close}" Style="{StaticResource PrimaryButton}"
                         Command="{Binding CloseCommand}" />
               </StackPanel>
             </StackPanel>
@@ -251,9 +249,9 @@
       <Grid>
         <TextBlock Text="{Binding StatusText}" Style="{StaticResource Muted}" VerticalAlignment="Center" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-          <Button Content="Close" Style="{StaticResource BaseButton}" Command="{Binding CloseCommand}"
+          <Button Content="{infra:Loc Close}" Style="{StaticResource BaseButton}" Command="{Binding CloseCommand}"
                   Visibility="{Binding IsRunningState, Converter={StaticResource InverseBoolVisibility}}" />
-          <Button Content="Uninstall now" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
+          <Button Content="{infra:Loc UninstallNow}" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
                   Command="{Binding StartCommand}"
                   Visibility="{Binding IsConfirmState, Converter={StaticResource BoolVisibility}}" />
         </StackPanel>

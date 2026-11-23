@@ -3,6 +3,7 @@ using System.IO;
 using System.Security.Cryptography;
 using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -84,7 +85,7 @@ public sealed class EvidenceRemoverService
                 DriveName = driveName,
                 TotalBytesWiped = 0,
                 Succeeded = false,
-                ErrorMessage = $"Drive '{driveName}' is not accessible.",
+                ErrorMessage = F("DriveIsNotAccessible", driveName),
                 Duration = TimeSpan.Zero
             };
         }
@@ -100,7 +101,7 @@ public sealed class EvidenceRemoverService
                     DriveName = driveName,
                     TotalBytesWiped = 0,
                     Succeeded = false,
-                    ErrorMessage = $"Drive '{driveName}' is not ready.",
+                    ErrorMessage = F("DriveIsNotReady", driveName),
                     Duration = TimeSpan.Zero
                 };
             }
@@ -282,7 +283,7 @@ public sealed class EvidenceRemoverService
             BytesWiped = bytesWiped,
             PercentComplete = percent,
             EstimatedTimeRemaining = eta,
-            StageMessage = $"Erasing free space on {driveName}... {InstalledProgram.FormatBytes(bytesWiped)} of {InstalledProgram.FormatBytes(totalBytesToWipe)} ({percent:F1}%)"
+            StageMessage = F("ErasingFreeSpaceOnOf", driveName, InstalledProgram.FormatBytes(bytesWiped), InstalledProgram.FormatBytes(totalBytesToWipe), percent)
         });
     }
 

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -55,10 +56,10 @@ public sealed class BackupsViewModel : PageViewModel
     }
 
     public string SelectionSummary => _selected is null
-        ? "Select a backup to restore."
+        ? L("SelectABackupToRestore")
         : $"{_selected.ProgramName} · {_selected.Summary}";
 
-    public string CountLabel => $"{Backups.Count} backup(s)";
+    public string CountLabel => F("BackupS", Backups.Count);
 
     public override void Activate() => _ = RefreshAsync();
 
@@ -70,7 +71,7 @@ public sealed class BackupsViewModel : PageViewModel
         }
 
         IsBusy = true;
-        StatusMessage = "Loading backups…";
+        SetStatus("LoadingBackups");
         try
         {
             var records = await Task.Run(_services.Backups.List);
@@ -81,11 +82,11 @@ public sealed class BackupsViewModel : PageViewModel
             }
 
             OnPropertyChanged(nameof(CountLabel));
-            StatusMessage = CountLabel;
+            SetStatus("BackupS", Backups.Count);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            _windows.Error($"Backups could not be read:\n{ex.Message}");
+            _windows.Error(F("BackupsCouldNotBeRead", ex.Message));
         }
         finally
         {
@@ -102,18 +103,18 @@ public sealed class BackupsViewModel : PageViewModel
         }
 
         IsBusy = true;
-        StatusMessage = "Building restore preview…";
+        SetStatus("BuildingRestorePreview");
         try
         {
             var preview = await Task.Run(() => _services.Backups.PreviewRestore(SelectedBackup.Id, Overwrite));
             if (preview.Entries.Count == 0 && preview.Warnings.Count > 0)
             {
-                _windows.Error(string.Join(Environment.NewLine, preview.Warnings), "Restore preview");
+                _windows.Error(string.Join(Environment.NewLine, preview.Warnings), L("RestorePreview"));
                 return;
             }
 
             _windows.ShowRestorePreview(preview);
-            StatusMessage = $"Preview: {preview.Summary}";
+            SetStatus(() => F("Preview2", preview.Summary));
         }
         finally
         {
@@ -131,23 +132,23 @@ public sealed class BackupsViewModel : PageViewModel
         }
 
         if (!_windows.Confirm(
-                $"Restore this backup?\n\n{record.ProgramName}\n{record.Summary}\n\n" +
-                (Overwrite ? "Existing files will be overwritten." : "Existing files will be skipped."),
-                "Restore backup",
+                F("RestoreThisBackup", record.ProgramName, record.Summary) +
+                (Overwrite ? L("ExistingFilesWillBeOverwritten") : L("ExistingFilesWillBeSkipped")),
+                L("RestoreBackup"),
                 danger: false))
         {
             return;
         }
 
         IsBusy = true;
-        StatusMessage = "Restoring…";
+        SetStatus("Restoring");
         try
         {
             var result = await Task.Run(() => _services.Backups.RestoreAsync(record.Id, Overwrite));
             _windows.Info(
-                $"Restored: {result.RestoredCount}\nFailed: {result.FailedCount}\nSkipped: {result.Entries.Count(e => e.Status == RestoreEntryStatus.Skipped)}" +
+                F("RestoredFailedSkipped", result.RestoredCount, result.FailedCount, result.Entries.Count(e => e.Status == RestoreEntryStatus.Skipped)) +
                 (result.Warnings.Count > 0 ? "\n\n" + string.Join("\n", result.Warnings) : string.Empty),
-                "Restore backup");
+                L("RestoreBackup"));
         }
         finally
         {
@@ -166,9 +167,9 @@ public sealed class BackupsViewModel : PageViewModel
         }
 
         if (!_windows.Confirm(
-                $"Delete this backup permanently?\n\n{record.ProgramName}\n{record.Summary}\n\n" +
-                "The captured files and registry exports will be removed. This cannot be undone.",
-                "Delete backup",
+                F("DeleteThisBackupPermanently", record.ProgramName, record.Summary) +
+                L("TheCapturedFilesAndRegistryExportsWillBe"),
+                L("DeleteBackup"),
                 danger: true))
         {
             return;
@@ -180,7 +181,7 @@ public sealed class BackupsViewModel : PageViewModel
             var deleted = await Task.Run(() => _services.Backups.Delete(record.Id));
             if (!deleted)
             {
-                _windows.Error("The backup could not be deleted.");
+                _windows.Error(L("TheBackupCouldNotBeDeleted"));
             }
         }
         finally
@@ -195,8 +196,8 @@ public sealed class BackupsViewModel : PageViewModel
     {
         var keep = Math.Max(1, _services.Settings.KeepBackups);
         if (!_windows.Confirm(
-                $"Keep only the newest {keep} backup(s) and delete the rest?",
-                "Prune backups",
+                F("KeepOnlyTheNewestBackupSAndDelete", keep),
+                L("PruneBackups"),
                 danger: true))
         {
             return;
@@ -206,7 +207,7 @@ public sealed class BackupsViewModel : PageViewModel
         try
         {
             var removed = await Task.Run(() => _services.Backups.Prune(keep));
-            _windows.Info($"Removed {removed} old backup(s).", "Prune backups");
+            _windows.Info(F("RemovedOldBackupS", removed), L("PruneBackups"));
         }
         finally
         {

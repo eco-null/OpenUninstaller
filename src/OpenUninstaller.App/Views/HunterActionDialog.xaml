@@ -1,8 +1,8 @@
 <Window x:Class="OpenUninstaller.App.Views.HunterActionDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:infra="clr-namespace:OpenUninstaller.App.Infrastructure"
         Icon="/OpenUninstaller;component/Assets/app.ico"
-        Title="Hunter Mode - Target Action"
+        Title="{infra:Loc HunterModeTargetAction}"
         Width="580" SizeToContent="Height"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
@@ -19,27 +19,27 @@
                      Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Border>
         <StackPanel VerticalAlignment="Center">
-          <TextBlock x:Name="TargetTitle" FontSize="16" FontWeight="SemiBold" Text="Target Process" />
-          <TextBlock x:Name="TargetSubtitle" Style="{StaticResource Muted}" Text="Resolved Application" />
+          <TextBlock x:Name="TargetTitle" FontSize="16" FontWeight="SemiBold" Text="{infra:Loc TargetProcess}" />
+          <TextBlock x:Name="TargetSubtitle" Style="{StaticResource Muted}" Text="{infra:Loc ResolvedApplication}" />
         </StackPanel>
       </StackPanel>
 
       <Border Style="{StaticResource Card}" Margin="0,4,0,16" Padding="14">
         <StackPanel>
-          <TextBlock x:Name="ExecutableLabel" Text="Path:" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextMuted}" />
+          <TextBlock x:Name="ExecutableLabel" Text="{infra:Loc Path}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextMuted}" />
           <TextBlock x:Name="ExecutableText" TextWrapping="Wrap" FontSize="12" Margin="0,2,0,8" />
 
-          <TextBlock Text="Process ID:" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextMuted}" />
+          <TextBlock Text="{infra:Loc ProcessID}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextMuted}" />
           <TextBlock x:Name="PidText" FontSize="12" Margin="0,2,0,8" />
 
           <Border Height="1" Background="{DynamicResource Border}" Margin="0,4,0,8" />
           <TextBlock x:Name="LiveStatsText" FontSize="11" Foreground="{DynamicResource Accent}"
-                     Text="Live tracking: 0 file events, 0 processes recorded." />
+                     Text="{infra:Loc LiveTracking0FileEvents0ProcessesRecorded}" />
         </StackPanel>
       </Border>
 
       <StackPanel Margin="0,0,0,8">
-        <Button Content="Uninstall with OpenUninstaller" Style="{StaticResource PrimaryButton}" Margin="0,0,0,8"
+        <Button Content="{infra:Loc UninstallWithOpenUninstaller}" Style="{StaticResource PrimaryButton}" Margin="0,0,0,8"
                 Padding="12,10" Click="OnUninstallClick" HorizontalContentAlignment="Center" />
 
         <Grid Margin="0,0,0,8">
@@ -48,9 +48,9 @@
             <ColumnDefinition Width="8" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <Button Grid.Column="0" Content="Stop Process" Style="{StaticResource BaseButton}"
+          <Button Grid.Column="0" Content="{infra:Loc StopProcess}" Style="{StaticResource BaseButton}"
                   Padding="8,8" Click="OnKillProcessClick" />
-          <Button Grid.Column="2" Content="Stop &amp; Delete" Style="{StaticResource DangerButton}"
+          <Button Grid.Column="2" Content="{infra:Loc StopDelete}" Style="{StaticResource DangerButton}"
                   Padding="8,8" Click="OnKillDeleteClick" />
         </Grid>
 
@@ -60,13 +60,13 @@
             <ColumnDefinition Width="8" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <Button Grid.Column="0" Content="Open Containing Folder" Style="{StaticResource BaseButton}"
+          <Button Grid.Column="0" Content="{infra:Loc OpenContainingFolder}" Style="{StaticResource BaseButton}"
                   Padding="8,8" Click="OnOpenFolderClick" />
-          <Button Grid.Column="2" Content="View Live Changes" Style="{StaticResource BaseButton}"
+          <Button Grid.Column="2" Content="{infra:Loc ViewLiveChanges}" Style="{StaticResource BaseButton}"
                   Padding="8,8" Click="OnViewChangesClick" />
         </Grid>
 
-        <Button Content="Cancel" Style="{StaticResource BaseButton}" Padding="8,8"
+        <Button Content="{infra:Loc Cancel}" Style="{StaticResource BaseButton}" Padding="8,8"
                 Click="OnCancelClick" HorizontalAlignment="Right" Width="100" />
       </StackPanel>
     </StackPanel>

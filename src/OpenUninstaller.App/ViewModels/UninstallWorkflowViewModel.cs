@@ -4,6 +4,7 @@ using System.Diagnostics;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -95,7 +96,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
 
         var command = UninstallCommandResolver.Resolve(program, silent);
         CommandDisplay = string.IsNullOrWhiteSpace(command.DisplayCommand)
-            ? "No uninstall command is registered."
+            ? L("NoUninstallCommandIsRegistered")
             : command.DisplayCommand;
         CommandWarning = command.Error;
         IsCommandUsable = command.IsUsable;
@@ -118,11 +119,11 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
     public bool IsOrphanScan => LeftoverScanner.IsOrphanScanTarget(Program);
 
     public string Title => IsOrphanScan
-        ? "Find orphaned leftovers"
-        : _scanOnly ? "Scan for leftovers" : "Uninstall application";
+        ? L("FindOrphanedLeftovers")
+        : _scanOnly ? L("ScanForLeftovers") : L("UninstallApplication");
 
     public string Subtitle => IsOrphanScan
-        ? "Data that no installed application or Store app claims"
+        ? L("DataThatNoInstalledApplicationOrStoreApp")
         : string.Join(" · ", new[] { Program.Name, Program.Version, Program.Publisher }
             .Where(part => !string.IsNullOrWhiteSpace(part)));
     public string CommandDisplay { get; }
@@ -238,7 +239,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
         }
     }
 
-    public string DiffSummary => ScanDiff?.Summary ?? "No previous scan was stored for this application.";
+    public string DiffSummary => ScanDiff?.Summary ?? L("NoPreviousScanWasStoredForThisApplication");
     public bool HasScanHistory => ScanDiff?.HasPrevious == true;
 
     public int IgnoredCount => Scan?.IgnoredCount ?? 0;
@@ -258,15 +259,15 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
 
     public string ReviewSummary => Scan is null
         ? string.Empty
-        : $"{Scan.Items.Count} candidate(s) · {SelectedCount} selected · {InstalledProgram.FormatBytes(Scan.Items.Where(i => i.IsSelected).Sum(i => i.SizeBytes))}";
-    public string ReviewWarning => "Deleting the wrong key can break other software. Review the evidence before deleting.";
+        : F("CandidateSSelected", Scan.Items.Count, SelectedCount, InstalledProgram.FormatBytes(Scan.Items.Where(i => i.IsSelected).Sum(i => i.SizeBytes)));
+    public string ReviewWarning => L("DeletingTheWrongKeyCanBreakOtherSoftware");
     public string ResultSummary
     {
         get
         {
             if (_deletion is not null)
             {
-                return $"Removed {_deletion.DeletedCount} item(s), skipped {_deletion.SkippedCount}, failed {_deletion.FailedCount}.";
+                return F("RemovedItemSSkippedFailed", _deletion.DeletedCount, _deletion.SkippedCount, _deletion.FailedCount);
             }
 
             if (_uninstall is not null)
@@ -274,7 +275,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
                 return string.Join(" ", _uninstall.Messages);
             }
 
-            return "No changes were made.";
+            return L("NoChangesWereMade");
         }
     }
 
@@ -285,21 +286,21 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
             var lines = new List<string>();
             if (_uninstall?.StillRegistered == true)
             {
-                lines.Add("The application is still registered.");
+                lines.Add(L("TheApplicationIsStillRegistered"));
             }
 
             if (_uninstall?.TimedOut == true)
             {
-                lines.Add("The vendor uninstaller did not finish. It was not terminated.");
+                lines.Add(L("TheVendorUninstallerDidNotFinishItWas"));
             }
 
             if (_deletion?.BackupId is not null)
             {
-                lines.Add($"Backup: {_deletion.BackupId}");
-                lines.Add($"Folder: {_deletion.BackupDirectory}");
+                lines.Add(F("Backup", _deletion.BackupId));
+                lines.Add(F("Folder2", _deletion.BackupDirectory));
             }
 
-            lines.Add($"Log: {_services.Log.FilePath ?? "(not available)"}");
+            lines.Add(F("Log", _services.Log.FilePath ?? L("NotAvailable")));
             return string.Join(Environment.NewLine, lines);
         }
     }
@@ -313,7 +314,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
 
     public bool HasProtectedItems => Scan?.Items.Any(i => i.IsProtected) == true;
 
-    public string EmptyReviewText => "No leftover candidates were found. Close the window to finish.";
+    public string EmptyReviewText => L("NoLeftoverCandidatesWereFoundCloseTheWindow");
 
     public void RequestCancellation()
     {
@@ -342,7 +343,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException)
         {
-            Error = "The scan was cancelled.";
+            Error = L("TheScanWasCancelled");
             State = WorkflowState.Result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -362,14 +363,14 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
         Error = null;
         IsBusy = true;
         State = WorkflowState.Running;
-        StatusText = _scanOnly ? "Scanning for leftovers…" : "Preparing the uninstaller…";
+        StatusText = _scanOnly ? L("ScanningForLeftovers") : L("PreparingTheUninstaller");
         try
         {
             if (!_scanOnly)
             {
                 if (!Force && !IsCommandUsable)
                 {
-                    Error = "The vendor uninstaller is unavailable. Enable forced uninstall to remove the registration and scan for leftovers.";
+                    Error = L("TheVendorUninstallerIsUnavailableEnableForcedUninstall");
                     State = WorkflowState.Confirm;
                     return;
                 }
@@ -389,8 +390,8 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
                 if (UninstallResult.StillRegistered || UninstallResult.TimedOut)
                 {
                     Error = UninstallResult.TimedOut
-                        ? "The vendor uninstaller is still running. Nothing was deleted."
-                        : "The application is still registered. Nothing was deleted. Use forced uninstall if the vendor uninstaller is broken.";
+                        ? L("TheVendorUninstallerIsStillRunningNothingWas")
+                        : L("TheApplicationIsStillRegisteredNothingWasDeleted");
                     State = WorkflowState.Result;
                     return;
                 }
@@ -400,7 +401,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException)
         {
-            Error = "The operation was cancelled.";
+            Error = L("TheOperationWasCancelled");
             State = WorkflowState.Result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
@@ -416,7 +417,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
 
     private async Task ScanForLeftoversAsync()
     {
-        StatusText = "Scanning registry and common folders…";
+        StatusText = L("ScanningRegistryAndCommonFolders");
         var otherPrograms = await Task.Run(_services.ScanPrograms, _cts.Token);
         var progress = new Progress<OperationProgress>(value => StatusText = value.Message);
         Scan = IsOrphanScan
@@ -431,7 +432,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
             _cts.Token);
         if (_services.History.LastError is { } historyError)
         {
-            Scan.Warnings.Add($"Scan history could not be saved: {historyError}");
+            Scan.Warnings.Add(F("ScanHistoryCouldNotBeSaved", historyError));
         }
 
         OnPropertyChanged(nameof(IgnoredCount));
@@ -457,10 +458,10 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
         RaiseReviewState();
         State = Scan.Items.Count == 0 ? WorkflowState.Result : WorkflowState.Review;
         StatusText = IsOrphanScan
-            ? "Compared with every installed application and Store app"
+            ? L("ComparedWithEveryInstalledApplicationAndStoreApp")
             : Scan.UsedTrace
-                ? $"Trace evidence: {Scan.TraceId}"
-                : "Heuristic evidence (no install trace)";
+                ? F("TraceEvidence", Scan.TraceId)
+                : L("HeuristicEvidenceNoInstallTrace");
     }
 
     private async Task DeleteAsync()
@@ -472,16 +473,16 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
         }
 
         IsBusy = true;
-        StatusText = "Creating a backup…";
+        StatusText = L("CreatingABackup");
         try
         {
             DeletionResult = await _services.Deletion.DeleteAsync(Program.Name, selected, dryRun: false, _cts.Token);
             State = WorkflowState.Result;
-            StatusText = "Done.";
+            StatusText = L("Done");
         }
         catch (OperationCanceledException)
         {
-            Error = "The operation was cancelled. Any completed items remain backed up.";
+            Error = L("TheOperationWasCancelledAnyCompletedItemsRemain");
             State = WorkflowState.Result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -500,7 +501,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
     private void Cancel()
     {
         _cts.Cancel();
-        StatusText = "Cancellation requested…";
+        StatusText = L("CancellationRequested");
     }
 
     private void SelectAll()
@@ -534,7 +535,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
         var added = _services.Ignored.Add(Program.Id, Program.Name, selected, DateTimeOffset.UtcNow);
         if (_services.Ignored.LastError is { } ignoreError)
         {
-            Error = $"The ignored list could not be saved: {ignoreError}";
+            Error = F("TheIgnoredListCouldNotBeSaved", ignoreError);
             return;
         }
 
@@ -558,7 +559,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(IgnoredCount));
         OnPropertyChanged(nameof(HasIgnoredEntries));
-        StatusText = $"{added} item(s) ignored for this application. They will be hidden from future scans until you reset the list.";
+        StatusText = F("ItemSIgnoredForThisApplicationTheyWill", added);
         OnSelectionChanged();
         if (Groups.Count == 0)
         {
@@ -571,11 +572,11 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
         var removed = _services.Ignored.Clear(Program.Id, Program.Name);
         if (_services.Ignored.LastError is { } clearError)
         {
-            Error = $"The ignored list could not be updated: {clearError}";
+            Error = F("TheIgnoredListCouldNotBeUpdated", clearError);
             return;
         }
 
-        StatusText = $"{removed} ignored item(s) restored to the review list.";
+        StatusText = F("IgnoredItemSRestoredToTheReviewList", removed);
         await ScanForLeftoversAsync();
     }
 

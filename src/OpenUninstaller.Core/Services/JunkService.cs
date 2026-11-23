@@ -3,6 +3,7 @@ using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -160,7 +161,7 @@ public sealed class JunkService
     {
         ArgumentNullException.ThrowIfNull(options);
         if (options.MinimumAge < TimeSpan.Zero || options.MinimumAge > TimeSpan.FromDays(36500))
-            throw new ArgumentOutOfRangeException(nameof(options), "Minimum age must be between zero and 100 years.");
+            throw new ArgumentOutOfRangeException(nameof(options), L("MinimumAgeMustBeBetweenZeroAnd100"));
         ValidatePatterns(options.Patterns);
         var stopwatch = Stopwatch.StartNew();
         var result = new JunkScanResult();
@@ -170,7 +171,7 @@ public sealed class JunkService
             definitions.Add(new Definition(new JunkCategory
             {
                 Id = "pattern-search", Title = "Additional folder and drive matches",
-                Description = "Wildcard matches in selected locations. Report-only: filename extensions alone do not prove safe deletion.",
+                Description = L("WildcardMatchesInSelectedLocationsReportOnlyFilename"),
                 CanClean = false
             }, options.SearchRoots, options.Patterns.Count > 0 ? options.Patterns : JunkPatterns,
                 recurse: true, recentWindow: options.MinimumAge)
@@ -183,7 +184,7 @@ public sealed class JunkService
             definitions.Add(new Definition(new JunkCategory
             {
                 Id = "included-folders", Title = "Explicitly included folder contents",
-                Description = "All inspectable regular files in included folders, regardless of age or main scan filters. Report-only.",
+                Description = L("AllInspectableRegularFilesInIncludedFoldersRegardless"),
                 CanClean = false
             }, options.IncludeRoots, [], recurse: true));
         if (selectedCategories is { Count: > 0 })
@@ -202,7 +203,7 @@ public sealed class JunkService
             else
             {
                 if (category.Id == "browser-cache" && browsers.Count > 0)
-                    AddWarning(category, $"{string.Join(", ", browsers)} is running; in-use files are skipped.");
+                    AddWarning(category, F("IsRunningInUseFilesAreSkipped", string.Join(", ", browsers)));
                 var cutoff = _timeProvider.GetUtcNow().UtcDateTime - (definition.RecentWindow ?? RecentWindow);
                 foreach (var root in definition.Roots)
                 {
@@ -213,7 +214,7 @@ public sealed class JunkService
                         if (!category.CanClean)
                         {
                             category.IsComplete = false;
-                            AddWarning(category, $"{root}: selected search folder does not exist or is inaccessible.");
+                            AddWarning(category, F("SelectedSearchFolderDoesNotExistOrIs", root));
                         }
                         continue;
                     }
@@ -250,8 +251,8 @@ public sealed class JunkService
         var selected = scan.Categories.Where(category => requested.Count == 0 || requested.Contains(category.Id)).ToList();
         var result = CleanFiles(selected.Where(category => category.CanClean).SelectMany(category => category.Files), dryRun, cancellationToken);
         foreach (var category in selected.Where(category => !category.CanClean))
-            result.Messages.Add($"{category.Title}: report-only in this version.");
-        if (selected.Count == 0) result.Messages.Add("No matching junk categories.");
+            result.Messages.Add(F("ReportOnlyInThisVersion", Label(category.Title)));
+        if (selected.Count == 0) result.Messages.Add(L("NoMatchingJunkCategories"));
         if (selected.Any(category => category.Id == "recycle-bin"))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -260,10 +261,10 @@ public sealed class JunkService
             {
                 result.FreedBytes += bytes;
                 result.DeletedItems += items;
-                result.Messages.Add($"Recycle bin: {(dryRun ? "would empty" : "emptied")} {items} item(s).");
+                result.Messages.Add(F(dryRun ? "EmptyRecycleBinPreview" : "EmptyRecycleBinResult", items));
                 if (!dryRun) _log.Write("junk", "recycle-bin", "recycle-bin", "emptied", $"{items} items");
             }
-            else { result.FailedItems++; result.Messages.Add("Recycle bin could not be emptied."); }
+            else { result.FailedItems++; result.Messages.Add(L("RecycleBinCouldNotBeEmptied")); }
         }
         return result;
     }
@@ -286,7 +287,7 @@ public sealed class JunkService
                 !Matches(file.Path, definition.Patterns))
             {
                 result.SkippedItems++;
-                result.Messages.Add($"{file.Path}: report-only or no longer within a trusted cache rule.");
+                result.Messages.Add(F("ReportOnlyOrNoLongerWithinATrusted", file.Path));
                 continue;
             }
             try
@@ -299,7 +300,7 @@ public sealed class JunkService
                     current.LastAccessUtc != file.LastAccessUtc || current.LastWriteUtc > cutoff)
                 {
                     result.SkippedItems++;
-                    result.Messages.Add($"{file.Path}: changed or used since the scan; scan again.");
+                    result.Messages.Add(F("ChangedOrUsedSinceTheScanScanAgain", file.Path));
                     continue;
                 }
                 cancellationToken.ThrowIfCancellationRequested();
@@ -311,7 +312,7 @@ public sealed class JunkService
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 if (deleting) result.FailedItems++; else result.SkippedItems++;
-                result.Messages.Add($"{file.Path}: {(deleting ? "failed" : "skipped")}: {ex.Message}");
+                result.Messages.Add(F(deleting ? "JunkFileFailed" : "JunkFileSkipped", file.Path, ex.Message));
                 _log.Write("junk", "delete", file.Path, deleting ? "failed" : "skipped", ex.Message);
             }
         }
@@ -363,7 +364,7 @@ public sealed class JunkService
             if (Excluded(current, options, definition))
             {
                 category.SkippedItems++;
-                AddWarning(category, $"{entry}: subtree retained because {current} is excluded or protected.");
+                AddWarning(category, F("SubtreeRetainedBecauseIsExcludedOrProtected", entry, current));
                 return false;
             }
             try
@@ -372,7 +373,7 @@ public sealed class JunkService
                 if ((attributes & (FileAttributes.ReparsePoint | FileAttributes.Offline)) != 0)
                 {
                     category.SkippedItems++;
-                    AddWarning(category, $"{entry}: subtree retained because a descendant is a reparse point or offline file.");
+                    AddWarning(category, F("SubtreeRetainedBecauseADescendantIsAReparse", entry));
                     return false;
                 }
                 if ((attributes & FileAttributes.Directory) != 0)
@@ -380,7 +381,7 @@ public sealed class JunkService
                     if (!_guard.ValidateJunkCandidate(current, root).Allowed)
                     {
                         category.SkippedItems++;
-                        AddWarning(category, $"{entry}: subtree retained because {current} is protected.");
+                        AddWarning(category, F("SubtreeRetainedBecauseIsProtected", entry, current));
                         return false;
                     }
                     // Enumeration must finish successfully before this tree is eligible.
@@ -425,7 +426,7 @@ public sealed class JunkService
                 (patternSearch ? activity >= cutoff : activity > cutoff))
             { definition.Category.SkippedItems++; return false; }
             file = definition.Category.Id == "included-folders"
-                ? candidate with { Reason = "Report-only: inclusion requests discovery, not permission to delete folder contents." }
+                ? candidate with { Reason = L("ReportOnlyInclusionRequestsDiscoveryNotPermissionTo") }
                 : candidate;
             return true;
         }
@@ -468,7 +469,7 @@ public sealed class JunkService
         {
             if (!Path.IsPathFullyQualified(root) || root.StartsWith(@"\\", StringComparison.Ordinal) ||
                 root.Split(['\\', '/']).Any(part => part == ".."))
-                throw new IOException("Only absolute local paths without parent traversal are supported.");
+                throw new IOException(L("OnlyAbsoluteLocalPathsWithoutParentTraversalAre"));
             var normalized = Path.GetFullPath(root);
             if (category.Id is "user-temp" or "pattern-remnants")
             {
@@ -481,11 +482,11 @@ public sealed class JunkService
                     broadRoots.Any(protectedRoot => !string.IsNullOrWhiteSpace(protectedRoot) &&
                         (string.Equals(Path.TrimEndingDirectorySeparator(normalized), Path.TrimEndingDirectorySeparator(protectedRoot),
                             StringComparison.OrdinalIgnoreCase) || PathGuard.IsUnder(protectedRoot, normalized))))
-                    throw new IOException("Configured temporary folder is a protected root or an ancestor of protected data.");
+                    throw new IOException(L("ConfiguredTemporaryFolderIsAProtectedRootOr"));
                 if (PathGuard.IsUnder(normalized, _paths.ProgramFiles) || PathGuard.IsUnder(normalized, _paths.ProgramFilesX86) ||
                     PathGuard.IsUnder(normalized, _paths.DataDirectory) || PathGuard.IsUnder(normalized, _paths.LocalDataDirectory) ||
                     PathGuard.IsUnder(normalized, _paths.AppBaseDirectory))
-                    throw new IOException("Configured temporary folder overlaps installed applications or OpenUninstaller data.");
+                    throw new IOException(L("ConfiguredTemporaryFolderOverlapsInstalledApplicationsOrOpenUninstaller"));
                 var localTemp = Path.Combine(_paths.LocalAppData, "Temp");
                 if (string.Equals(Path.TrimEndingDirectorySeparator(normalized), Path.TrimEndingDirectorySeparator(_paths.Temp),
                         StringComparison.OrdinalIgnoreCase) &&
@@ -493,11 +494,11 @@ public sealed class JunkService
                     !PathGuard.IsUnder(normalized, localTemp) &&
                     !string.Equals(Path.GetFileName(Path.TrimEndingDirectorySeparator(normalized)), "Temp", StringComparison.OrdinalIgnoreCase) &&
                     !string.Equals(Path.GetFileName(Path.TrimEndingDirectorySeparator(normalized)), "Tmp", StringComparison.OrdinalIgnoreCase))
-                    throw new IOException("Configured temporary folder is not a recognized Temp/Tmp location; use report-only folder search to inspect it.");
+                    throw new IOException(L("ConfiguredTemporaryFolderIsNotARecognizedTemp"));
             }
             for (string? current = normalized; current is not null; current = Path.GetDirectoryName(current))
                 if (Directory.Exists(current) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                    throw new IOException("Search roots and their ancestors may not be reparse points.");
+                    throw new IOException(L("SearchRootsAndTheirAncestorsMayNotBe"));
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
@@ -602,7 +603,7 @@ public sealed class JunkService
     {
         if (patterns.Any(pattern => string.IsNullOrWhiteSpace(pattern) || pattern.Length > 255 ||
             pattern.IndexOfAny(['\\', '/', ':', '\0']) >= 0))
-            throw new ArgumentException("Patterns must be filename masks using * and ?, without paths.", nameof(patterns));
+            throw new ArgumentException(L("PatternsMustBeFilenameMasksUsingAndWithout"), nameof(patterns));
     }
 
     private IEnumerable<Definition> BuildDefinitions()
@@ -615,7 +616,7 @@ public sealed class JunkService
             {
                 Id = "user-temp",
                 Title = "User temporary files",
-                Description = "Contents of the user temp folders older than 10 minutes."
+                Description = L("ContentsOfTheUserTempFoldersOlderThan")
             },
             [_paths.Temp, Local("Temp")],
             []);
@@ -625,7 +626,7 @@ public sealed class JunkService
             {
                 Id = "pattern-remnants",
                 Title = "Temporary and backup file remnants",
-                Description = "Files matching temporary patterns (*.tmp, *.temp, *.old, *.gid, *.fts, *.$db, *.dmp, thumbs.db, *.??~) older than 24 hours.",
+                Description = L("FilesMatchingTemporaryPatternsTmpTempOldGid"),
             },
             [_paths.Temp, Local("Temp"), ProgramData("Temp"), Local("CrashDumps")],
             JunkPatterns,
@@ -637,7 +638,7 @@ public sealed class JunkService
             {
                 Id = "windows-temp",
                 Title = "Windows temporary files",
-                Description = "Windows, system and service-account temporary folders older than 10 minutes.",
+                Description = L("WindowsSystemAndServiceAccountTemporaryFoldersOlder"),
                 RequiresElevation = true
             },
             [
@@ -651,26 +652,26 @@ public sealed class JunkService
         yield return new Definition(new JunkCategory
         {
             Id = "shared-temp", Title = "Shared temporary files",
-            Description = "ProgramData\\Temp contents older than 24 hours.", RequiresElevation = true
+            Description = L("ProgramDataTempContentsOlderThan24Hours"), RequiresElevation = true
         }, [ProgramData("Temp")], [], recentWindow: TimeSpan.FromHours(24));
 
         var packageCategory = new JunkCategory
         {
             Id = "app-temp", Title = "Windows app temporary files",
-            Description = "Packaged application TempState and AC\\Temp folders; application data and LocalState are preserved."
+            Description = L("PackagedApplicationTempStateAndACTempFoldersApplication")
         };
         yield return new Definition(packageCategory, PackageTempRoots(packageCategory), []);
 
         yield return new Definition(new JunkCategory
         {
             Id = "application-caches", Title = "Application render caches",
-            Description = "Slack, Discord and Visual Studio Code render caches; settings, workspaces and stored application data are preserved."
+            Description = L("SlackDiscordAndVisualStudioCodeRenderCaches")
         }, ApplicationCacheRoots(), []);
 
         var browserCategory = new JunkCategory
         {
             Id = "browser-cache", Title = "Browser caches",
-            Description = "Chrome, Edge, Brave, Vivaldi, Opera and Firefox caches for every profile. Close browsers before cleaning."
+            Description = L("ChromeEdgeBraveVivaldiOperaAndFirefoxCaches")
         };
         yield return new Definition(browserCategory, BrowserCacheRoots(browserCategory), []);
 
@@ -679,7 +680,7 @@ public sealed class JunkService
             {
                 Id = "thumbnails",
                 Title = "Thumbnail and icon caches",
-                Description = "Windows Explorer cache databases; recreated automatically."
+                Description = L("WindowsExplorerCacheDatabasesRecreatedAutomatically")
             },
             [Local("Microsoft", "Windows", "Explorer")],
             ["thumbcache_*.db", "iconcache_*.db"]);
@@ -689,7 +690,7 @@ public sealed class JunkService
             {
                 Id = "crash-reports",
                 Title = "Crash dumps and error reports",
-                Description = "User crash dumps and Windows Error Reporting queues."
+                Description = L("UserCrashDumpsAndWindowsErrorReportingQueues")
             },
             [
                 Local("CrashDumps"),
@@ -703,7 +704,7 @@ public sealed class JunkService
             {
                 Id = "system-error-reports",
                 Title = "System crash dumps",
-                Description = "Kernel minidumps and live-kernel reports written by Windows after a crash.",
+                Description = L("KernelMinidumpsAndLiveKernelReportsWrittenBy"),
                 RequiresElevation = true
             },
             [
@@ -717,7 +718,7 @@ public sealed class JunkService
             {
                 Id = "shader-caches",
                 Title = "Graphics shader caches",
-                Description = "Direct3D, NVIDIA, AMD and Intel shader caches; rebuilt on demand."
+                Description = L("Direct3DNVIDIAAMDAndIntelShaderCachesRebuilt")
             },
             [
                 Local("D3DSCache"),
@@ -736,7 +737,7 @@ public sealed class JunkService
             {
                 Id = "internet-cache",
                 Title = "Windows internet cache",
-                Description = "WinINet/WinHTTP cache used by Windows components and applications."
+                Description = L("WinINetWinHTTPCacheUsedByWindowsComponentsAnd")
             },
             [Local("Microsoft", "Windows", "INetCache")],
             []);
@@ -746,7 +747,7 @@ public sealed class JunkService
             {
                 Id = "delivery-optimization",
                 Title = "Delivery Optimization cache",
-                Description = "Windows Update peer-to-peer download cache; Windows recreates it.",
+                Description = L("WindowsUpdatePeerToPeerDownloadCacheWindows"),
                 RequiresElevation = true
             },
             [
@@ -781,7 +782,7 @@ public sealed class JunkService
             {
                 Id = "windows-logs",
                 Title = "Windows servicing logs",
-                Description = "CBS, DISM and Windows Update logs. Reported only: they are needed for troubleshooting.",
+                Description = L("CBSDISMAndWindowsUpdateLogsReportedOnly"),
                 CanClean = false,
                 RequiresElevation = true
             },
@@ -797,7 +798,7 @@ public sealed class JunkService
             {
                 Id = "prefetch",
                 Title = "Windows prefetch data",
-                Description = "Boot and application prefetch files. Reported only: removing them temporarily slows startup.",
+                Description = L("BootAndApplicationPrefetchFilesReportedOnlyRemoving"),
                 CanClean = false,
                 RequiresElevation = true
             },
@@ -809,7 +810,7 @@ public sealed class JunkService
             {
                 Id = "windows-update",
                 Title = "Windows Update download cache",
-                Description = "Reported only. Removing it can interrupt pending updates.",
+                Description = L("ReportedOnlyRemovingItCanInterruptPendingUpdates"),
                 CanClean = false,
                 RequiresElevation = true
             },
@@ -821,7 +822,7 @@ public sealed class JunkService
             {
                 Id = "old-windows",
                 Title = "Previous Windows installation",
-                Description = "Reported only. Windows.old enables rollback; remove it from Storage settings.",
+                Description = L("ReportedOnlyWindowsOldEnablesRollbackRemoveIt"),
                 CanClean = false,
                 RequiresElevation = true
             },
@@ -833,7 +834,7 @@ public sealed class JunkService
             {
                 Id = "recycle-bin",
                 Title = "Recycle bin",
-                Description = "Emptied through the Windows Shell; cannot be undone."
+                Description = L("EmptiedThroughTheWindowsShellCannotBeUndone")
             },
             [],
             [])
@@ -984,7 +985,7 @@ public sealed class JunkService
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             category.IsComplete = false;
-            AddWarning(category, $"{root}: profile discovery failed: {ex.Message}");
+            AddWarning(category, F("ProfileDiscoveryFailed", root, ex.Message));
             return [];
         }
     }

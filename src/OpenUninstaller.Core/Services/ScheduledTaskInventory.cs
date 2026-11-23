@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -21,7 +22,7 @@ internal static class ScheduledTaskInventory
             ReadFolder(root, result, warnings, 0);
         }
         catch (Exception ex) when (ex is COMException or UnauthorizedAccessException or System.Security.SecurityException)
-        { warnings.Add($"Task Scheduler: {ex.Message}"); }
+        { warnings.Add(F("TaskScheduler2", ex.Message)); }
         finally { Release(root); Release(service); }
         return result;
     }
@@ -58,7 +59,7 @@ internal static class ScheduledTaskInventory
                 finally { Release(child); }
             }
         }
-        catch (COMException ex) { warnings.Add($"Task Scheduler folder: {ex.Message}"); }
+        catch (COMException ex) { warnings.Add(F("TaskSchedulerFolderError", ex.Message)); }
         finally { Release(folders); Release(tasks); }
     }
 

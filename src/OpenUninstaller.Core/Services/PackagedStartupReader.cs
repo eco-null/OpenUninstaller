@@ -4,6 +4,7 @@ using System.Xml.Linq;
 using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -63,7 +64,7 @@ internal sealed class PackagedStartupReader(IRegistryStore registry, AppPaths pa
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException
                                           or XmlException or ArgumentException or NotSupportedException)
             {
-                result.Warnings.Add($"Windows startup apps: {package.Name}: {ex.Message}");
+                result.Warnings.Add(F("WindowsStartupAppsError", package.Name, ex.Message));
             }
         }
     }

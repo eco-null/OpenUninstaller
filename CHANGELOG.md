@@ -5,6 +5,18 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Changing the language in Settings immediately updates the desktop app, including navigation,
+  dialogs, and diagnostic reports. The selected language is saved for the current Windows user
+  and restored when the app opens again.
+
+### Changed
+
+- The desktop app supports English, Turkish, German, Spanish, French, Italian, Japanese,
+  Brazilian Portuguese, Russian, and Simplified Chinese. Existing Portuguese selections use
+  Brazilian Portuguese. Other retired language selections default to English.
+
 ## [1.1.0] — 2026-11-23
 
 ### Added

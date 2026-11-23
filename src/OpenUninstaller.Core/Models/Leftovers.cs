@@ -1,3 +1,5 @@
+using static OpenUninstaller.Core.Localization.UiText;
+
 namespace OpenUninstaller.Core.Models;
 
 public enum LeftoverKind
@@ -83,26 +85,26 @@ public sealed class LeftoverItem
     }
 
     public string ConfidenceLabel => IsFromTrace
-        ? "Exact (traced)"
+        ? L("ExactTraced")
         : Confidence switch
         {
-            LeftoverConfidence.Exact => "Exact",
-            LeftoverConfidence.High => "High",
-            LeftoverConfidence.Strong => "Strong",
-            LeftoverConfidence.Medium => "Medium",
-            _ => "Low"
+            LeftoverConfidence.Exact => L("Exact"),
+            LeftoverConfidence.High => L("High"),
+            LeftoverConfidence.Strong => L("Strong"),
+            LeftoverConfidence.Medium => L("Medium"),
+            _ => L("Low")
         };
 
     public string KindLabel => Kind switch
     {
-        LeftoverKind.RegistryKey => "Registry",
-        LeftoverKind.RegistryValue => "Value",
-        LeftoverKind.Service => "Service",
-        LeftoverKind.ScheduledTask => "Task",
-        LeftoverKind.Directory => "Folder",
+        LeftoverKind.RegistryKey => L("Registry"),
+        LeftoverKind.RegistryValue => L("Value"),
+        LeftoverKind.Service => L("Service"),
+        LeftoverKind.ScheduledTask => L("Task"),
+        LeftoverKind.Directory => L("Folder"),
         LeftoverKind.PathEntry => "PATH",
-        LeftoverKind.FirewallRule => "Firewall",
-        _ => "File"
+        LeftoverKind.FirewallRule => L("Firewall"),
+        _ => L("File")
     };
 
     public string SizeDisplay => SizeBytes > 0 ? InstalledProgram.FormatBytes(SizeBytes) : "";
@@ -138,11 +140,11 @@ public sealed class LeftoverScanResult
         {
             var registry = new LeftoverGroup
             {
-                Title = "Registry, associations, COM, services, PATH and firewall",
+                Title = L("RegistryAssociationsCOMServicesPATHAndFirewall"),
                 Kind = LeftoverKind.RegistryKey
             };
-            var tasks = new LeftoverGroup { Title = "Scheduled tasks", Kind = LeftoverKind.ScheduledTask };
-            var files = new LeftoverGroup { Title = "Files and folders", Kind = LeftoverKind.File };
+            var tasks = new LeftoverGroup { Title = L("ScheduledTasks"), Kind = LeftoverKind.ScheduledTask };
+            var files = new LeftoverGroup { Title = L("FilesAndFolders"), Kind = LeftoverKind.File };
             registry.Items.AddRange(Items.Where(i => i.Kind is
                 LeftoverKind.RegistryKey or LeftoverKind.RegistryValue or LeftoverKind.Service
                 or LeftoverKind.PathEntry or LeftoverKind.FirewallRule));

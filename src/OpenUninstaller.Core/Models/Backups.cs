@@ -1,3 +1,5 @@
+using static OpenUninstaller.Core.Localization.UiText;
+
 namespace OpenUninstaller.Core.Models;
 
 public sealed record BackupRegistryEntry
@@ -51,10 +53,10 @@ public sealed record BackupRecord
     public long TotalBytes => Manifest.Files.Sum(f => f.Bytes);
 
     public string Summary =>
-        $"{RegistryCount} registry key(s), {FileCount} file item(s), {InstalledProgram.FormatBytes(TotalBytes)}";
+        F("RegistryKeySFileItemS", RegistryCount, FileCount, InstalledProgram.FormatBytes(TotalBytes));
 
     public string CreatedDisplay => CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
-    public string CompletenessLabel => Manifest.Complete ? "Complete" : "Partial";
+    public string CompletenessLabel => Manifest.Complete ? L("Complete") : L("Partial");
 }
 
 public sealed record BackupCreationResult
@@ -84,10 +86,10 @@ public sealed record RestorePreviewEntry(
 {
     public string ActionLabel => Action switch
     {
-        RestorePreviewAction.Restore => "Restore",
-        RestorePreviewAction.Overwrite => "Overwrite",
-        RestorePreviewAction.Skip => "Skip",
-        _ => "Blocked"
+        RestorePreviewAction.Restore => L("Restore2"),
+        RestorePreviewAction.Overwrite => L("Overwrite"),
+        RestorePreviewAction.Skip => L("Skip"),
+        _ => L("Blocked")
     };
 }
 
@@ -102,7 +104,7 @@ public sealed class RestorePreview
     public int SkipCount => Entries.Count(e => e.Action == RestorePreviewAction.Skip);
     public int BlockedCount => Entries.Count(e => e.Action == RestorePreviewAction.Blocked);
     public bool CanRestore => BlockedCount == 0 && RestoreCount > 0;
-    public string Summary => $"{RestoreCount} to restore · {SkipCount} skipped · {BlockedCount} blocked";
+    public string Summary => F("ToRestoreSkippedBlocked", RestoreCount, SkipCount, BlockedCount);
 }
 
 public enum RestoreEntryStatus

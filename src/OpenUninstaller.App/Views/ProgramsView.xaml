@@ -21,27 +21,27 @@
     <Grid Grid.Row="0" Margin="0,0,0,18">
       <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
       <StackPanel>
-        <TextBlock Text="Programs" Style="{StaticResource PageTitle}" />
+        <TextBlock Text="{infra:Loc NavPrograms}" Style="{StaticResource PageTitle}" />
       </StackPanel>
       <WrapPanel Grid.Row="1" Margin="0,18,0,0">
         <Button Content="{Binding QueueActionLabel}" Style="{StaticResource BaseButton}"
                 Command="{Binding QueueUninstallCommand}" Margin="0,0,8,6"
-                ToolTip="Review several ticked applications one after another." />
-        <Button Content="Clear" Style="{StaticResource GhostButton}"
+                ToolTip="{infra:Loc ReviewSeveralTickedApplicationsOneAfterAnother}" />
+        <Button Content="{infra:Loc Clear}" Style="{StaticResource GhostButton}"
                 Command="{Binding ClearQueueCommand}" Margin="0,0,8,6"
                 Visibility="{Binding HasQueue, Converter={StaticResource BoolVisibility}}" />
-        <Button Content="Install with tracing" Style="{StaticResource BaseButton}"
+        <Button Content="{infra:Loc InstallWithTracing}" Style="{StaticResource BaseButton}"
                 Command="{Binding TraceInstallCommand}" Margin="0,0,8,6"
-                ToolTip="Run an installer now and record exactly what it creates." />
-        <Button Content="Orphaned leftovers" Style="{StaticResource BaseButton}"
+                ToolTip="{infra:Loc RunAnInstallerNowAndRecordExactlyWhat}" />
+        <Button Content="{infra:Loc OrphanedLeftovers}" Style="{StaticResource BaseButton}"
                 Command="{Binding OrphanScanCommand}" Margin="0,0,8,6"
-                ToolTip="Find leftovers that no installed application claims." />
-        <Button Content="Hunter mode" Style="{StaticResource BaseButton}"
+                ToolTip="{infra:Loc FindLeftoversThatNoInstalledApplicationClaims}" />
+        <Button Content="{infra:Loc HunterMode}" Style="{StaticResource BaseButton}"
                 Command="{Binding HunterCommand}" Margin="0,0,8,6"
-                ToolTip="Find the application behind a window on screen." />
-        <Button Content="Export" Style="{StaticResource BaseButton}"
+                ToolTip="{infra:Loc FindTheApplicationBehindAWindowOnScreen}" />
+        <Button Content="{infra:Loc Export}" Style="{StaticResource BaseButton}"
                 Command="{Binding ExportCommand}" Margin="0,0,8,6" />
-        <Button Content="Refresh" Style="{StaticResource PrimaryButton}"
+        <Button Content="{infra:Loc ActionRefresh}" Style="{StaticResource PrimaryButton}"
                 Command="{Binding RefreshCommand}" Margin="0,0,0,6" />
       </WrapPanel>
     </Grid>
@@ -51,24 +51,25 @@
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <Grid>
           <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-          <TextBox Style="{StaticResource SearchInput}" Tag="Search by name, publisher or location…" Width="400" HorizontalAlignment="Left"
-                   AutomationProperties.Name="Search programs" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                   ToolTip="Search by name, publisher or install location" />
+          <TextBox Style="{StaticResource SearchInput}" Tag="{infra:Loc SearchByNamePublisherOrLocation}" Width="400" HorizontalAlignment="Left"
+                   AutomationProperties.Name="{infra:Loc SearchPrograms}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                   ToolTip="{infra:Loc SearchByNamePublisherOrInstallLocation}" />
           <Border Grid.Column="1" Style="{StaticResource Badge}" Margin="16,0,0,0">
             <TextBlock Text="{Binding CountLabel}" Style="{StaticResource BadgeText}" />
           </Border>
         </Grid>
         <WrapPanel Grid.Row="1" Margin="0,12,0,0">
           <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
-            <TextBlock Text="Show" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <ComboBox AutomationProperties.Name="Program filter" ItemsSource="{Binding AvailableFilters}" SelectedItem="{Binding SelectedFilter}" Width="170" />
+            <TextBlock Text="{infra:Loc Show}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <ComboBox AutomationProperties.Name="{infra:Loc ProgramFilter}" ItemsSource="{Binding AvailableFilters}"
+                      ItemTemplate="{StaticResource LocalizedOption}" SelectedItem="{Binding SelectedFilter}" Width="190" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
-            <TextBlock Text="Sort by" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <ComboBox AutomationProperties.Name="Sort programs" Width="230" DisplayMemberPath="Label"
+            <TextBlock Text="{infra:Loc SortBy}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <ComboBox AutomationProperties.Name="{infra:Loc SortPrograms}" Width="230" DisplayMemberPath="Label"
                       ItemsSource="{Binding Sort.Options}" SelectedItem="{Binding Sort.SelectedOption, Mode=TwoWay}" />
           </StackPanel>
-          <CheckBox Content="Show system components" Margin="0,0,0,6" VerticalAlignment="Center" IsChecked="{Binding IncludeSystemComponents}" />
+          <CheckBox Content="{infra:Loc ShowSystemComponents}" Margin="0,0,0,6" VerticalAlignment="Center" IsChecked="{Binding IncludeSystemComponents}" />
         </WrapPanel>
       </Grid>
     </Border>
@@ -111,18 +112,18 @@
                   infra:GridSorting.Sort="{Binding Sort}"
                   ItemsSource="{Binding RowsView}"
                   SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-                  MouseDoubleClick="OnRowDoubleClick" ToolTip="Double-click an application to uninstall.">
+                  MouseDoubleClick="OnRowDoubleClick" ToolTip="{infra:Loc DoubleClickAnApplicationToUninstall}">
           <DataGrid.Columns>
             <DataGridTemplateColumn Header="" Width="48" CanUserSort="False">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <CheckBox IsChecked="{Binding IsQueued, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             HorizontalAlignment="Center" VerticalAlignment="Center"
-                            ToolTip="Add this application to the uninstall queue" />
+                            ToolTip="{infra:Loc AddThisApplicationToTheUninstallQueue}" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTemplateColumn Header="Application" Width="*" MinWidth="180" SortMemberPath="Name">
+            <DataGridTemplateColumn Header="{infra:Loc Application}" Width="*" MinWidth="180" SortMemberPath="Name">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate>
                   <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -140,10 +141,10 @@
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
-            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Version" Binding="{Binding VersionDisplay}" Width="90" />
-            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Size" Binding="{Binding SizeDisplay}" SortMemberPath="Program.EstimatedSizeBytes" Width="80" />
-            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Type" Binding="{Binding ArchitectureDisplay}" Width="70" />
-            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Installed" Binding="{Binding InstallDateDisplay}" SortMemberPath="Program.InstallDate" Width="88" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="{infra:Loc Version}" Binding="{Binding VersionDisplay}" Width="90" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="{infra:Loc Size}" Binding="{Binding SizeDisplay}" SortMemberPath="Program.EstimatedSizeBytes" Width="80" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="{infra:Loc Type}" Binding="{Binding ArchitectureDisplay}" Width="70" />
+            <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="{infra:Loc Installed}" Binding="{Binding InstallDateDisplay}" SortMemberPath="Program.InstallDate" Width="88" />
           </DataGrid.Columns>
         </DataGrid>
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20" IsHitTestVisible="False">
@@ -151,14 +152,14 @@
             <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers><DataTrigger Binding="{Binding RowsView.IsEmpty}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
           </Style></StackPanel.Style>
-          <TextBlock Text="No applications to show" Style="{StaticResource SectionTitle}" TextAlignment="Center" />
-          <TextBlock Text="Try a different search or filter, or refresh the inventory." Style="{StaticResource Muted}" TextAlignment="Center" MaxWidth="260" />
+          <TextBlock Text="{infra:Loc NoApplicationsToShow}" Style="{StaticResource SectionTitle}" TextAlignment="Center" />
+          <TextBlock Text="{infra:Loc TryADifferentSearchOrFilterOrRefresh}" Style="{StaticResource Muted}" TextAlignment="Center" MaxWidth="260" />
         </StackPanel>
         </Grid>
       </Border>
       <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" Background="Transparent"
                     ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" VerticalAlignment="Stretch"
-                    AutomationProperties.Name="Resize application details" ToolTip="Drag to resize the details panel" />
+                    AutomationProperties.Name="{infra:Loc ResizeApplicationDetails}" ToolTip="{infra:Loc DragToResizeTheDetailsPanel}" />
       <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18">
         <Grid>
           <ScrollViewer VerticalScrollBarVisibility="Auto"
@@ -187,31 +188,31 @@
                   <RowDefinition Height="Auto" />
                   <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="Version" Style="{StaticResource Caption}" Margin="0,0,12,6" />
+                <TextBlock Text="{infra:Loc Version}" Style="{StaticResource Caption}" Margin="0,0,12,6" />
                 <TextBlock Grid.Column="1" Text="{Binding SelectedRow.VersionDisplay}" FontSize="12" Margin="0,0,0,6" />
-                <TextBlock Grid.Row="1" Text="Size" Style="{StaticResource Caption}" Margin="0,0,12,6" />
+                <TextBlock Grid.Row="1" Text="{infra:Loc Size}" Style="{StaticResource Caption}" Margin="0,0,12,6" />
                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedRow.SizeDisplay}" FontSize="12" Margin="0,0,0,6" />
 
               </Grid>
 
-              <Expander Header="Technical details" Margin="0,6,0,16" Foreground="{DynamicResource TextSecondary}">
+              <Expander Header="{infra:Loc TechnicalDetails}" Margin="0,6,0,16" Foreground="{DynamicResource TextSecondary}">
                 <StackPanel Margin="0,12,0,0">
-                  <TextBlock Text="Registry" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+                  <TextBlock Text="{infra:Loc Registry}" Style="{StaticResource Caption}" Margin="0,0,0,4" />
                   <TextBlock Text="{Binding SelectedRow.RegistryDisplay}" Style="{StaticResource Mono}" TextWrapping="Wrap" Margin="0,0,0,12" />
-              <TextBlock Text="Install location" Style="{StaticResource Caption}" Margin="0,6,0,4" />
+              <TextBlock Text="{infra:Loc InstallLocation}" Style="{StaticResource Caption}" Margin="0,6,0,4" />
               <TextBlock Text="{Binding SelectedRow.LocationDisplay}" Style="{StaticResource Mono}"
                          TextWrapping="Wrap" Margin="0,0,0,10" />
-              <TextBlock Text="Uninstall command" Style="{StaticResource Caption}" Margin="0,0,0,4" />
+              <TextBlock Text="{infra:Loc UninstallCommand}" Style="{StaticResource Caption}" Margin="0,0,0,4" />
               <TextBlock Text="{Binding SelectedRow.UninstallDisplay}" Style="{StaticResource Mono}"
                          TextWrapping="Wrap" Margin="0,0,0,16" />
 
                 </StackPanel>
               </Expander>
-              <Button Content="Uninstall…" Style="{StaticResource DangerButton}" HorizontalAlignment="Left"
+              <Button Content="{infra:Loc Uninstall}" Style="{StaticResource DangerButton}" HorizontalAlignment="Left"
                       Command="{Binding UninstallCommand}" Margin="0,0,0,8" />
-              <Button Content="Scan leftovers…" Style="{StaticResource BaseButton}" HorizontalAlignment="Left"
+              <Button Content="{infra:Loc ScanLeftovers}" Style="{StaticResource BaseButton}" HorizontalAlignment="Left"
                       Command="{Binding ScanCommand}" Margin="0,0,0,8" />
-              <Button Content="Forced uninstall…" ToolTip="Removes the registration, then scans for leftovers. Use when normal uninstall is unavailable." Style="{StaticResource BaseButton}" HorizontalAlignment="Left"
+              <Button Content="{infra:Loc ForcedUninstall}" ToolTip="{infra:Loc RemovesTheRegistrationThenScansForLeftoversUse}" Style="{StaticResource BaseButton}" HorizontalAlignment="Left"
                       Command="{Binding ForceUninstallCommand}" />
               <TextBlock Text="{Binding QueueSummary}" Style="{StaticResource Caption}" Margin="0,6,0,0"
                          TextWrapping="Wrap" />
@@ -223,7 +224,7 @@
             <Border Width="56" Height="56" CornerRadius="14" Background="{DynamicResource SurfaceAlt}" HorizontalAlignment="Center">
               <Path Data="M 3,3 L 25,3 L 25,21 L 3,21 Z M 3,8 L 25,8 M 8,13 L 18,13 M 8,17 L 14,17" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.4" Width="28" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
-            <TextBlock Text="Select a program" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"
+            <TextBlock Text="{infra:Loc SelectAProgram}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"
                        Margin="0,12,0,4" />
           </StackPanel>
         </Grid>

@@ -1,4 +1,5 @@
 using OpenUninstaller.App.Infrastructure;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -57,6 +58,7 @@ public sealed class MainViewModel : ObservableObject
         NavItems = BuildNavItems();
         _selectedNav = NavItems.FirstOrDefault(n => n.Key == currentKey) ?? NavItems[0];
         OnPropertyChanged(nameof(SelectedNav));
+        OnPropertyChanged(nameof(AdminLabel));
     }
 
     public ProgramsViewModel Programs { get; }
@@ -98,7 +100,7 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _currentPage, value);
     }
 
-    public string AdminLabel => _services.IsElevated ? "Administrator" : "Standard user";
+    public string AdminLabel => _services.IsElevated ? L("Administrator") : L("StandardUser");
     public string VersionLabel => $"v{_services.Version}";
 
     public async Task InitializeAsync()

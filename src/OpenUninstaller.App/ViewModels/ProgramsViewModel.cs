@@ -10,6 +10,7 @@ using Microsoft.Win32;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Services;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -40,8 +41,8 @@ public sealed class ProgramRow : ObservableObject
     public bool HasInstallDate => Program.InstallDate.HasValue;
     public string InstallDateDisplay => Program.InstallDate?.ToString("yyyy-MM-dd") ?? "—";
     public string ArchitectureDisplay => Program.ArchitectureDisplay;
-    public string LocationDisplay => Program.InstallLocation ?? "No install location recorded";
-    public string UninstallDisplay => Program.UninstallCommand ?? "No uninstall command registered";
+    public string LocationDisplay => Program.InstallLocation ?? L("NoInstallLocationRecorded");
+    public string UninstallDisplay => Program.UninstallCommand ?? L("NoUninstallCommandRegistered");
     public string RegistryDisplay => Program.RegistryPath;
     public bool IsNew => Program.IsNew;
     public bool IsLarge => Program.IsLarge;
@@ -184,15 +185,15 @@ public sealed class ProgramsViewModel : PageViewModel
     public int VisibleCount => RowsView?.Cast<object>().Count() ?? 0;
 
     public string CountLabel => VisibleCount == ProgramCount
-        ? $"{ProgramCount} applications"
-        : $"{VisibleCount} of {ProgramCount} applications";
+        ? F("Applications", ProgramCount)
+        : F("OfApplications", VisibleCount, ProgramCount);
 
     public int QueuedCount => _rows.Count(r => r.IsQueued);
     public bool HasQueue => QueuedCount > 0;
-    public string QueueActionLabel => QueuedCount == 0 ? "Uninstall queued" : $"Uninstall queued ({QueuedCount})";
+    public string QueueActionLabel => QueuedCount == 0 ? L("UninstallQueued2") : F("UninstallQueued", QueuedCount);
     public string QueueSummary => QueuedCount == 0
-        ? "Tick Queue in the list to review several applications one after another."
-        : $"{QueuedCount} application(s) queued. Each keeps its own confirmation and leftover review.";
+        ? L("TickQueueInTheListToReviewSeveral")
+        : F("ApplicationSQueuedEachKeepsItsOwnConfirmation", QueuedCount);
 
     public async Task RefreshAsync()
     {
@@ -202,7 +203,7 @@ public sealed class ProgramsViewModel : PageViewModel
         }
 
         IsBusy = true;
-        StatusMessage = "Scanning installed applications…";
+        SetStatus("ScanningInstalledApplications");
         RaiseCommandStates();
         try
         {
@@ -223,13 +224,13 @@ public sealed class ProgramsViewModel : PageViewModel
             ProgramCount = _rows.Count;
             RowsView.Refresh();
             OnPropertyChanged(nameof(VisibleCount));
-            StatusMessage = $"{ProgramCount} applications · refreshed {DateTime.Now:HH:mm:ss}";
+            SetStatus("ApplicationsRefreshed", ProgramCount, DateTime.Now);
             RaiseQueueState();
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            StatusMessage = "The inventory could not be read completely.";
-            _windows.Error($"Some registry entries could not be read:\n{ex.Message}");
+            SetStatus("TheInventoryCouldNotBeReadCompletely");
+            _windows.Error(F("SomeRegistryEntriesCouldNotBeRead", ex.Message));
         }
         finally
         {
@@ -319,13 +320,13 @@ public sealed class ProgramsViewModel : PageViewModel
         var preview = string.Join(Environment.NewLine, queued.Take(12).Select(r => $"• {r.Name}"));
         if (queued.Count > 12)
         {
-            preview += Environment.NewLine + $"• …and {queued.Count - 12} more";
+            preview += Environment.NewLine + F("AndMore", queued.Count - 12);
         }
 
         if (!_windows.Confirm(
-                $"Review {queued.Count} queued application(s) one after another?\n\n{preview}\n\n" +
-                "Each application still opens its own confirmation and leftover review. Nothing is deleted automatically.",
-                "Batch uninstall queue"))
+                F("ReviewQueuedApplicationSOneAfterAnother", queued.Count, preview) +
+                L("EachApplicationStillOpensItsOwnConfirmationAnd"),
+                L("BatchUninstallQueue")))
         {
             return;
         }
@@ -337,7 +338,7 @@ public sealed class ProgramsViewModel : PageViewModel
         {
             foreach (var row in queued)
             {
-                StatusMessage = $"Queue: {reviewed + 1} of {queued.Count} — {row.Name}";
+                SetStatus("QueueOf", reviewed + 1, queued.Count, row.Name);
                 _windows.ShowUninstall(
                     row.Program,
                     force: false,
@@ -351,7 +352,7 @@ public sealed class ProgramsViewModel : PageViewModel
             IsBusy = false;
         }
 
-        StatusMessage = $"Queue finished: {reviewed} application(s) reviewed.";
+        SetStatus("QueueFinishedApplicationSReviewed", reviewed);
         RaiseQueueState();
         await RefreshAsync();
     }
@@ -394,8 +395,8 @@ public sealed class ProgramsViewModel : PageViewModel
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Select an installer to trace",
-            Filter = "Installers|*.exe;*.msi|All files|*.*",
+            Title = L("SelectAnInstallerToTrace"),
+            Filter = $"{L("InstallerFiles")}|*.exe;*.msi|{L("AllFiles")}|*.*",
             CheckFileExists = true
         };
         if (dialog.ShowDialog() != true)
@@ -404,8 +405,8 @@ public sealed class ProgramsViewModel : PageViewModel
         }
 
         var name = _windows.Prompt(
-            "Trace an install",
-            "Program name (used to match the trace later):",
+            L("TraceAnInstall"),
+            L("ProgramNameUsedToMatchTheTraceLater"),
             Path.GetFileNameWithoutExtension(dialog.FileName));
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -413,9 +414,9 @@ public sealed class ProgramsViewModel : PageViewModel
         }
 
         IsBusy = true;
-        StatusMessage = "Preparing snapshot…";
+        SetStatus("PreparingSnapshot");
         RaiseCommandStates();
-        var progress = new Progress<OperationProgress>(value => StatusMessage = value.Message);
+        var progress = new Progress<OperationProgress>(value => SetStatus(() => value.Message));
         try
         {
             var trace = await _services.TraceInstaller.TraceAsync(
@@ -424,15 +425,15 @@ public sealed class ProgramsViewModel : PageViewModel
                 waitTimeout: TimeSpan.FromMinutes(30),
                 progress: progress);
             _windows.Info(
-                $"Trace saved.\n\nProgram: {trace.ProgramName}\nRegistry entries: {trace.KeyCount}\nFiles: {trace.FileCount}\n\n" +
-                "Run it again when you uninstall the application for exact leftover detection.",
-                "Trace complete");
-            StatusMessage = $"Trace saved for {trace.ProgramName}";
+                F("TraceSavedProgramRegistryEntriesFiles", trace.ProgramName, trace.KeyCount, trace.FileCount) +
+                L("RunItAgainWhenYouUninstallTheApplication"),
+                L("TraceComplete"));
+            SetStatus("TraceSavedFor", trace.ProgramName);
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
         {
-            _windows.Error($"The trace could not be completed:\n{ex.Message}");
-            StatusMessage = "Trace failed.";
+            _windows.Error(F("TheTraceCouldNotBeCompleted", ex.Message));
+            SetStatus("TraceFailed");
         }
         finally
         {
@@ -445,7 +446,7 @@ public sealed class ProgramsViewModel : PageViewModel
     {
         var dialog = new SaveFileDialog
         {
-            Title = "Export the application inventory",
+            Title = L("ExportTheApplicationInventory"),
             Filter = "CSV|*.csv|JSON|*.json",
             FileName = $"openuninstaller-inventory-{DateTime.Now:yyyyMMdd}.csv"
         };
@@ -499,11 +500,11 @@ public sealed class ProgramsViewModel : PageViewModel
                 await File.WriteAllTextAsync(dialog.FileName, builder.ToString());
             }
 
-            StatusMessage = $"Exported {rows.Count} applications.";
+            SetStatus("ExportedApplications", rows.Count);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _windows.Error($"The export failed:\n{ex.Message}");
+            _windows.Error(F("TheExportFailed", ex.Message));
         }
     }
 

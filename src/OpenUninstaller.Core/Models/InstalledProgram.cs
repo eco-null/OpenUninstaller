@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Models;
 
@@ -36,7 +37,7 @@ public sealed record InstalledProgram
     public string RegistryPath => Location.DisplayPath;
 
     public string LocationDisplay => string.IsNullOrWhiteSpace(InstallLocation)
-        ? "No install location recorded"
+        ? L("NoInstallLocationRecorded")
         : InstallLocation;
 
     /// <summary>Size shown in the UI, falling back to an em dash.</summary>

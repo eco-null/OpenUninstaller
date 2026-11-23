@@ -4,6 +4,7 @@ using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -140,7 +141,7 @@ public sealed class PrivacyService
                     var spec = RegistryCategories.FirstOrDefault(c => c.Id == id);
                     if (spec is null)
                     {
-                        result.Messages.Add($"Unknown privacy category '{id}'.");
+                        result.Messages.Add(F("UnknownPrivacyCategory", id));
                         result.FailedItems++;
                         continue;
                     }
@@ -167,7 +168,7 @@ public sealed class PrivacyService
         {
             Id = "app-history",
             Title = "OpenUninstaller scan history",
-            Description = "Stored leftover snapshots, ignored leftover ids and operation logs kept by this app."
+            Description = L("StoredLeftoverSnapshotsIgnoredLeftoverIdsAndOperation")
         };
 
         foreach (var file in AppHistoryFiles())
@@ -293,7 +294,7 @@ public sealed class PrivacyService
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 result.FailedItems++;
-                result.Messages.Add($"{file}: {ex.Message} (in use?)");
+                result.Messages.Add(F("InUse", file, ex.Message));
             }
         }
     }

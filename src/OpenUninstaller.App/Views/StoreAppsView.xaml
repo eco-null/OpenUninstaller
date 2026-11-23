@@ -21,19 +21,19 @@
 
     <Grid Grid.Row="0" Margin="0,0,0,16">
       <StackPanel>
-        <TextBlock Text="Store apps" Style="{StaticResource PageTitle}" />
+        <TextBlock Text="{infra:Loc NavStoreApps}" Style="{StaticResource PageTitle}" />
       </StackPanel>
     </Grid>
 
     <WrapPanel Grid.Row="1" Margin="0,0,0,6">
-      <TextBox Style="{StaticResource SearchInput}" Tag="Search apps…" Margin="0,0,12,6"
-               AutomationProperties.Name="Search apps" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-               ToolTip="Search by package name, publisher or full name" />
-      <Button Content="Refresh" Style="{StaticResource PrimaryButton}"
+      <TextBox Style="{StaticResource SearchInput}" Tag="{infra:Loc SearchApps}" Margin="0,0,12,6"
+               AutomationProperties.Name="{infra:Loc SearchApps2}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+               ToolTip="{infra:Loc SearchByPackageNamePublisherOrFullName}" />
+      <Button Content="{infra:Loc ActionRefresh}" Style="{StaticResource PrimaryButton}"
               Command="{Binding RefreshCommand}" Margin="0,0,16,6" VerticalAlignment="Center" />
       <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
-        <TextBlock Text="Sort by" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
-        <ComboBox AutomationProperties.Name="Sort store apps" Width="230" DisplayMemberPath="Label"
+        <TextBlock Text="{infra:Loc SortBy}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0" />
+        <ComboBox AutomationProperties.Name="{infra:Loc SortStoreApps}" Width="230" DisplayMemberPath="Label"
                   ItemsSource="{Binding Sort.Options}" SelectedItem="{Binding Sort.SelectedOption, Mode=TwoWay}" />
       </StackPanel>
       <TextBlock Text="{Binding CountLabel}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,0,6" />
@@ -46,20 +46,20 @@
                 SelectedItem="{Binding SelectedPackage, Mode=TwoWay}">
         <DataGrid.ContextMenu>
           <ContextMenu>
-            <MenuItem Header="Uninstall package" Command="{Binding UninstallCommand}" />
-            <MenuItem Header="Reset package data" Command="{Binding ResetCommand}" />
-            <MenuItem Header="Terminate processes" Command="{Binding TerminateCommand}" />
+            <MenuItem Header="{infra:Loc UninstallPackage}" Command="{Binding UninstallCommand}" />
+            <MenuItem Header="{infra:Loc ResetPackageData}" Command="{Binding ResetCommand}" />
+            <MenuItem Header="{infra:Loc TerminateProcesses}" Command="{Binding TerminateCommand}" />
             <Separator />
-            <MenuItem Header="Open package folder" Command="{Binding OpenLocationCommand}" />
-            <MenuItem Header="Copy full package name" Command="{Binding CopyNameCommand}" />
+            <MenuItem Header="{infra:Loc OpenPackageFolder}" Command="{Binding OpenLocationCommand}" />
+            <MenuItem Header="{infra:Loc CopyFullPackageName}" Command="{Binding CopyNameCommand}" />
           </ContextMenu>
         </DataGrid.ContextMenu>
         <DataGrid.Columns>
-          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Package" Binding="{Binding DisplayName}" Width="*" MinWidth="240" />
-          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Version" Binding="{Binding Version}" Width="110" />
-          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Arch" Binding="{Binding Architecture}" Width="70" />
-          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Kind" Binding="{Binding KindDisplay}" Width="90" />
-          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="Publisher" Binding="{Binding Publisher}" Width="220" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="{infra:Loc Package}" Binding="{Binding DisplayName}" Width="*" MinWidth="240" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="{infra:Loc Version}" Binding="{Binding Version}" Width="110" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="{infra:Loc Arch}" Binding="{Binding Architecture}" Width="70" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="{infra:Loc Kind}" Binding="{Binding KindDisplay}" Width="90" />
+          <DataGridTextColumn ElementStyle="{StaticResource GridText}" Header="{infra:Loc Publisher}" Binding="{Binding Publisher}" Width="220" />
         </DataGrid.Columns>
       </DataGrid>
     </Border>
@@ -73,16 +73,16 @@
         <TextBlock Text="{Binding SelectedPackage.InstallLocation}" Style="{StaticResource Muted}"
                    TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5" />
         <WrapPanel Margin="0,12,0,0">
-          <Button Content="Uninstall" Style="{StaticResource DangerButton}"
+          <Button Content="{infra:Loc ActionUninstall}" Style="{StaticResource DangerButton}"
                   Command="{Binding UninstallCommand}" Margin="0,0,8,4"
-                  ToolTip="Remove this package for the current user" />
-          <Button Content="Reset" Style="{StaticResource BaseButton}"
-                  Command="{Binding ResetCommand}" Margin="0,0,8,4" ToolTip="Reset app data and state" />
-          <Button Content="Terminate" Style="{StaticResource BaseButton}"
-                  Command="{Binding TerminateCommand}" Margin="0,0,8,4" ToolTip="Terminate running processes" />
-          <Button Content="Open folder" Style="{StaticResource GhostButton}"
+                  ToolTip="{infra:Loc RemoveThisPackageForTheCurrentUser}" />
+          <Button Content="{infra:Loc Reset}" Style="{StaticResource BaseButton}"
+                  Command="{Binding ResetCommand}" Margin="0,0,8,4" ToolTip="{infra:Loc ResetAppDataAndState}" />
+          <Button Content="{infra:Loc Terminate}" Style="{StaticResource BaseButton}"
+                  Command="{Binding TerminateCommand}" Margin="0,0,8,4" ToolTip="{infra:Loc TerminateRunningProcesses}" />
+          <Button Content="{infra:Loc OpenFolder}" Style="{StaticResource GhostButton}"
                   Command="{Binding OpenLocationCommand}" Margin="0,0,8,4" />
-          <Button Content="Copy name" Style="{StaticResource GhostButton}"
+          <Button Content="{infra:Loc CopyName}" Style="{StaticResource GhostButton}"
                   Command="{Binding CopyNameCommand}" Margin="0,0,0,4" />
         </WrapPanel>
       </StackPanel>

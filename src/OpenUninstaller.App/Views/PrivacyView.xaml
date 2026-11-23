@@ -6,7 +6,7 @@
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
     <StackPanel Grid.Row="0" Margin="0,0,0,16">
-      <TextBlock Text="Privacy &amp; shredder" Style="{StaticResource PageTitle}"/>
+      <TextBlock Text="{infra:Loc NavPrivacy}" Style="{StaticResource PageTitle}"/>
     </StackPanel>
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <infra:ResponsiveCardPanel AutomationProperties.AutomationId="PrivacyCards" MaxColumns="2" Gap="20">
@@ -19,18 +19,18 @@
                   <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <StackPanel>
-                  <TextBlock Text="Windows history and app state" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="{infra:Loc WindowsHistoryAndAppState}" Style="{StaticResource SectionTitle}"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,14,0,0">
-                  <Button Content="Scan again" Style="{StaticResource BaseButton}" Command="{Binding ScanCommand}" Margin="0,0,8,0"/>
-                  <Button Content="Select all" Style="{StaticResource BaseButton}" Command="{Binding SelectAllCommand}"/>
+                  <Button Content="{infra:Loc ScanAgain}" Style="{StaticResource BaseButton}" Command="{Binding ScanCommand}" Margin="0,0,8,0"/>
+                  <Button Content="{infra:Loc SelectAll}" Style="{StaticResource BaseButton}" Command="{Binding SelectAllCommand}"/>
                 </StackPanel>
               </Grid>
               <WrapPanel Margin="0,16,0,10">
                 <TextBlock Text="{Binding SelectedLabel}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <TextBlock Text=" · " Style="{StaticResource Muted}" VerticalAlignment="Center"/>
                 <TextBlock Text="{Binding PrivacyTotalLabel}" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
-                <CheckBox Content="Dry run" IsChecked="{Binding PrivacyDryRun}" Margin="22,0,0,0" VerticalAlignment="Center"/>
+                <CheckBox Content="{infra:Loc DryRun}" IsChecked="{Binding PrivacyDryRun}" Margin="22,0,0,0" VerticalAlignment="Center"/>
               </WrapPanel>
               <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl ItemsSource="{Binding Categories}">
@@ -58,7 +58,7 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </ScrollViewer>
-              <Button Content="Clean selected history" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Command="{Binding CleanCommand}"/>
+              <Button Content="{infra:Loc CleanSelectedHistory}" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Command="{Binding CleanCommand}"/>
             </StackPanel>
           </Border>
           <Border Style="{StaticResource Card}">
@@ -69,18 +69,18 @@
                   <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <StackPanel>
-                  <TextBlock Text="Browser history and cookies" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Text="{infra:Loc BrowserHistoryAndCookies}" Style="{StaticResource SectionTitle}"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,14,0,0">
-                  <Button Content="Rescan" Style="{StaticResource BaseButton}" Command="{Binding ScanCommand}" Margin="0,0,8,0"/>
-                  <Button Content="Select all" Style="{StaticResource BaseButton}" Command="{Binding SelectAllBrowserCommand}"/>
+                  <Button Content="{infra:Loc Rescan}" Style="{StaticResource BaseButton}" Command="{Binding ScanCommand}" Margin="0,0,8,0"/>
+                  <Button Content="{infra:Loc SelectAll}" Style="{StaticResource BaseButton}" Command="{Binding SelectAllBrowserCommand}"/>
                 </StackPanel>
               </Grid>
               <WrapPanel Margin="0,16,0,10">
                 <TextBlock Text="{Binding BrowserSelectedLabel}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <TextBlock Text=" · " Style="{StaticResource Muted}" VerticalAlignment="Center"/>
                 <TextBlock Text="{Binding BrowserTotalLabel}" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
-                <CheckBox Content="Dry run" IsChecked="{Binding BrowserDryRun}" Margin="22,0,0,0" VerticalAlignment="Center"/>
+                <CheckBox Content="{infra:Loc DryRun}" IsChecked="{Binding BrowserDryRun}" Margin="22,0,0,0" VerticalAlignment="Center"/>
               </WrapPanel>
               <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl ItemsSource="{Binding BrowserProfiles}">
@@ -107,8 +107,8 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </ScrollViewer>
-              <Button Content="Clean selected browser data" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Command="{Binding CleanBrowserCommand}"/>
-              <TextBlock Style="{StaticResource Muted}" Margin="0,10,0,0" TextWrapping="Wrap" Text="Removes history and signs you out. Running browsers are skipped. No backup."/>
+              <Button Content="{infra:Loc CleanSelectedBrowserData}" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Command="{Binding CleanBrowserCommand}"/>
+              <TextBlock Style="{StaticResource Muted}" Margin="0,10,0,0" TextWrapping="Wrap" Text="{infra:Loc RemovesHistoryAndSignsYouOutRunningBrowsers}"/>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -121,20 +121,20 @@
                   <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <StackPanel>
-                  <TextBlock Text="Shred files permanently" Style="{StaticResource SectionTitle}"/>
-                  <TextBlock Style="{StaticResource Muted}" MaxWidth="640" HorizontalAlignment="Left" Text="Permanent deletion. SSD erasure is not guaranteed."/>
+                  <TextBlock Text="{infra:Loc ShredFilesPermanently}" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Style="{StaticResource Muted}" MaxWidth="640" HorizontalAlignment="Left" Text="{infra:Loc PermanentDeletionSSDErasureIsNotGuaranteed}"/>
                 </StackPanel>
                 <Border Grid.Row="1" Style="{StaticResource Badge}" HorizontalAlignment="Left" Margin="0,12,0,0">
-                  <TextBlock Text="No backup" Style="{StaticResource BadgeText}" Foreground="{DynamicResource Warning}"/>
+                  <TextBlock Text="{infra:Loc NoBackup}" Style="{StaticResource BadgeText}" Foreground="{DynamicResource Warning}"/>
                 </Border>
               </Grid>
               <WrapPanel Margin="0,16,0,0">
-                <Button Content="Add files…" Style="{StaticResource BaseButton}" Command="{Binding AddFilesCommand}" Margin="0,0,8,0"/>
-                <Button Content="Add folder…" Style="{StaticResource BaseButton}" Command="{Binding AddFolderCommand}" Margin="0,0,8,0"/>
-                <Button Content="Clear list" Style="{StaticResource GhostButton}" Command="{Binding ClearTargetsCommand}"/>
-                <TextBlock Text="Passes" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="22,0,8,0"/>
+                <Button Content="{infra:Loc AddFiles}" Style="{StaticResource BaseButton}" Command="{Binding AddFilesCommand}" Margin="0,0,8,0"/>
+                <Button Content="{infra:Loc AddFolder}" Style="{StaticResource BaseButton}" Command="{Binding AddFolderCommand}" Margin="0,0,8,0"/>
+                <Button Content="{infra:Loc ClearList}" Style="{StaticResource GhostButton}" Command="{Binding ClearTargetsCommand}"/>
+                <TextBlock Text="{infra:Loc Passes}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="22,0,8,0"/>
                 <ComboBox Width="64" ItemsSource="{Binding PassesOptions}" SelectedItem="{Binding Passes, Mode=TwoWay}"/>
-                <CheckBox Content="Dry run" IsChecked="{Binding ShredDryRun}" Margin="20,0,0,0" VerticalAlignment="Center"/>
+                <CheckBox Content="{infra:Loc DryRun}" IsChecked="{Binding ShredDryRun}" Margin="20,0,0,0" VerticalAlignment="Center"/>
               </WrapPanel>
               <TextBlock Text="{Binding ShredTargetLabel}" FontSize="12.5" FontWeight="SemiBold" Margin="0,16,0,2"/>
               <TextBlock Text="{Binding ShredDetailLabel}" Style="{StaticResource Muted}" Margin="0,0,0,10"/>
@@ -153,13 +153,13 @@
                           <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" Text="{Binding Detail}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="12,0"/>
-                        <Button Grid.Column="2" Content="" Style="{StaticResource IconButton}" ToolTip="Remove from the list" AutomationProperties.Name="Remove from the list" Command="{Binding DataContext.RemoveTargetCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                        <Button Grid.Column="2" Content="" Style="{StaticResource IconButton}" ToolTip="{infra:Loc RemoveFromTheList}" AutomationProperties.Name="{infra:Loc RemoveFromTheList}" Command="{Binding DataContext.RemoveTargetCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
                       </Grid>
                     </Border>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <Button Content="Shred selected targets" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Command="{Binding ShredCommand}"/>
+              <Button Content="{infra:Loc ShredSelectedTargets}" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Command="{Binding ShredCommand}"/>
             </StackPanel>
           </Border>
           <Border Style="{StaticResource Card}">
@@ -170,12 +170,12 @@
                   <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <StackPanel>
-                  <TextBlock Text="Wipe free space" Style="{StaticResource SectionTitle}"/>
-                  <TextBlock Style="{StaticResource Muted}" MaxWidth="640" HorizontalAlignment="Left" Text="Overwrites free space only; existing files are kept."/>
+                  <TextBlock Text="{infra:Loc WipeFreeSpace}" Style="{StaticResource SectionTitle}"/>
+                  <TextBlock Style="{StaticResource Muted}" MaxWidth="640" HorizontalAlignment="Left" Text="{infra:Loc OverwritesFreeSpaceOnlyExistingFilesAreKept}"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,14,0,0">
-                  <Button Content="Wipe free space" Style="{StaticResource DangerButton}" Command="{Binding WipeFreeSpaceCommand}" Visibility="{Binding IsWiping, Converter={StaticResource InverseBoolVisibility}}"/>
-                  <Button Content="Cancel wipe" Style="{StaticResource BaseButton}" Command="{Binding CancelWipeCommand}" Visibility="{Binding IsWiping, Converter={StaticResource BoolVisibility}}"/>
+                  <Button Content="{infra:Loc WipeFreeSpace}" Style="{StaticResource DangerButton}" Command="{Binding WipeFreeSpaceCommand}" Visibility="{Binding IsWiping, Converter={StaticResource InverseBoolVisibility}}"/>
+                  <Button Content="{infra:Loc CancelWipe}" Style="{StaticResource BaseButton}" Command="{Binding CancelWipeCommand}" Visibility="{Binding IsWiping, Converter={StaticResource BoolVisibility}}"/>
                 </StackPanel>
               </Grid>
               <Grid Margin="0,12,0,0">
@@ -183,13 +183,13 @@
                   <ColumnDefinition Width="Auto"/>
                   <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Select target drive:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0"/>
+                <TextBlock Text="{infra:Loc SelectTargetDrive}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,12,0"/>
                 <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableDrives}" SelectedItem="{Binding SelectedDrive, Mode=TwoWay}" IsEnabled="{Binding IsWiping, Converter={StaticResource InverseBool}}" MaxWidth="400" HorizontalAlignment="Left">
                   <ComboBox.ItemTemplate>
                     <DataTemplate>
                       <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding Drive.DisplayName}" FontWeight="SemiBold" Margin="0,0,8,0"/>
-                        <TextBlock Text="{Binding Drive.FreeSpaceDisplay, StringFormat='({0} free)'}" Style="{StaticResource Caption}"/>
+                        <TextBlock Text="{infra:LocValue Path=Drive.FreeSpaceDisplay, FormatKey=Free}" Style="{StaticResource Caption}"/>
                       </StackPanel>
                     </DataTemplate>
                   </ComboBox.ItemTemplate>

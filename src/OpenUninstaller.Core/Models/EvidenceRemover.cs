@@ -1,4 +1,5 @@
 using System.IO;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Models;
 
@@ -15,12 +16,12 @@ public sealed record DriveFreeSpaceInfo
     public double FreePercentage => TotalBytes > 0 ? (double)FreeBytes / TotalBytes * 100.0 : 0.0;
     public string DriveTypeDisplay => DriveType switch
     {
-        DriveType.Fixed => "Local Disk",
-        DriveType.Removable => "Removable Disk",
-        DriveType.Network => "Network Drive",
-        DriveType.CDRom => "Optical Drive",
-        DriveType.Ram => "RAM Disk",
-        _ => "Unknown Disk"
+        DriveType.Fixed => L("LocalDisk"),
+        DriveType.Removable => L("RemovableDisk"),
+        DriveType.Network => L("NetworkDrive"),
+        DriveType.CDRom => L("OpticalDrive"),
+        DriveType.Ram => L("RAMDisk"),
+        _ => L("UnknownDisk")
     };
 
     public string DisplayName => string.IsNullOrWhiteSpace(VolumeLabel)

@@ -3,6 +3,7 @@ using OpenUninstaller.Core.Abstractions;
 using OpenUninstaller.Core.Models;
 using OpenUninstaller.Core.Safety;
 using OpenUninstaller.Core.Support;
+using static OpenUninstaller.Core.Localization.UiText;
 
 namespace OpenUninstaller.Core.Services;
 
@@ -50,7 +51,7 @@ public sealed class LeftoverDeletionService
 
         if (items.Count == 0)
         {
-            result.Warnings.Add("No items were selected.");
+            result.Warnings.Add(L("NoItemsWereSelected"));
             result.Duration = stopwatch.Elapsed;
             return result;
         }
@@ -64,7 +65,7 @@ public sealed class LeftoverDeletionService
                     item.DisplayPath,
                     item.Kind,
                     allowed ? DeletionStatus.WouldDelete : DeletionStatus.Protected,
-                    allowed ? "Backup and delete would run." : reason));
+                    allowed ? L("BackupAndDeleteWouldRun") : reason));
             }
 
             result.Duration = stopwatch.Elapsed;
@@ -99,10 +100,10 @@ public sealed class LeftoverDeletionService
                 var validation = Validate(item);
                 result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind,
                     validation.Allowed ? DeletionStatus.BackupFailed : DeletionStatus.Protected,
-                    validation.Allowed ? "Backup was not created; nothing was deleted." : validation.Reason));
+                    validation.Allowed ? L("BackupWasNotCreatedNothingWasDeleted") : validation.Reason));
             }
 
-            result.Warnings.Add("Deletion was aborted because no item could be backed up.");
+            result.Warnings.Add(L("DeletionWasAbortedBecauseNoItemCouldBe"));
             result.Duration = stopwatch.Elapsed;
             _log.Write("delete", "abort", programName, "backup-failed");
             return result;
@@ -121,7 +122,7 @@ public sealed class LeftoverDeletionService
 
             if (!captured.Contains(item.Id))
             {
-                result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.BackupFailed, "Not captured by the backup."));
+                result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.BackupFailed, L("NotCapturedByTheBackup")));
                 continue;
             }
 
@@ -133,7 +134,7 @@ public sealed class LeftoverDeletionService
                     _registry.DeleteKey(location, recursive: true);
                     if (_registry.KeyExists(location))
                     {
-                        result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, "The key still exists."));
+                        result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, L("TheKeyStillExists")));
                         continue;
                     }
                 }
@@ -144,7 +145,7 @@ public sealed class LeftoverDeletionService
                     _registry.DeleteValue(valueLocation, valueName);
                     if (_registry.GetValue(valueLocation, valueName) is not null)
                     {
-                        result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, "The value still exists."));
+                        result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, L("TheValueStillExists")));
                         continue;
                     }
                 }
@@ -156,7 +157,7 @@ public sealed class LeftoverDeletionService
                     {
                         result.Items.Add(new DeletionItemResult(
                             item.DisplayPath, item.Kind, DeletionStatus.Failed,
-                            "The PATH segment could not be removed safely; the value was left unchanged."));
+                            L("ThePATHSegmentCouldNotBeRemovedSafely")));
                         continue;
                     }
                 }
@@ -164,7 +165,7 @@ public sealed class LeftoverDeletionService
                 {
                     if (!await DeleteScheduledTaskAsync(item, cancellationToken).ConfigureAwait(false))
                     {
-                        result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, "The scheduled task still exists."));
+                        result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, L("TheScheduledTaskStillExists")));
                         continue;
                     }
                 }
@@ -184,13 +185,13 @@ public sealed class LeftoverDeletionService
 
                     if (Directory.Exists(path) || File.Exists(path))
                     {
-                        result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, "The path still exists."));
+                        result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, L("ThePathStillExists")));
                         continue;
                     }
                 }
                 else
                 {
-                    result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, "Item has no target."));
+                    result.Items.Add(new DeletionItemResult(item.DisplayPath, item.Kind, DeletionStatus.Failed, L("ItemHasNoTarget")));
                     continue;
                 }
 
@@ -221,7 +222,7 @@ public sealed class LeftoverDeletionService
         {
             if (item.RegistryLocation is not { } pathLocation || string.IsNullOrWhiteSpace(item.PathSegment))
             {
-                return (false, "Missing PATH location or segment.");
+                return (false, L("MissingPATHLocationOrSegment"));
             }
 
             var pathEntryGuard = RegistryGuard.ValidatePathEntryForDeletion(
@@ -235,7 +236,7 @@ public sealed class LeftoverDeletionService
             if (current is null
                 || !current.Split(';').Any(s => string.Equals(s.Trim(), item.PathSegment, StringComparison.OrdinalIgnoreCase)))
             {
-                return (false, "The PATH segment no longer exists.");
+                return (false, L("ThePATHSegmentNoLongerExists"));
             }
 
             return (true, null);
@@ -245,7 +246,7 @@ public sealed class LeftoverDeletionService
         {
             if (item.RegistryLocation is not { } firewallLocation || string.IsNullOrWhiteSpace(item.ValueName))
             {
-                return (false, "Missing firewall rule location or value name.");
+                return (false, L("MissingFirewallRuleLocationOrValueName"));
             }
 
             var firewallGuard = RegistryGuard.ValidateFirewallRuleValue(
@@ -257,7 +258,7 @@ public sealed class LeftoverDeletionService
 
             if (_registry.GetValue(firewallLocation, item.ValueName) is null)
             {
-                return (false, "The firewall rule no longer exists.");
+                return (false, L("TheFirewallRuleNoLongerExists"));
             }
 
             return (true, null);
@@ -267,7 +268,7 @@ public sealed class LeftoverDeletionService
         {
             if (item.RegistryLocation is null)
             {
-                return (false, "Missing registry location.");
+                return (false, L("MissingRegistryLocation"));
             }
 
             var registryGuard = item.Kind switch
@@ -294,7 +295,7 @@ public sealed class LeftoverDeletionService
                 && (string.IsNullOrWhiteSpace(item.ValueName)
                     || _registry.GetValue(item.RegistryLocation.Value, item.ValueName) is null))
             {
-                return (false, "The registry value no longer exists.");
+                return (false, L("TheRegistryValueNoLongerExists"));
             }
 
             return (true, null);
@@ -304,7 +305,7 @@ public sealed class LeftoverDeletionService
         {
             if (string.IsNullOrWhiteSpace(item.FilePath) || string.IsNullOrWhiteSpace(item.TaskName))
             {
-                return (false, "Missing scheduled task path or name.");
+                return (false, L("MissingScheduledTaskPathOrName"));
             }
 
             var taskGuard = ScheduledTaskGuard.ValidateForDeletion(
@@ -314,7 +315,7 @@ public sealed class LeftoverDeletionService
 
         if (string.IsNullOrWhiteSpace(item.FilePath))
         {
-            return (false, "Missing file path.");
+            return (false, L("MissingFilePath2"));
         }
 
         var pathGuard = _pathGuard.ValidateForDeletion(item.FilePath, recursive: item.Kind == LeftoverKind.Directory);

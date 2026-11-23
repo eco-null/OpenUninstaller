@@ -5,6 +5,8 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-11-23
+
 ### Fixed
 
 - Changing the language in Settings immediately updates the desktop app, including navigation,

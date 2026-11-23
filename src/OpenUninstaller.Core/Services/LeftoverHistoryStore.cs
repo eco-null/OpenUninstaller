@@ -30,6 +30,40 @@ public sealed class LeftoverHistoryStore
 
     public LeftoverScanSnapshot? Get(InstalledProgram program) => GetSnapshot(program.Name);
 
+    /// <summary>Every stored snapshot that can be read; unreadable files are skipped.</summary>
+    public IReadOnlyList<LeftoverScanSnapshot> List()
+    {
+        var snapshots = new List<LeftoverScanSnapshot>();
+        try
+        {
+            if (!Directory.Exists(DirectoryPath))
+            {
+                return snapshots;
+            }
+
+            foreach (var file in Directory.EnumerateFiles(DirectoryPath, "*.json").Take(5000))
+            {
+                try
+                {
+                    if (JsonSerializer.Deserialize<LeftoverScanSnapshot>(File.ReadAllText(file), JsonOptions) is { } snapshot)
+                    {
+                        snapshots.Add(snapshot);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+                {
+                    // One unreadable snapshot must not hide the others.
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            LastError = ex.Message;
+        }
+
+        return snapshots;
+    }
+
     public LeftoverScanDiff CompareAndSave(LeftoverScanResult scan, DateTimeOffset now)
     {
         LastError = null;

@@ -118,40 +118,12 @@ public sealed class TraceStore
     /// </summary>
     public TraceDocument? FindFor(InstalledProgram program)
     {
-        var tokens = NameNormalizer.MatchTokens(program.Name, program.Publisher);
-        var normalizedName = NameNormalizer.Compact(program.Name);
         TraceDocument? best = null;
         var bestScore = 0;
 
         foreach (var trace in List())
         {
-            var score = 0;
-            var traceName = NameNormalizer.Compact(trace.ProgramName);
-            if (traceName.Length > 0 && traceName == normalizedName)
-            {
-                score = 100;
-            }
-            else if (!string.IsNullOrWhiteSpace(trace.InstallLocation)
-                     && !string.IsNullOrWhiteSpace(program.InstallLocation)
-                     && string.Equals(
-                         trace.InstallLocation.TrimEnd('\\'),
-                         program.InstallLocation.TrimEnd('\\'),
-                         StringComparison.OrdinalIgnoreCase))
-            {
-                score = 95;
-            }
-            else if (!string.IsNullOrWhiteSpace(trace.InstallLocation)
-                     && !string.IsNullOrWhiteSpace(program.InstallLocation)
-                     && (program.InstallLocation.StartsWith(trace.InstallLocation, StringComparison.OrdinalIgnoreCase)
-                         || trace.InstallLocation.StartsWith(program.InstallLocation, StringComparison.OrdinalIgnoreCase)))
-            {
-                score = 85;
-            }
-            else if (tokens.Count > 0 && NameNormalizer.CountTokenMatches(trace.ProgramName, tokens) >= 2)
-            {
-                score = 70;
-            }
-
+            var score = MatchScore(trace, program);
             if (score > bestScore)
             {
                 bestScore = score;
@@ -160,6 +132,36 @@ public sealed class TraceStore
         }
 
         return best;
+    }
+
+    /// <summary>How strongly a trace describes the installed application; 0 when it does not.</summary>
+    public static int MatchScore(TraceDocument trace, InstalledProgram program)
+    {
+        var traceName = NameNormalizer.Compact(trace.ProgramName);
+        if (traceName.Length > 0 && traceName == NameNormalizer.Compact(program.Name))
+        {
+            return 100;
+        }
+
+        if (!string.IsNullOrWhiteSpace(trace.InstallLocation) && !string.IsNullOrWhiteSpace(program.InstallLocation))
+        {
+            if (string.Equals(
+                    trace.InstallLocation.TrimEnd('\\'),
+                    program.InstallLocation.TrimEnd('\\'),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return 95;
+            }
+
+            if (program.InstallLocation.StartsWith(trace.InstallLocation, StringComparison.OrdinalIgnoreCase)
+                || trace.InstallLocation.StartsWith(program.InstallLocation, StringComparison.OrdinalIgnoreCase))
+            {
+                return 85;
+            }
+        }
+
+        var tokens = NameNormalizer.MatchTokens(program.Name, program.Publisher);
+        return tokens.Count > 0 && NameNormalizer.CountTokenMatches(trace.ProgramName, tokens) >= 2 ? 70 : 0;
     }
 
     private static bool IsSafeId(string id)

@@ -33,13 +33,7 @@
         </Grid.ColumnDefinitions>
         <StackPanel>
           <TextBlock Text="{Binding Title}" FontSize="19" FontWeight="SemiBold" />
-          <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0">
-            <Run Text="{Binding Program.Name, Mode=OneWay}" />
-            <Run Text=" · " />
-            <Run Text="{Binding Program.Version, Mode=OneWay}" />
-            <Run Text=" · " />
-            <Run Text="{Binding Program.Publisher, Mode=OneWay}" />
-          </TextBlock>
+          <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Muted}" Margin="0,3,0,0" />
         </StackPanel>
         <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets"
                 Style="{StaticResource IconButton}" Command="{Binding CloseCommand}"

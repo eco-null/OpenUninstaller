@@ -115,7 +115,16 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
     public event Action? RequestClose;
 
     public InstalledProgram Program { get; }
-    public string Title => _scanOnly ? "Scan for leftovers" : "Uninstall application";
+    public bool IsOrphanScan => LeftoverScanner.IsOrphanScanTarget(Program);
+
+    public string Title => IsOrphanScan
+        ? "Find orphaned leftovers"
+        : _scanOnly ? "Scan for leftovers" : "Uninstall application";
+
+    public string Subtitle => IsOrphanScan
+        ? "Data that no installed application or Store app claims"
+        : string.Join(" · ", new[] { Program.Name, Program.Version, Program.Publisher }
+            .Where(part => !string.IsNullOrWhiteSpace(part)));
     public string CommandDisplay { get; }
     public string? CommandWarning { get; }
     public string? Error
@@ -409,11 +418,14 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
     {
         StatusText = "Scanning registry and common folders…";
         var otherPrograms = await Task.Run(_services.ScanPrograms, _cts.Token);
-        Scan = await _services.Leftovers.ScanAsync(
-            Program,
-            otherPrograms,
-            new Progress<OperationProgress>(value => StatusText = value.Message),
-            _cts.Token);
+        var progress = new Progress<OperationProgress>(value => StatusText = value.Message);
+        Scan = IsOrphanScan
+            ? await _services.Leftovers.ScanOrphansAsync(
+                otherPrograms,
+                await Task.Run(_services.History.List, _cts.Token),
+                progress,
+                _cts.Token)
+            : await _services.Leftovers.ScanAsync(Program, otherPrograms, progress, _cts.Token);
         ScanDiff = await Task.Run(
             () => _services.History.CompareAndSave(Scan, DateTimeOffset.UtcNow),
             _cts.Token);
@@ -444,9 +456,11 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
 
         RaiseReviewState();
         State = Scan.Items.Count == 0 ? WorkflowState.Result : WorkflowState.Review;
-        StatusText = Scan.UsedTrace
-            ? $"Trace evidence: {Scan.TraceId}"
-            : "Heuristic evidence (no install trace)";
+        StatusText = IsOrphanScan
+            ? "Compared with every installed application and Store app"
+            : Scan.UsedTrace
+                ? $"Trace evidence: {Scan.TraceId}"
+                : "Heuristic evidence (no install trace)";
     }
 
     private async Task DeleteAsync()

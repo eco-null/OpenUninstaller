@@ -85,6 +85,7 @@ internal static class Program
             "uninstall" => UninstallAsync(args, ct),
             "force-uninstall" => ForceUninstallAsync(args, ct),
             "scan-leftovers" => ScanLeftoversAsync(args, ct),
+            "scan-orphans" => ScanOrphansAsync(args, ct),
             "trace-install" => TraceInstallAsync(args, ct),
             "traces" => TracesAsync(args),
             "backups" => BackupsAsync(args, ct),
@@ -459,7 +460,27 @@ internal static class Program
 
         var progress = args.Has("json") ? null : new ConsoleProgress();
         var scan = await services.Leftovers.ScanAsync(program, services.Scanner.Scan(), progress, ct).ConfigureAwait(false);
+        return await ReportLeftoverScanAsync(services, program, scan, args, ct).ConfigureAwait(false);
+    }
 
+    // ------------------------------------------------------------ scan-orphans
+
+    private static async Task<int> ScanOrphansAsync(ArgumentSet args, CancellationToken ct)
+    {
+        var services = AppServices.Create("scan-orphans");
+        var progress = args.Has("json") ? null : new ConsoleProgress();
+        var scan = await services.Leftovers.ScanOrphansAsync(
+            services.Scanner.Scan(), services.History.List(), progress, ct).ConfigureAwait(false);
+        return await ReportLeftoverScanAsync(services, LeftoverScanner.OrphanScanTarget, scan, args, ct).ConfigureAwait(false);
+    }
+
+    private static async Task<int> ReportLeftoverScanAsync(
+        AppServices services,
+        InstalledProgram program,
+        LeftoverScanResult scan,
+        ArgumentSet args,
+        CancellationToken ct)
+    {
         if (args.Has("delete") && args.Has("ignore"))
         {
             Console.Error.WriteLine("--delete and --ignore cannot be combined in one scan.");
@@ -532,10 +553,16 @@ internal static class Program
             return ExitCodes.Success;
         }
 
-        Console.WriteLine($"Leftover scan for {program.Name}");
-        Console.WriteLine(scan.UsedTrace
-            ? $"Evidence: install trace {scan.TraceId}"
-            : "Evidence: heuristic only (no install trace available)");
+        Console.WriteLine(LeftoverScanner.IsOrphanScanTarget(program)
+            ? "Orphaned leftovers (compared with every installed application)"
+            : $"Leftover scan for {program.Name}");
+        if (!LeftoverScanner.IsOrphanScanTarget(program))
+        {
+            Console.WriteLine(scan.UsedTrace
+                ? $"Evidence: install trace {scan.TraceId}"
+                : "Evidence: heuristic only (no install trace available)");
+        }
+
         Console.WriteLine($"Duration: {scan.Duration.TotalSeconds:0.0}s");
         foreach (var warning in scan.Warnings)
         {
@@ -2046,6 +2073,8 @@ internal static class Program
               force-uninstall <name|id>     Remove the registration (requires --yes)
               scan-leftovers <name|id>      Show leftover candidates (--json, --diff, --ignore,
                                             --delete --yes, --dry-run)
+              scan-orphans                  Compare leftovers with every installed application and list
+                                            data no installed application claims (same options)
               trace-install                 Record an installer run into a reusable trace
                   --installer <path> [--name <name>] [--publisher <name>] [--timeout minutes] [--json]
               traces list|delete <id>       Manage local traces (--json, --yes)

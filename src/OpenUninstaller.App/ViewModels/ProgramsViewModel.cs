@@ -9,6 +9,7 @@ using System.Windows.Media;
 using Microsoft.Win32;
 using OpenUninstaller.App.Infrastructure;
 using OpenUninstaller.Core.Models;
+using OpenUninstaller.Core.Services;
 
 namespace OpenUninstaller.App.ViewModels;
 
@@ -90,6 +91,7 @@ public sealed class ProgramsViewModel : PageViewModel
         TraceInstallCommand = new AsyncRelayCommand(_ => TraceInstallAsync(), _ => !IsBusy);
         ExportCommand = new AsyncRelayCommand(_ => ExportAsync(), _ => !IsBusy);
         HunterCommand = new RelayCommand(_ => RunHunter(), _ => !IsBusy);
+        OrphanScanCommand = new RelayCommand(_ => OpenOrphanScan(), _ => !IsBusy);
         ToggleSystemCommand = new RelayCommand(_ => IncludeSystemComponents = !IncludeSystemComponents, _ => !IsBusy);
     }
 
@@ -104,6 +106,7 @@ public sealed class ProgramsViewModel : PageViewModel
     public AsyncRelayCommand TraceInstallCommand { get; }
     public AsyncRelayCommand ExportCommand { get; }
     public RelayCommand HunterCommand { get; }
+    public RelayCommand OrphanScanCommand { get; }
     public RelayCommand ToggleSystemCommand { get; }
 
     public ProgramRow? SelectedRow
@@ -504,6 +507,13 @@ public sealed class ProgramsViewModel : PageViewModel
         }
     }
 
+    private void OpenOrphanScan()
+        => _windows.ShowUninstall(
+            LeftoverScanner.OrphanScanTarget,
+            force: false,
+            silent: false,
+            scanOnly: true);
+
     private void RunHunter()
     {
         var programs = _rows.Select(row => row.Program).ToList();
@@ -521,6 +531,7 @@ public sealed class ProgramsViewModel : PageViewModel
         TraceInstallCommand.RaiseCanExecuteChanged();
         ExportCommand.RaiseCanExecuteChanged();
         ToggleSystemCommand.RaiseCanExecuteChanged();
+        OrphanScanCommand.RaiseCanExecuteChanged();
     }
 
     private static string? ResolveIconPath(InstalledProgram program)

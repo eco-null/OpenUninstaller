@@ -33,6 +33,9 @@
         <Button Content="Install with tracing" Style="{StaticResource BaseButton}"
                 Command="{Binding TraceInstallCommand}" Margin="0,0,8,6"
                 ToolTip="Run an installer now and record exactly what it creates." />
+        <Button Content="Orphaned leftovers" Style="{StaticResource BaseButton}"
+                Command="{Binding OrphanScanCommand}" Margin="0,0,8,6"
+                ToolTip="Find leftovers that no installed application claims." />
         <Button Content="Hunter mode" Style="{StaticResource BaseButton}"
                 Command="{Binding HunterCommand}" Margin="0,0,8,6"
                 ToolTip="Find the application behind a window on screen." />

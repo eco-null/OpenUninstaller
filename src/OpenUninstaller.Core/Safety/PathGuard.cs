@@ -82,6 +82,15 @@ public sealed class PathGuard
     }
 
     public GuardResult ValidateForDeletion(string path, bool recursive = true)
+        => Validate(path, recursive, checkComponents: true);
+
+    // Discovery walks reach each entry through parents it already checked for reparse points,
+    // so restatting every ancestor per entry only costs time. Deletion still calls
+    // ValidateForDeletion, which checks every component again.
+    internal GuardResult ValidateDiscoveryCandidate(string path, bool recursive = true)
+        => Validate(path, recursive, checkComponents: false);
+
+    private GuardResult Validate(string path, bool recursive, bool checkComponents)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -192,7 +201,7 @@ public sealed class PathGuard
             }
         }
 
-        return ValidatePathComponents(full);
+        return checkComponents ? ValidatePathComponents(full) : GuardResult.Allow(full);
     }
 
     /// <summary>

@@ -5,6 +5,40 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-11-23
+
+### Added
+
+- Orphaned leftovers: a new scan (Programs › **Orphaned leftovers**, CLI `scan-orphans`) compares
+  leftover data with every installed application and Store package and lists what none of them
+  claims. Evidence, strongest first: install traces of applications that are no longer installed
+  (exact, preselected); Start Menu, desktop and taskbar shortcuts whose program is missing on a
+  present fixed drive (preselected); items an earlier leftover scan recorded for an application that
+  is no longer installed; Store app data of packages no longer registered for the user; empty
+  application folders; scheduled tasks whose program is missing. Folders and `HKCU\Software` keys
+  that only fail a name comparison are shown at low confidence and never preselected. Results use
+  the same review, ignore list, backup and restore path as a normal leftover scan. `scan-orphans`
+  accepts the same `--json`, `--diff`, `--ignore`, `--delete --yes` and `--dry-run` options.
+- The leftover scan now also looks in: `Common Files` (both Program Files folders), UAC VirtualStore
+  copies of Program Files and ProgramData, dot folders in the user profile (credential folders such
+  as `.ssh` stay protected), `Documents`, `Documents\My Games` and `Saved Games` (capped at medium
+  confidence, never preselected, flagged as personal folders), `HKCU\Software\AppDataLow\Software`,
+  Windows Error Reporting folders (`AppCrash_` and `AppHang_`) named after the application's
+  executable, and taskbar pins and Quick Launch shortcuts.
+
+### Changed
+
+- Leftover scans are about 4–6 times faster (a real scan went from 26–48 s to 5–8 s with 239
+  installed applications). Ownership checks against installed applications use a path index instead
+  of comparing every candidate with every application. Deeper discovery reads attributes from the
+  directory listing and runs the full path guard only on name matches. Sizes are measured once after
+  consolidation, in parallel, so folders covered by a parent are not measured twice.
+
+### Fixed
+
+- Deeper discovery no longer stops listing a folder after an access-denied subfolder when the depth
+  limit was already reported.
+
 ## [1.0.11] — 2026-11-16
 
 ### Added

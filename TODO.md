@@ -2,7 +2,15 @@
 
 Legend: `[x]` done and verified · `[~]` partially done · `[ ]` not done.
 This file is the single source of truth for what remains. Update it with every merged change.
-Last updated: 2026-10-31 (v1.0.6 Hunter ownership and screenshot refresh).
+Last updated: 2026-11-23 (v1.1.0 orphaned leftovers and faster scans).
+
+## v1.1.0 — Orphaned leftovers and faster scans
+
+- [x] Orphan scan compares leftovers with installed applications and Store packages
+- [x] CLI `scan-orphans` and the Programs **Orphaned leftovers** button
+- [x] New leftover scan locations: Common Files, VirtualStore, profile dot folders, Documents and game folders, AppDataLow, WER reports, taskbar pins and Quick Launch
+- [x] Ownership path index, single-pass discovery attributes and parallel sizing
+- [x] Regression tests for the orphan scan and the new locations
 
 ## v1.0.6 — Hunter ownership and screenshots
 

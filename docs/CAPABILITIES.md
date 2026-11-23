@@ -11,7 +11,8 @@ The table below describes the full scope of capabilities implemented in OpenUnin
 | Forced removal of a stale registration | Yes | Explicit force mode with backup and guard |
 | Traced installs | Yes | Registry/file snapshots before and after a selected installer |
 | Exact trace leftovers | Yes | Schema 2 keys, values, files and directories |
-| Heuristic leftovers | Yes | Vendor keys, install folders, AppData/ProgramData, Program Files, shortcuts |
+| Heuristic leftovers | Yes | Vendor keys, install folders, AppData/ProgramData, Program Files, Common Files, VirtualStore, profile dot folders, Documents and game folders (medium confidence, never preselected), AppDataLow, WER reports, taskbar pins, shortcuts |
+| Orphaned leftovers | Yes | Leftover data that no installed application or Store package claims; install-trace and broken-shortcut evidence preselected; Store data, empty folders and missing-program tasks shown for review; name-only matches shown at low confidence and never preselected |
 | App Paths / Classes\Applications | Yes | Missing-target or install-location evidence, scoped guard |
 | Registry values in shared keys | Yes (traced) | Value-level review, key-export backup, restore |
 | Orphaned services | Yes | Missing-image evidence only; no service control or process termination |

@@ -35,7 +35,7 @@ Light and dark themes share a restrained layout, searchable inventories and cons
 | Area | Capabilities |
 | --- | --- |
 | Applications | Search installed programs, inspect metadata, export inventory and queue multiple uninstalls for individual review. |
-| Leftover review | Inspect files, folders, registry keys and values, shortcuts, services and scheduled tasks with confidence and evidence. Ignore candidates or compare scans. |
+| Leftover review | Inspect files, folders, registry keys and values, shortcuts, services and scheduled tasks with confidence and evidence. Find orphaned leftovers that no installed application claims. Ignore candidates or compare scans. |
 | Installation tracing | Capture registry and filesystem changes around an installer; import and export portable `.outrace.zip` bundles. |
 | Store apps | Inspect Microsoft Store/MSIX packages, open their locations, and uninstall, reset or terminate selected packages. |
 | Startup management | Review startup entries, services and scheduled tasks; disable supported entries and restore their recorded state. |

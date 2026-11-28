@@ -68,6 +68,10 @@ public sealed class LeftoverHistoryStore
     {
         LastError = null;
         var previous = GetSnapshot(scan.ProgramName);
+        if (scan.Truncated)
+        {
+            return new LeftoverScanDiff { Previous = previous, IsIncomplete = true };
+        }
 
         var current = new LeftoverScanSnapshot
         {

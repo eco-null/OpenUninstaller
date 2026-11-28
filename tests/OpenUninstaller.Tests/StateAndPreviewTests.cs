@@ -112,6 +112,35 @@ public sealed class StateAndPreviewTests
     }
 
     [Fact]
+    public void Incomplete_scan_preserves_the_baseline_for_the_next_complete_scan()
+    {
+        using var env = new TestEnvironment();
+        var history = new LeftoverHistoryStore(env.Paths);
+        var program = TestPrograms.Create("History App");
+        var first = new LeftoverScanResult { ProgramId = program.Id, ProgramName = program.Name };
+        first.Items.Add(Item("file|a", path: @"C:\data\a"));
+        var now = DateTimeOffset.UtcNow;
+        history.CompareAndSave(first, now);
+
+        var incomplete = new LeftoverScanResult
+        {
+            ProgramId = program.Id,
+            ProgramName = program.Name,
+            Truncated = true
+        };
+        var diff = history.CompareAndSave(incomplete, now.AddMinutes(1));
+
+        Assert.Empty(diff.ResolvedItems);
+        Assert.Contains("incomplete", diff.Summary, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(now, history.Get(program)?.ScannedAt);
+        Assert.Single(history.Get(program)!.Items, item => item.Id == "file|a");
+
+        var complete = new LeftoverScanResult { ProgramId = program.Id, ProgramName = program.Name };
+        var nextDiff = history.CompareAndSave(complete, now.AddMinutes(2));
+        Assert.Single(nextDiff.ResolvedItems, item => item.Id == "file|a");
+    }
+
+    [Fact]
     public void Trace_bundle_round_trips_and_expands_paths()
     {
         using var env = new TestEnvironment();

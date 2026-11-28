@@ -82,6 +82,42 @@ public sealed class OrphanAndLocationTests
     }
 
     [Fact]
+    public async Task Orphan_scan_does_not_treat_a_depth_limit_as_proof_of_emptiness()
+    {
+        using var env = new TestEnvironment();
+        var root = Path.Combine(env.Paths.ProgramData, "Quuxmoor");
+        var nested = Enumerable.Repeat("sub", 20).Aggregate(root, Path.Combine);
+        AddFileTo(nested);
+        var empty = Path.Combine(env.Paths.ProgramData, "TrulyEmpty");
+        Directory.CreateDirectory(Path.Combine(empty, "sub"));
+
+        var result = await CreateScanner(env).ScanOrphansAsync([]);
+
+        var deep = Assert.Single(result.Items, item => item.FilePath == root);
+        Assert.Equal(LeftoverConfidence.Low, deep.Confidence);
+        Assert.False(deep.IsSelected);
+        Assert.DoesNotContain("contains no files", deep.Reason);
+        Assert.Equal(LeftoverConfidence.Strong, Find(result, empty)?.Confidence);
+    }
+
+    [Fact]
+    public async Task Orphan_scan_reports_when_the_folder_limit_omits_candidates()
+    {
+        using var env = new TestEnvironment();
+        var root = env.Paths.ProgramFiles;
+        for (var index = 0; index < 4001; index++)
+        {
+            Directory.CreateDirectory(Path.Combine(root, $"ProbeFolder{index}"));
+        }
+
+        var result = await CreateScanner(env).ScanOrphansAsync([]);
+
+        Assert.Equal(4000, FileItems(result).Count);
+        Assert.True(result.Truncated);
+        Assert.Contains(result.Warnings, warning => warning.Contains(root, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Orphan_scan_skips_folders_claimed_by_name_install_folder_publisher_or_install_location()
     {
         using var env = new TestEnvironment();
@@ -281,6 +317,7 @@ public sealed class OrphanAndLocationTests
         var result = await CreateScanner(env).ScanOrphansAsync([]);
 
         Assert.Null(Find(result, folder));
+        Assert.True(result.Truncated);
         Assert.Contains(result.Warnings, w => w.Contains("Store package list could not be read"));
     }
 

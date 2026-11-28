@@ -135,8 +135,10 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <TextBlock Text="{Binding ReviewWarning}" Foreground="{DynamicResource Warning}"
-                     FontSize="12" Margin="0,0,12,0" TextWrapping="Wrap" VerticalAlignment="Center" />
+          <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" Margin="0,0,12,0">
+            <TextBlock Text="{Binding ReviewWarning}" Foreground="{DynamicResource Warning}"
+                       FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
+          </ScrollViewer>
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
             <Button Content="{infra:Loc IgnoreSelected}" Style="{StaticResource GhostButton}"
                     Command="{Binding IgnoreCommand}" Margin="0,0,6,0" />
@@ -171,7 +173,8 @@
                                           ToolTip="{Binding Tooltip}" />
                                 <StackPanel Grid.Column="1" Margin="10,0,10,0">
                                   <TextBlock Text="{Binding DisplayPath}" FontSize="12" TextWrapping="Wrap" />
-                                  <TextBlock Text="{Binding Reason}" Style="{StaticResource Muted}" Margin="0,3,0,0" />
+                                  <TextBlock Text="{Binding Reason}" Style="{StaticResource Muted}" Margin="0,3,0,0"
+                                             TextWrapping="Wrap" />
                                   <TextBlock Text="{Binding ProtectedReason}" FontSize="11"
                                              Foreground="{DynamicResource Warning}" Margin="0,3,0,0"
                                              TextWrapping="Wrap"

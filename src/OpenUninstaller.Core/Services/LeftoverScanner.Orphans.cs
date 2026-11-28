@@ -91,26 +91,29 @@ public sealed partial class LeftoverScanner
             var stopwatch = Stopwatch.StartNew();
             var target = OrphanScanTarget;
             var result = new LeftoverScanResult { ProgramId = target.Id, ProgramName = target.Name };
-            var packageFamilies = RegisteredPackageFamilies(out var packageNames);
+            var packageFamilies = RegisteredPackageFamilies(result, out var packageNames);
             var claims = new NameClaims(installed, packageNames);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Comparing install traces with installed applications"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("OrphanCompareTraces")));
             AddOrphanTraceItems(installed, claims, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Comparing earlier leftover scans with installed applications"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("OrphanCompareHistory")));
             AddOrphanHistoryItems(history, installed, claims, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Comparing application folders with installed applications"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("OrphanCompareFolders")));
             AddOrphanFolderItems(installed, claims, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Comparing user registry keys with installed applications"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("OrphanCompareRegistry")));
             AddOrphanRegistryItems(claims, result, cancellationToken);
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Checking shortcuts and Store app data"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("OrphanCheckShortcutsAndStore")));
             AddOrphanShortcutItems(installed, result, cancellationToken);
-            AddOrphanPackageDataItems(packageFamilies, installed, result, cancellationToken);
+            if (packageFamilies is not null)
+            {
+                AddOrphanPackageDataItems(packageFamilies, installed, result, cancellationToken);
+            }
 
-            progress?.Report(new OperationProgress(OperationStages.Scanning, "Checking scheduled tasks"));
+            progress?.Report(new OperationProgress(OperationStages.Scanning, L("OrphanCheckTasks")));
             AddOrphanTaskItems(installed, result, cancellationToken);
 
             var consolidated = Consolidate(result.Items, result.Warnings);
@@ -120,7 +123,7 @@ public sealed partial class LeftoverScanner
             FillSizes(result.Items, cancellationToken);
             result.Duration = stopwatch.Elapsed;
             result.ApplyDefaultSelection();
-            progress?.Report(new OperationProgress(OperationStages.Completed, $"{result.Items.Count} orphaned candidate(s) found"));
+            progress?.Report(new OperationProgress(OperationStages.Completed, F("OrphanCandidatesFound", result.Items.Count)));
             return result;
         }, cancellationToken);
     }
@@ -140,7 +143,7 @@ public sealed partial class LeftoverScanner
             }
 
             AddTraceItems(trace, OrphanScanTarget, installed, result, cancellationToken,
-                $" Recorded by the install trace of {trace.ProgramName} ({trace.CreatedAt.LocalDateTime:yyyy-MM-dd}); no installed application matches it.");
+                " " + F("OrphanTraceEvidence", trace.ProgramName, trace.CreatedAt.LocalDateTime));
         }
     }
 
@@ -166,7 +169,7 @@ public sealed partial class LeftoverScanner
                 continue;
             }
 
-            var reason = $"Listed as a leftover of {snapshot.ProgramName} on {snapshot.ScannedAt.LocalDateTime:yyyy-MM-dd}; no installed application matches it.";
+            var reason = F("OrphanHistoryEvidence", snapshot.ProgramName, snapshot.ScannedAt.LocalDateTime);
             foreach (var item in snapshot.Items.Where(i => !i.IsProtected && i.Confidence >= LeftoverConfidence.Strong))
             {
                 if (item.Kind is LeftoverKind.File or LeftoverKind.Directory)
@@ -239,7 +242,7 @@ public sealed partial class LeftoverScanner
         foreach (var (root, isProgramRoot) in roots)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (var folder in OrphanChildFolders(root, result))
+            foreach (var folder in OrphanChildFolders(root, result, cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var name = folder.Name;
@@ -252,13 +255,13 @@ public sealed partial class LeftoverScanner
                 {
                     // Another product of this vendor is installed. Its siblings may be shared
                     // components, so only an unclaimed product folder is shown.
-                    foreach (var product in OrphanChildFolders(folder.FullName, result))
+                    foreach (var product in OrphanChildFolders(folder.FullName, result, cancellationToken))
                     {
                         if (!claims.Claims(product.Name) && !claims.IsInstalledVendor(product.Name)
                             && FindOwningProgram(product.FullName, OrphanScanTarget, installed) is null)
                         {
                             AddOrphanFolder(product, isProgramRoot,
-                                F("NoInstalledApplicationMatchesTheProductFolder", name, product.Name), result);
+                                F("NoInstalledApplicationMatchesTheProductFolder", name, product.Name), result, cancellationToken);
                         }
                     }
 
@@ -268,45 +271,61 @@ public sealed partial class LeftoverScanner
                 if (!claims.Claims(name))
                 {
                     AddOrphanFolder(folder, isProgramRoot,
-                        L("NoInstalledApplicationOrStoreAppMatchesThis2"), result);
+                        L("NoInstalledApplicationOrStoreAppMatchesThis2"), result, cancellationToken);
                 }
             }
         }
     }
 
-    private static List<DirectoryInfo> OrphanChildFolders(string root, LeftoverScanResult result)
+    private static IReadOnlyList<DirectoryInfo> OrphanChildFolders(
+        string root, LeftoverScanResult result, CancellationToken cancellationToken)
+        => ReadOrphanEntries(root, () => new DirectoryInfo(root)
+            .EnumerateDirectories("*", new EnumerationOptions
+            {
+                IgnoreInaccessible = false,
+                AttributesToSkip = FileAttributes.ReparsePoint | FileAttributes.Offline | FileAttributes.System
+            })
+            .Where(folder => !FileNameExclusions.Contains(folder.Name)
+                             && !OrphanFolderExclusions.Contains(folder.Name)
+                             && !folder.Name.StartsWith("Microsoft", StringComparison.OrdinalIgnoreCase)
+                             && !folder.Name.StartsWith("Windows", StringComparison.OrdinalIgnoreCase)
+                             && !folder.Name.StartsWith('.')
+                             && !IsOpaqueName(folder.Name)), 4000, result, cancellationToken);
+
+    private static IReadOnlyList<T> ReadOrphanEntries<T>(
+        string root, Func<IEnumerable<T>> enumerate, int limit,
+        LeftoverScanResult result, CancellationToken cancellationToken)
     {
-        if (!Directory.Exists(root))
+        if (string.IsNullOrWhiteSpace(root))
         {
             return [];
         }
 
         try
         {
-            return new DirectoryInfo(root)
-                .EnumerateDirectories("*", new EnumerationOptions
-                {
-                    IgnoreInaccessible = true,
-                    AttributesToSkip = FileAttributes.ReparsePoint | FileAttributes.Offline | FileAttributes.System
-                })
-                .Where(folder => !FileNameExclusions.Contains(folder.Name)
-                                 && !OrphanFolderExclusions.Contains(folder.Name)
-                                 && !folder.Name.StartsWith("Microsoft", StringComparison.OrdinalIgnoreCase)
-                                 && !folder.Name.StartsWith("Windows", StringComparison.OrdinalIgnoreCase)
-                                 && !folder.Name.StartsWith('.')
-                                 && !IsOpaqueName(folder.Name))
-                .Take(4000)
-                .ToList();
+            return BoundedEntries(enumerate(), limit, root, result, cancellationToken);
+        }
+        catch (DirectoryNotFoundException) when (!Directory.Exists(root))
+        {
+            // Optional roots may not exist on this Windows installation.
+            return [];
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            result.Truncated = true;
-            result.Warnings.Add(F("CouldNotInspect", root, ex.Message));
+            MarkOrphanSourceIncomplete(root, ex, result);
             return [];
         }
     }
 
-    private void AddOrphanFolder(DirectoryInfo folder, bool isProgramRoot, string reason, LeftoverScanResult result)
+    private static void MarkOrphanSourceIncomplete(string source, Exception error, LeftoverScanResult result)
+    {
+        result.Truncated = true;
+        result.Warnings.Add(F("CouldNotInspect", source, error.Message));
+    }
+
+    private void AddOrphanFolder(
+        DirectoryInfo folder, bool isProgramRoot, string reason, LeftoverScanResult result,
+        CancellationToken cancellationToken)
     {
         var path = folder.FullName;
         if (!_pathGuard.ValidateForDeletion(path, recursive: true).Allowed)
@@ -317,22 +336,22 @@ public sealed partial class LeftoverScanner
         // A name comparison cannot tell a removed application's data from a portable application,
         // a game installed by a launcher or saved games, so only an empty folder rises above Low.
         var confidence = LeftoverConfidence.Low;
-        if (IsEmptyFolder(path))
+        if (IsEmptyFolder(folder, remainingDepth: 16, cancellationToken))
         {
             confidence = LeftoverConfidence.Strong;
-            reason += " The folder contains no files.";
+            reason += " " + L("OrphanFolderContainsNoFiles");
         }
         else if (isProgramRoot)
         {
-            reason += " It may be a portable application or shared components; review before removal.";
+            reason += " " + L("OrphanFolderMayContainAnApplication");
         }
         else if (DateTime.UtcNow - folder.LastWriteTimeUtc > StaleAfter)
         {
-            reason += $" Unchanged since {folder.LastWriteTime:yyyy-MM-dd}; it may hold settings or saved games.";
+            reason += " " + F("OrphanFolderUnchangedSince", folder.LastWriteTime);
         }
         else
         {
-            reason += " Recently changed: an application without an uninstall entry may still use it.";
+            reason += " " + L("OrphanFolderRecentlyChanged");
         }
 
         result.Items.Add(new LeftoverItem
@@ -346,18 +365,28 @@ public sealed partial class LeftoverScanner
         });
     }
 
-    private static bool IsEmptyFolder(string path)
+    private static bool IsEmptyFolder(DirectoryInfo folder, int remainingDepth, CancellationToken cancellationToken)
     {
         try
         {
-            // Inaccessible content is not proof of emptiness, so failures count as "not empty".
-            return !Directory.EnumerateFiles(path, "*", new EnumerationOptions
+            foreach (var entry in folder.EnumerateFileSystemInfos("*", new EnumerationOptions
             {
-                RecurseSubdirectories = true,
                 IgnoreInaccessible = false,
-                AttributesToSkip = 0,
-                MaxRecursionDepth = 16
-            }).Any();
+                AttributesToSkip = 0
+            }))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                // An unreadable, linked or unvisited subtree cannot prove emptiness.
+                if (entry is not DirectoryInfo child
+                    || (entry.Attributes & (FileAttributes.ReparsePoint | FileAttributes.Offline)) != 0
+                    || remainingDepth == 0
+                    || !IsEmptyFolder(child, remainingDepth - 1, cancellationToken))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -375,6 +404,7 @@ public sealed partial class LeftoverScanner
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
+            MarkOrphanSourceIncomplete(software.DisplayPath, ex, result);
             return;
         }
 
@@ -434,26 +464,13 @@ public sealed partial class LeftoverScanner
 
         foreach (var root in roots.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            if (!Directory.Exists(root))
+            var shortcuts = ReadOrphanEntries(root, () => Directory.EnumerateFiles(root, "*.lnk", new EnumerationOptions
             {
-                continue;
-            }
-
-            IReadOnlyList<string> shortcuts;
-            try
-            {
-                shortcuts = BoundedEntries(Directory.EnumerateFiles(root, "*.lnk", new EnumerationOptions
-                {
-                    RecurseSubdirectories = true,
-                    MaxRecursionDepth = 3,
-                    IgnoreInaccessible = true,
-                    AttributesToSkip = FileAttributes.ReparsePoint
-                }), 5000, root, result, cancellationToken);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                continue;
-            }
+                RecurseSubdirectories = true,
+                MaxRecursionDepth = 3,
+                IgnoreInaccessible = false,
+                AttributesToSkip = FileAttributes.ReparsePoint
+            }), 5000, result, cancellationToken);
 
             foreach (var shortcut in shortcuts)
             {
@@ -505,7 +522,7 @@ public sealed partial class LeftoverScanner
     }
 
     /// <summary>Registered Store package families for this user, read from the package repository.</summary>
-    private HashSet<string> RegisteredPackageFamilies(out List<string> packageNames)
+    private HashSet<string>? RegisteredPackageFamilies(LeftoverScanResult result, out List<string> packageNames)
     {
         var families = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         packageNames = [];
@@ -523,7 +540,9 @@ public sealed partial class LeftoverScanner
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
-            families.Clear();
+            MarkOrphanSourceIncomplete(_paths.MsixPackagesRoot.DisplayPath, ex, result);
+            packageNames.Clear();
+            return null;
         }
 
         return families;
@@ -536,29 +555,17 @@ public sealed partial class LeftoverScanner
         CancellationToken cancellationToken)
     {
         var root = Path.Combine(_paths.LocalAppData, "Packages");
-        if (!Directory.Exists(root))
+        var folders = ReadOrphanEntries(root, () => Directory.EnumerateDirectories(root, "*_*", new EnumerationOptions
         {
-            return;
-        }
+            IgnoreInaccessible = false,
+            AttributesToSkip = FileAttributes.ReparsePoint
+        }), 5000, result, cancellationToken);
 
-        if (registeredFamilies.Count == 0)
+        if (folders.Count > 0 && registeredFamilies.Count == 0)
         {
             // Without the package list every folder would look orphaned.
+            result.Truncated = true;
             result.Warnings.Add(L("TheStorePackageListCouldNotBeRead"));
-            return;
-        }
-
-        IReadOnlyList<string> folders;
-        try
-        {
-            folders = BoundedEntries(Directory.EnumerateDirectories(root, "*_*", new EnumerationOptions
-            {
-                IgnoreInaccessible = true,
-                AttributesToSkip = FileAttributes.ReparsePoint
-            }), 5000, root, result, cancellationToken);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
             return;
         }
 
@@ -589,26 +596,14 @@ public sealed partial class LeftoverScanner
         LeftoverScanResult result,
         CancellationToken cancellationToken)
     {
-        if (!Directory.Exists(_paths.ScheduledTasksDirectory))
-        {
-            return;
-        }
-
-        IReadOnlyList<string> files;
-        try
-        {
-            files = BoundedEntries(Directory.EnumerateFiles(_paths.ScheduledTasksDirectory, "*", new EnumerationOptions
+        var files = ReadOrphanEntries(_paths.ScheduledTasksDirectory,
+            () => Directory.EnumerateFiles(_paths.ScheduledTasksDirectory, "*", new EnumerationOptions
             {
                 RecurseSubdirectories = true,
                 MaxRecursionDepth = 3,
-                IgnoreInaccessible = true,
+                IgnoreInaccessible = false,
                 AttributesToSkip = FileAttributes.ReparsePoint
-            }), 5000, _paths.ScheduledTasksDirectory, result, cancellationToken);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return;
-        }
+            }), 5000, result, cancellationToken);
 
         foreach (var file in files)
         {
@@ -631,6 +626,7 @@ public sealed partial class LeftoverScanner
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
+                MarkOrphanSourceIncomplete(file, ex, result);
                 continue;
             }
 

@@ -2522,14 +2522,14 @@ public sealed partial class LeftoverScanner
         return result;
     }
 
-    internal static IReadOnlyList<string> BoundedEntries(
-        IEnumerable<string> entries,
+    internal static IReadOnlyList<T> BoundedEntries<T>(
+        IEnumerable<T> entries,
         int limit,
         string scope,
         LeftoverScanResult result,
         CancellationToken cancellationToken)
     {
-        var bounded = new List<string>();
+        var bounded = new List<T>();
         foreach (var entry in entries)
         {
             cancellationToken.ThrowIfCancellationRequested();

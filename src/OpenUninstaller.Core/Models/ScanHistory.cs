@@ -34,6 +34,7 @@ public sealed record LeftoverScanSnapshot
 public sealed class LeftoverScanDiff
 {
     public LeftoverScanSnapshot? Previous { get; init; }
+    public bool IsIncomplete { get; init; }
     public List<LeftoverSnapshotItem> NewItems { get; init; } = [];
     public List<LeftoverSnapshotItem> ResolvedItems { get; init; } = [];
     public List<LeftoverSnapshotItem> PersistentItems { get; init; } = [];
@@ -43,8 +44,10 @@ public sealed class LeftoverScanDiff
     public int ResolvedCount => ResolvedItems.Count;
     public int PersistentCount => PersistentItems.Count;
 
-    public string Summary => Previous is null
-        ? L("NoPreviousScanWasStoredForThisApplication")
-        : F("NewResolvedUnchangedSince", NewCount, ResolvedCount, PersistentCount) +
-          $"{Previous.ScannedAt.ToLocalTime():yyyy-MM-dd HH:mm}.";
+    public string Summary => IsIncomplete
+        ? L("IncompleteScanHistorySkipped")
+        : Previous is null
+            ? L("NoPreviousScanWasStoredForThisApplication")
+            : F("NewResolvedUnchangedSince", NewCount, ResolvedCount, PersistentCount) +
+              $"{Previous.ScannedAt.ToLocalTime():yyyy-MM-dd HH:mm}.";
 }

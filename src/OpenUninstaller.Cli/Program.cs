@@ -405,7 +405,7 @@ internal static class Program
                     },
                 logPath = services.LogPath
             });
-            return ExitCodes.Success;
+            return deletion is { Succeeded: false } ? ExitCodes.Error : ExitCodes.Success;
         }
 
         Console.WriteLine();
@@ -474,7 +474,7 @@ internal static class Program
         return await ReportLeftoverScanAsync(services, LeftoverScanner.OrphanScanTarget, scan, args, ct).ConfigureAwait(false);
     }
 
-    private static async Task<int> ReportLeftoverScanAsync(
+    internal static async Task<int> ReportLeftoverScanAsync(
         AppServices services,
         InstalledProgram program,
         LeftoverScanResult scan,
@@ -550,12 +550,16 @@ internal static class Program
                         items = deletion.Items
                     }
             });
-            return ExitCodes.Success;
+            return deletion is { Succeeded: false } ? ExitCodes.Error : ExitCodes.Success;
         }
 
         Console.WriteLine(LeftoverScanner.IsOrphanScanTarget(program)
-            ? "Orphaned leftovers (compared with every installed application)"
+            ? scan.Truncated ? "Orphaned leftovers" : "Orphaned leftovers (compared with every installed application)"
             : $"Leftover scan for {program.Name}");
+        if (scan.Truncated)
+        {
+            Console.WriteLine("Scan incomplete. Some locations could not be fully inspected.");
+        }
         if (!LeftoverScanner.IsOrphanScanTarget(program))
         {
             Console.WriteLine(scan.UsedTrace
@@ -598,7 +602,7 @@ internal static class Program
             Console.WriteLine($"Deleted: {deletion.DeletedCount}  Failed: {deletion.FailedCount}  Backup: {deletion.BackupDirectory ?? "(none)"}");
         }
 
-        return ExitCodes.Success;
+        return deletion is { Succeeded: false } ? ExitCodes.Error : ExitCodes.Success;
     }
 
     // ------------------------------------------------------------ trace-install

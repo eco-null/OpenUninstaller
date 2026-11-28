@@ -40,6 +40,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "list failed" }
           & $cli junk scan --json | Out-Null
           if ($LASTEXITCODE -ne 0) { throw "junk scan failed" }
+          & $cli scan-orphans --json | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "orphan scan failed" }
           & $cli autoruns list --json | Out-Null
           if ($LASTEXITCODE -ne 0) { throw "autoruns list failed" }
           & $cli traces list --json | Out-Null

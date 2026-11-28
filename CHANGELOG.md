@@ -5,6 +5,15 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- Orphaned leftovers only describe a folder as empty when its contents can be checked. Folder
+  limits and unreadable locations are reported in the desktop app and CLI.
+- Incomplete leftover scans preserve the last complete history entry and skip the comparison.
+- The CLI returns an error exit code when a leftover backup or deletion fails, including with
+  JSON output.
+- Orphaned leftover scan progress and evidence details use the selected desktop language.
+
 ## [1.1.1] — 2026-11-23
 
 ### Fixed

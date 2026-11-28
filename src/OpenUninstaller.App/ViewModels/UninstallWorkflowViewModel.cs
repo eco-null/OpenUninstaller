@@ -260,7 +260,11 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
     public string ReviewSummary => Scan is null
         ? string.Empty
         : F("CandidateSSelected", Scan.Items.Count, SelectedCount, InstalledProgram.FormatBytes(Scan.Items.Where(i => i.IsSelected).Sum(i => i.SizeBytes)));
-    public string ReviewWarning => L("DeletingTheWrongKeyCanBreakOtherSoftware");
+    public string ReviewWarning => string.Join(Environment.NewLine,
+        new[] { L("DeletingTheWrongKeyCanBreakOtherSoftware") }.Concat(ScanWarnings()));
+
+    private List<string> ScanWarnings() => Scan is { Truncated: true } scan ? scan.Warnings : [];
+
     public string ResultSummary
     {
         get
@@ -300,6 +304,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
                 lines.Add(F("Folder2", _deletion.BackupDirectory));
             }
 
+            lines.AddRange(ScanWarnings());
             lines.Add(F("Log", _services.Log.FilePath ?? L("NotAvailable")));
             return string.Join(Environment.NewLine, lines);
         }
@@ -457,11 +462,13 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
 
         RaiseReviewState();
         State = Scan.Items.Count == 0 ? WorkflowState.Result : WorkflowState.Review;
-        StatusText = IsOrphanScan
-            ? L("ComparedWithEveryInstalledApplicationAndStoreApp")
-            : Scan.UsedTrace
-                ? F("TraceEvidence", Scan.TraceId)
-                : L("HeuristicEvidenceNoInstallTrace");
+        StatusText = Scan.Truncated
+            ? L("ScanCoverageIncomplete")
+            : IsOrphanScan
+                ? L("ComparedWithEveryInstalledApplicationAndStoreApp")
+                : Scan.UsedTrace
+                    ? F("TraceEvidence", Scan.TraceId)
+                    : L("HeuristicEvidenceNoInstallTrace");
     }
 
     private async Task DeleteAsync()
@@ -609,6 +616,7 @@ public sealed class UninstallWorkflowViewModel : ObservableObject, IDisposable
 
     private void RaiseReviewState()
     {
+        OnPropertyChanged(nameof(ReviewWarning));
         OnPropertyChanged(nameof(ReviewSummary));
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(SelectedSizeLabel));

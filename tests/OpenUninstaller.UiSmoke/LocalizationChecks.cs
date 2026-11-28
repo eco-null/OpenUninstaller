@@ -53,7 +53,16 @@ internal static class LocalizationChecks
                         await VerifyAsync(new AppPaths
                         {
                             ProgramData = Path.Combine(fixture.FullName, "shared"),
-                            LocalAppData = Path.Combine(fixture.FullName, "user")
+                            LocalAppData = Path.Combine(fixture.FullName, "user"),
+                            AppData = Path.Combine(fixture.FullName, "roaming"),
+                            AppDataLocalLow = Path.Combine(fixture.FullName, "local-low"),
+                            ProgramFiles = Path.Combine(fixture.FullName, "programs"),
+                            ProgramFilesX86 = Path.Combine(fixture.FullName, "programs-x86"),
+                            UserDesktop = Path.Combine(fixture.FullName, "desktop"),
+                            PublicDesktop = Path.Combine(fixture.FullName, "public-desktop"),
+                            UserStartMenuPrograms = Path.Combine(fixture.FullName, "start"),
+                            CommonStartMenuPrograms = Path.Combine(fixture.FullName, "public-start"),
+                            ScheduledTasksDirectory = Path.Combine(fixture.FullName, "tasks")
                         });
                         result = 0;
                     }
@@ -79,6 +88,10 @@ internal static class LocalizationChecks
         Directory.CreateDirectory(paths.DataDirectory);
         var legacyPath = Path.Combine(paths.DataDirectory, "ui-settings.json");
         File.WriteAllText(legacyPath, legacy);
+        var orphanFolder = Directory.CreateDirectory(Path.Combine(paths.ProgramData, "ZqvFixtureOrphan")).FullName;
+        Directory.CreateDirectory(paths.ScheduledTasksDirectory);
+        var taskPath = Path.Combine(paths.ScheduledTasksDirectory, "FixtureTask");
+        using var lockedTask = File.Open(taskPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
 
         var services = AppServices.Create(paths);
         var localization = services.Localization;
@@ -121,8 +134,9 @@ internal static class LocalizationChecks
             Expect(id, AppServices.Create(paths).Localization.CurrentLanguage, "language on startup");
 
             CheckPages(vm, localization);
+            CheckOrphanReview(vm, localization, orphanFolder, taskPath);
             CheckDialog(no);
-            Console.WriteLine($"PASS {id}: live picker, navigation, eight pages, table header, dialog, diagnostics and saved settings");
+            Console.WriteLine($"PASS {id}: live picker, navigation, eight pages, orphan review, dialog, diagnostics and saved settings");
         }
     }
 
@@ -150,6 +164,51 @@ internal static class LocalizationChecks
         var autorunsGrid = Descendants(pages[1].View).OfType<DataGrid>().First();
         if (!autorunsGrid.Columns.Any(column => Equals(column.Header, localization.GetString("Name"))))
             throw new InvalidOperationException($"DataGrid header did not render in {localization.CurrentLanguage}.");
+    }
+
+    private static void CheckOrphanReview(MainViewModel vm, LocalizationService localization, string orphanFolder, string taskPath)
+    {
+        Exception? failure = null;
+        var checkedReview = false;
+        Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, async () =>
+        {
+            var window = Application.Current.Windows.OfType<UninstallWindow>().Single();
+            var workflow = (UninstallWorkflowViewModel)window.DataContext;
+            try
+            {
+                var deadline = DateTime.UtcNow.AddSeconds(15);
+                while (workflow.IsRunningState && DateTime.UtcNow < deadline)
+                    await Task.Delay(20);
+                if (workflow.IsRunningState)
+                {
+                    workflow.RequestCancellation();
+                    while (workflow.IsRunningState)
+                        await Task.Delay(20);
+                    throw new InvalidOperationException("The fixture orphan scan timed out.");
+                }
+
+                Expect(WorkflowState.Review, workflow.State, "orphan review state");
+                Expect(true, workflow.Scan?.Truncated, "partial orphan scan");
+                var item = workflow.Groups.SelectMany(group => group.Items).Single(row => row.DisplayPath == orphanFolder);
+                var reason = localization.GetString("NoInstalledApplicationOrStoreAppMatchesThis2") + " "
+                    + localization.GetString("OrphanFolderContainsNoFiles");
+                Expect(reason, item.Reason, "localized orphan evidence");
+                Expect(false, item.IsSelected, "empty folder selection");
+                Layout(window);
+                var texts = Descendants(window).OfType<TextBlock>().Select(text => text.Text).ToArray();
+                Expect(true, texts.Contains(reason), "orphan reason rendered");
+                Expect(true, texts.Contains(localization.GetString("ScanCoverageIncomplete")), "partial scan status rendered");
+                Expect(true, texts.Any(text => text.Contains(taskPath, StringComparison.Ordinal)), "unreadable source rendered");
+                Expect(true, texts.Contains(localization.GetString("IncompleteScanHistorySkipped")), "history status rendered");
+                checkedReview = true;
+            }
+            catch (Exception ex) { failure = ex; }
+            finally { window.Close(); }
+        });
+
+        vm.Programs.OrphanScanCommand.Execute(null);
+        if (failure is not null) throw failure;
+        Expect(true, checkedReview, "orphan review opened from Programs");
     }
 
     private static void CheckDialog(string dismissLabel)

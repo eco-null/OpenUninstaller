@@ -132,6 +132,55 @@ public sealed class UninstallAndCliTests
         Assert.Equal(expected, Output.Csv(value));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Leftover_report_returns_an_error_when_the_selected_file_cannot_be_backed_up(bool json)
+    {
+        using var env = new TestEnvironment();
+        var path = env.CreateFile("ProgramData/Probe/locked.bin", "fixture");
+        using var locked = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None);
+        var services = AppServices.Create("test-leftover-report", env.Paths);
+        var program = LeftoverScanner.OrphanScanTarget;
+        var scan = new LeftoverScanResult { ProgramId = program.Id, ProgramName = program.Name };
+        scan.Items.Add(new LeftoverItem
+        {
+            Id = "locked-fixture",
+            Kind = LeftoverKind.File,
+            DisplayPath = path,
+            FilePath = path,
+            Reason = "Fixture",
+            Confidence = LeftoverConfidence.High,
+            IsSelected = true
+        });
+
+        var args = ArgumentSet.Parse(json ? ["--delete", "--yes", "--json"] : ["--delete", "--yes"]);
+        using var output = new StringWriter();
+        var originalOut = Console.Out;
+        try
+        {
+            Console.SetOut(output);
+            var code = await Program.ReportLeftoverScanAsync(services, program, scan, args, default);
+
+            Assert.Equal(ExitCodes.Error, code);
+            Assert.Contains(json ? "\"failed\": 1" : "Failed: 1", output.ToString());
+
+            var dryRun = ArgumentSet.Parse(json
+                ? ["--delete", "--yes", "--dry-run", "--json"]
+                : ["--delete", "--yes", "--dry-run"]);
+            Assert.Equal(ExitCodes.Success, await Program.ReportLeftoverScanAsync(services, program, scan, dryRun, default));
+            Assert.True(File.Exists(path));
+
+            locked.Dispose();
+            Assert.Equal(ExitCodes.Success, await Program.ReportLeftoverScanAsync(services, program, scan, args, default));
+            Assert.False(File.Exists(path));
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
     [Fact]
     public async Task Cli_msix_alias_executes_successfully()
     {

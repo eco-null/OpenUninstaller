@@ -8,9 +8,9 @@ namespace OpenUninstaller.Cli;
 
 internal sealed class AppServices
 {
-    private AppServices(string operation)
+    private AppServices(string operation, AppPaths paths)
     {
-        Paths = AppPaths.CreateDefault();
+        Paths = paths;
         Registry = new WindowsRegistryStore();
         Files = new PhysicalFileSystem();
         Runner = new ProcessRunner();
@@ -77,7 +77,7 @@ internal sealed class AppServices
 
     public string? LogPath => Log.FilePath;
 
-    public static AppServices Create(string operation) => new(operation);
+    public static AppServices Create(string operation, AppPaths? paths = null) => new(operation, paths ?? AppPaths.CreateDefault());
 
     public static string RequireTarget(ArgumentSet args)
     {

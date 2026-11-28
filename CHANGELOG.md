@@ -5,6 +5,8 @@ the project uses semantic versioning.
 
 ## [Unreleased]
 
+## [1.1.2] — 2026-11-28
+
 ### Fixed
 
 - Orphaned leftovers only describe a folder as empty when its contents can be checked. Folder
